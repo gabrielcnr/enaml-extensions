@@ -1,0 +1,30 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets.star import StarRating
+
+enamldef Main(Window):
+    title = 'Star Rating Example'
+
+    Container:
+        Container:
+            constraints = [hbox(btn_incr, btn_decr)]
+            PushButton: btn_incr:
+                text = 'Increment'
+                clicked ::
+                    sr.rating += 1
+            PushButton: btn_decr:
+                text = 'Decrement'
+                clicked ::
+                    sr.rating -= 1
+
+
+        StarRating: sr:
+            stars = 8
+            rating = 3
+
+        Form:
+            Label:
+                text = 'Rating (No. stars):'
+            Field:
+                read_only = True
+                text << unicode(sr.rating)
