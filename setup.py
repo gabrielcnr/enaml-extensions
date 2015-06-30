@@ -6,6 +6,7 @@ setup(
     author='Gabriel Reis',
     author_email='gabrielcnr@gmail.com',
     description='Enaml extra widgets and extensions',
+    url='http://github.com/gabrielcnr/enaml-extensions',
     license='LGPL',
     keywords='enaml qt widgets extras extensions',
     requires=['enaml'],
