@@ -5,7 +5,7 @@ setup(
     version='0.1.0',
     author='Gabriel Reis',
     author_email='gabrielcnr@gmail.com',
-    descrition='Enaml extra widgets and extensions',
+    description='Enaml extra widgets and extensions',
     license='LGPL',
     keywords='enaml qt widgets extras extensions',
     requires=['enaml'],
