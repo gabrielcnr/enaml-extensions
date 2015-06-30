@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='enaml_hello',
+    name='enaml-extensions',
     version='0.1.0',
     author='Gabriel Reis',
     author_email='gabrielcnr@gmail.com',
