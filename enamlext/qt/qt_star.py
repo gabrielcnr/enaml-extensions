@@ -244,7 +244,6 @@ class QtStarRating(QtControl, ProxyStarRating):
         self.widget.ratingChanged.connect(self._on_rating_changed)
 
     def _on_rating_changed(self):
-        print '_on_rating_changed'
         self.declaration.rating = self.widget.starRating().starCount()
 
     # --------------------------------------------------------------------------

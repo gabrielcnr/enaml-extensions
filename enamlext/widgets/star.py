@@ -1,5 +1,5 @@
 from atom.api import (
-    Typed, ForwardTyped, Int, observe, set_default
+    Typed, ForwardTyped, Int, observe
 )
 
 from enaml.core.declarative import d_
@@ -12,7 +12,7 @@ class ProxyStarRating(ProxyControl):
     """ The abstract definition of a proxy StarRatingWidget object.
 
     """
-    #: A reference to the Hello declaration.
+    #: A reference to the StarRating declaration.
     declaration = ForwardTyped(lambda: StarRating)
 
     def set_stars(self, stars):
