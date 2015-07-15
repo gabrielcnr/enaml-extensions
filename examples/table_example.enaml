@@ -1,0 +1,50 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets import Table, Column
+
+
+enamldef Main(Window):
+
+    title = 'Table Example'
+
+    initial_size = (600, 400)
+
+    GroupBox:
+        title = 'The Beatles'
+
+        Table:
+            columns = [
+                Column('Name', 'name'),
+                Column('Surname', 'surname'),
+                Column('Role', 'role'),
+                Column('Born (Year)', 'year'),
+            ]
+
+            rows = [
+                {
+                    'name': 'John',
+                    'surname': 'Lennon',
+                    'role': 'vocals, guitar',
+                    'year': 1940,
+                },
+                {
+                    'name': 'Paul',
+                    'surname': 'McCartney',
+                    'role': 'vocals, bass guitar',
+                    'year': 1942,
+                },
+                {
+                    'name': 'George',
+                    'surname': 'Harrison',
+                    'role': 'guitar, sitar',
+                    'year': 1943,
+                },
+                {
+                    'name': 'Ringo',
+                    'surname': 'Starr',
+                    'role': 'drums, percussion',
+                    'year': 1940,
+                },
+
+            ]
+
