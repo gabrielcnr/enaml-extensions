@@ -87,6 +87,7 @@ class QtTable(QtControl, ProxyTable):
         self.set_columns(d.columns)
         self.set_rows(d.rows)
         self.set_alternate_row_colors(d.alternate_row_colors)
+        self.set_select_mode(d.select_mode)
 
     def set_columns(self, columns):
         self.widget.setColumns(columns)
@@ -96,3 +97,21 @@ class QtTable(QtControl, ProxyTable):
 
     def set_alternate_row_colors(self, alternate_row_colors):
         self.widget.setAlternatingRowColors(alternate_row_colors)
+
+    def set_select_mode(self, select_mode):
+        if select_mode == 'single_row':
+            self.widget.setSelectionBehavior(self.widget.SelectRows)
+            self.widget.setSelectionMode(self.widget.SingleSelection)
+        elif select_mode == 'multi_rows':
+            self.widget.setSelectionBehavior(self.widget.SelectRows)
+            self.widget.setSelectionMode(self.widget.ExtendedSelection)
+        elif select_mode == 'single_cell':
+            self.widget.setSelectionBehavior(self.widget.SelectItems)
+            self.widget.setSelectionMode(self.widget.SingleSelection)
+        elif select_mode == 'multi_cells':
+            self.widget.setSelectionBehavior(self.widget.SelectItems)
+            self.widget.setSelectionMode(self.widget.ExtendedSelection)
+        elif select_mode == 'none':
+            self.widget.setSelectionMode(self.widget.NoSelection)
+        else:
+            raise ValueError('Invalid select_mode: {!r}'.format(select_mode))

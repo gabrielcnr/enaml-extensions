@@ -15,8 +15,18 @@ enamldef Main(Window):
         CheckBox: chk_alternate_row_colors:
             text = 'Alternate Row Colors'
 
+        Container:
+            padding = 0
+            constraints = [hbox(lbl_select_mode, cbo_select_mode, spacer)]
 
-        Table:
+            Label: lbl_select_mode:
+                text = 'Select Mode:'
+
+            ObjectCombo: cbo_select_mode:
+                items = list(table.__class__.select_mode.items)
+                selected := table.select_mode
+
+        Table: table:
             columns = [
                 Column('Name', 'name'),
                 Column('Surname', 'surname'),
