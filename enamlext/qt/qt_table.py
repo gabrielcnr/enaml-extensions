@@ -88,6 +88,7 @@ class QtTable(QtControl, ProxyTable):
         self.set_rows(d.rows)
         self.set_alternate_row_colors(d.alternate_row_colors)
         self.set_select_mode(d.select_mode)
+        self.set_stretch_last_column(d.stretch_last_column)
 
     def set_columns(self, columns):
         self.widget.setColumns(columns)
@@ -97,6 +98,9 @@ class QtTable(QtControl, ProxyTable):
 
     def set_alternate_row_colors(self, alternate_row_colors):
         self.widget.setAlternatingRowColors(alternate_row_colors)
+
+    def set_stretch_last_column(self, stretch_last_column):
+        self.widget.horizontalHeader().setStretchLastSection(stretch_last_column)
 
     def set_select_mode(self, select_mode):
         if select_mode == 'single_row':
@@ -115,3 +119,5 @@ class QtTable(QtControl, ProxyTable):
             self.widget.setSelectionMode(self.widget.NoSelection)
         else:
             raise ValueError('Invalid select_mode: {!r}'.format(select_mode))
+
+        self.widget.clearSelection()
