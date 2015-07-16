@@ -34,8 +34,8 @@ enamldef Main(Window):
             columns = [
                 Column('Name', 'name'),
                 Column('Surname', 'surname'),
-                Column('Role', 'role'),
                 Column('Born (Year)', 'year'),
+                Column('Role', 'role'),
             ]
 
             rows = [

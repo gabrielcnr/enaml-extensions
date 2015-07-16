@@ -16,7 +16,7 @@ class Column(object):
     def get_value(self, row):
         """ A Column knows how to extract the value from a given row.
         """
-        if isinstance(row, dict):
+        if isinstance(row, (dict, list, tuple)):
             return row[self.key]
         else:
             return getattr(row, self.key)
