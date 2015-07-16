@@ -12,6 +12,10 @@ enamldef Main(Window):
     GroupBox:
         title = 'The Beatles'
 
+        CheckBox: chk_alternate_row_colors:
+            text = 'Alternate Row Colors'
+
+
         Table:
             columns = [
                 Column('Name', 'name'),
@@ -47,4 +51,6 @@ enamldef Main(Window):
                 },
 
             ]
+
+            alternate_row_colors := chk_alternate_row_colors.checked
 

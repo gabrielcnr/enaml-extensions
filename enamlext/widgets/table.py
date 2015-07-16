@@ -2,7 +2,7 @@ from enaml.core.declarative import d_
 
 from enaml.widgets.control import Control, ProxyControl
 
-from atom.api import ForwardTyped, List, Typed, observe
+from atom.api import ForwardTyped, List, Typed, observe, Bool
 
 
 class Column(object):
@@ -34,6 +34,9 @@ class ProxyTable(ProxyControl):
     def set_columns(self, columns):
         raise NotImplementedError
 
+    def set_alternate_row_colors(self, alternate_row_colors):
+        raise NotImplementedError
+
 
 class Table(Control):
     """ Enaml declarative control for giving a Table grid widget.
@@ -41,6 +44,7 @@ class Table(Control):
 
     rows = d_(List())
     columns = d_(List())
+    alternate_row_colors = d_(Bool(default=True))
 
     #: A reference to the ProxyTable implementation.
     proxy = Typed(ProxyTable)
@@ -49,7 +53,7 @@ class Table(Control):
     hug_width = 'weak'
 
     # Observers ---------------------------------------------------------------
-    @observe('rows', 'columns')
+    @observe('rows', 'columns', 'alternate_row_colors')
     def _update_proxy(self, change):
         """ An observer which sends the state change to the proxy.
         """

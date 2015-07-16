@@ -86,9 +86,13 @@ class QtTable(QtControl, ProxyTable):
         d = self.declaration
         self.set_columns(d.columns)
         self.set_rows(d.rows)
+        self.set_alternate_row_colors(d.alternate_row_colors)
 
     def set_columns(self, columns):
         self.widget.setColumns(columns)
 
     def set_rows(self, rows):
         self.widget.setRows(rows)
+
+    def set_alternate_row_colors(self, alternate_row_colors):
+        self.widget.setAlternatingRowColors(alternate_row_colors)
