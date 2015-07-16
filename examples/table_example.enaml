@@ -30,6 +30,9 @@ enamldef Main(Window):
                 items = list(table.__class__.select_mode.items)
                 selected := table.select_mode
 
+        Label:
+            text << 'Selected: {}'.format(', '.join([x['name'] for x in table.selected_rows]))
+
         Table: table:
             columns = [
                 Column('Name', 'name'),

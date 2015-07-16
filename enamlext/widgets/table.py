@@ -43,6 +43,9 @@ class ProxyTable(ProxyControl):
     def set_stretch_last_column(self, stretch_last_column):
         raise NotImplementedError
 
+    def set_selected_rows(self, rows):
+        raise NotImplementedError
+
 
 class Table(Control):
     """ Enaml declarative control for giving a Table grid widget.
@@ -50,6 +53,7 @@ class Table(Control):
 
     rows = d_(List())
     columns = d_(List())
+    selected_rows = d_(List())
     alternate_row_colors = d_(Bool(default=True))
     stretch_last_column = d_(Bool())
     select_mode = d_(
@@ -63,7 +67,7 @@ class Table(Control):
 
     # Observers ---------------------------------------------------------------
     @observe('rows', 'columns', 'alternate_row_colors', 'select_mode',
-             'stretch_last_column')
+             'stretch_last_column', 'selected_rows')
     def _update_proxy(self, change):
         """ An observer which sends the state change to the proxy.
         """

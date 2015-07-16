@@ -63,6 +63,8 @@ class TableModel(QAbstractTableModel):
 
 
 class QTable(QTableView):
+    selected_rows_changed = pyqtSignal(list)
+
     def __init__(self, columns=None, rows=None, parent=None):
         super(QTable, self).__init__(parent=parent)
         model = TableModel(columns=columns, rows=rows, parent=self)
@@ -73,6 +75,12 @@ class QTable(QTableView):
 
     def setRows(self, rows):
         self.model().rows = rows
+
+    def selectionChanged(self, selected, deselected):
+        row_indexes = sorted(set(i.row() for i in self.selectedIndexes()))
+        rows = [self.model().get_row(row_index) for row_index in row_indexes]
+        self.selected_rows_changed.emit(rows)
+        return super(QTable, self).selectionChanged(selected, deselected)
 
 
 class QtTable(QtControl, ProxyTable):
@@ -89,6 +97,10 @@ class QtTable(QtControl, ProxyTable):
         self.set_alternate_row_colors(d.alternate_row_colors)
         self.set_select_mode(d.select_mode)
         self.set_stretch_last_column(d.stretch_last_column)
+        self.set_selected_rows(d.selected_rows)
+
+        self.widget.selected_rows_changed.connect(
+            self._on_selected_rows_changed)
 
     def set_columns(self, columns):
         self.widget.setColumns(columns)
@@ -100,7 +112,8 @@ class QtTable(QtControl, ProxyTable):
         self.widget.setAlternatingRowColors(alternate_row_colors)
 
     def set_stretch_last_column(self, stretch_last_column):
-        self.widget.horizontalHeader().setStretchLastSection(stretch_last_column)
+        self.widget.horizontalHeader().setStretchLastSection(
+            stretch_last_column)
 
     def set_select_mode(self, select_mode):
         if select_mode == 'single_row':
@@ -121,3 +134,10 @@ class QtTable(QtControl, ProxyTable):
             raise ValueError('Invalid select_mode: {!r}'.format(select_mode))
 
         self.widget.clearSelection()
+
+    def set_selected_rows(self, rows):
+        # TODO: implement this
+        pass
+
+    def _on_selected_rows_changed(self, rows):
+        self.declaration.selected_rows = rows
