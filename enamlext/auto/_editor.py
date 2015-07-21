@@ -1,5 +1,7 @@
-from atom.api import Atom
-from enaml.widgets.api import Form, Label, Field
+from atom.api import Atom, Value
+from enaml.widgets.api import Form, Label
+from enaml.core.declarative import d_
+from enamlext.widgets import Field
 
 
 def connect(model, model_attr, view, view_attr):
@@ -15,11 +17,12 @@ def connect(model, model_attr, view, view_attr):
     setattr(view, view_attr, getattr(model, model_attr))
 
 
-def create_editor(obj):
+def create_editor(obj, form=None):
     assert isinstance(obj, Atom)
+
     klass = obj.__class__
 
-    form = Form()
+    form = form or Form()
 
     # get the members
     for member_name, member_descriptor in klass.members().iteritems():
@@ -36,3 +39,11 @@ def create_editor(obj):
         connect(obj, member_name, field, 'text')
 
     return form
+
+
+class Editor(Form):
+    obj = d_(Value())
+
+    def __init__(self, *args, **kwargs):
+        super(Editor, self).__init__(*args, **kwargs)
+        create_editor(self.obj, self)

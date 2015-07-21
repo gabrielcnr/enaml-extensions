@@ -1,0 +1,31 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from atom.api import *
+from enamlext.auto import Editor
+
+class Person(Atom):
+    first_name = Unicode()
+    last_name = Unicode().tag(label='Last Name')
+
+    def _observe_first_name(self, change):
+        print 'first_name changed:', self.first_name
+
+    def _observe_last_name(self, change):
+        print 'last_name changed:', self.last_name
+
+
+enamldef Main(Window): mw:
+    title = 'Auto Editor Example'
+
+    attr person = Person(first_name='Ringo', last_name='Starr')
+
+    Container:
+        Editor:
+            obj << mw.person
+
+        PushButton:
+            text = 'Print Person Attributes'
+            clicked ::
+                print 'first_name', person.first_name
+                print 'last_name', person.last_name
+                print

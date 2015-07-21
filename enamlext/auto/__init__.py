@@ -1,1 +1,1 @@
-from ._editor import create_editor
+from ._editor import create_editor, Editor
