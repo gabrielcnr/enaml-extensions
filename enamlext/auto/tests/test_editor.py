@@ -2,7 +2,7 @@ from atom.api import Atom, Unicode
 from enaml.widgets.api import Field
 
 from enamlext.auto import create_editor
-from enamlext.auto._editor import connect
+from enamlext.auto._editor import connect, Editor
 
 
 class Person(Atom):
@@ -61,3 +61,11 @@ def test_label():
 
     label, _ = editor.children
     assert label.text == 'Full Name'
+
+
+def test_create_editor_control():
+    person = Person(name='George')
+    editor = Editor(obj=person)
+    assert editor.obj is person
+    assert len(editor.children) == 2
+
