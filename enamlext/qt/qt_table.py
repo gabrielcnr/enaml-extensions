@@ -8,10 +8,12 @@ from enamlext.widgets.table import ProxyTable
 
 
 class TableModel(QAbstractTableModel):
-    def __init__(self, columns=None, rows=None, parent=None):
+    def __init__(self, columns=None, rows=None, parent=None,
+                 rowStyleCallback=None):
         super(TableModel, self).__init__(parent=parent)
         self.columns = columns or []
         self.rows = rows or []
+        self.rowStyleCallback = rowStyleCallback
 
     @property
     def columns(self):
@@ -31,6 +33,15 @@ class TableModel(QAbstractTableModel):
         self._rows = rows
         self.reset()
 
+    @property
+    def rowStyleCallback(self):
+        return self._rowStyleCallback
+
+    @rowStyleCallback.setter
+    def rowStyleCallback(self, rowStyleCallback):
+        self._rowStyleCallback = rowStyleCallback
+        self.reset()
+
     def rowCount(self, parent=None):
         return len(self.rows)
 
@@ -41,6 +52,10 @@ class TableModel(QAbstractTableModel):
         if role == Qt.DisplayRole:
             value = self.get_value(index.row(), index.column())
             return value
+        if role in [Qt.BackgroundRole, Qt.ForegroundRole]:
+            if self.rowStyleCallback is not None:
+                return self.rowStyleCallback(self.get_row(index.row()),
+                                             index.row(), role=role)
 
     def headerData(self, section, orientation, role=None):
         if orientation == Qt.Horizontal:
@@ -82,6 +97,9 @@ class QTable(QTableView):
         self.selected_rows_changed.emit(rows)
         return super(QTable, self).selectionChanged(selected, deselected)
 
+    def setRowStyleCallback(self, rowStyleCallback):
+        self.model().rowStyleCallback = rowStyleCallback
+
 
 class QtTable(QtControl, ProxyTable):
     widget = Typed(QTable)
@@ -98,6 +116,7 @@ class QtTable(QtControl, ProxyTable):
         self.set_select_mode(d.select_mode)
         self.set_stretch_last_column(d.stretch_last_column)
         self.set_selected_rows(d.selected_rows)
+        self.set_row_style_callback(d.row_style_callback)
 
         self.widget.selected_rows_changed.connect(
             self._on_selected_rows_changed)
@@ -141,3 +160,6 @@ class QtTable(QtControl, ProxyTable):
 
     def _on_selected_rows_changed(self, rows):
         self.declaration.selected_rows = rows
+
+    def set_row_style_callback(self, row_style_callback):
+        self.widget.setRowStyleCallback(row_style_callback)

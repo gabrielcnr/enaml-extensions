@@ -2,24 +2,37 @@ from enaml.core.declarative import d_
 
 from enaml.widgets.control import Control, ProxyControl
 
-from atom.api import ForwardTyped, List, Typed, observe, Bool, Enum
+from atom.api import ForwardTyped, List, Typed, observe, Bool, Enum, Value
 
 
 class Column(object):
     """ A Column definition for the Table/grid.
     """
 
-    def __init__(self, title, key):
+    def __init__(self, title, key, formatter=None):
         self.title = title
         self.key = key
+        self.formatter = formatter
 
     def get_value(self, row):
+        """ A Column knows how to extract the value from a given row.
+        """
+        raw_value = self.get_raw_value(row)
+        return self.prepare(raw_value)
+
+    def get_raw_value(self, row):
         """ A Column knows how to extract the value from a given row.
         """
         if isinstance(row, (dict, list, tuple)):
             return row[self.key]
         else:
             return getattr(row, self.key)
+
+    def prepare(self, raw_value):
+        if self.formatter is not None:
+            return self.formatter(raw_value)
+        else:
+            return str(raw_value)
 
 
 class ProxyTable(ProxyControl):
@@ -46,6 +59,9 @@ class ProxyTable(ProxyControl):
     def set_selected_rows(self, rows):
         raise NotImplementedError
 
+    def set_row_style_callback(self, row_style_callback):
+        raise NotImplementedError
+
 
 class Table(Control):
     """ Enaml declarative control for giving a Table grid widget.
@@ -59,6 +75,8 @@ class Table(Control):
     select_mode = d_(
         Enum('single_row', 'multi_rows', 'single_cell', 'multi_cells', 'none'))
 
+    row_style_callback = d_(Value())
+
     #: A reference to the ProxyTable implementation.
     proxy = Typed(ProxyTable)
 
@@ -67,7 +85,7 @@ class Table(Control):
 
     # Observers ---------------------------------------------------------------
     @observe('rows', 'columns', 'alternate_row_colors', 'select_mode',
-             'stretch_last_column', 'selected_rows')
+             'stretch_last_column', 'selected_rows', 'row_style_callback')
     def _update_proxy(self, change):
         """ An observer which sends the state change to the proxy.
         """
