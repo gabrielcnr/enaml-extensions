@@ -1,0 +1,28 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets.field import Field
+
+enamldef TextInputDialog(Dialog):
+    alias message: lbl.text
+    alias text: field.text
+
+    Container:
+
+        Label: lbl:
+            pass
+
+        Field: field:
+            pass
+
+        Container:
+            constraints = [hbox(spacer, btn_ok, btn_cancel)]
+
+            PushButton: btn_ok:
+                text = 'OK'
+                clicked ::
+                    accept()
+
+            PushButton: btn_cancel:
+                text = 'Cancel'
+                clicked ::
+                    reject()
