@@ -9,10 +9,11 @@ class Column(object):
     """ A Column definition for the Table/grid.
     """
 
-    def __init__(self, title, key, formatter=None):
+    def __init__(self, title, key, formatter=None, align='left'):
         self.title = title
         self.key = key
         self.formatter = formatter
+        self.align = align
 
     def get_value(self, row):
         """ A Column knows how to extract the value from a given row.
@@ -23,10 +24,13 @@ class Column(object):
     def get_raw_value(self, row):
         """ A Column knows how to extract the value from a given row.
         """
-        if isinstance(row, (dict, list, tuple)):
-            return row[self.key]
+        if callable(self.key):
+            return self.key(row)
         else:
-            return getattr(row, self.key)
+            if isinstance(row, (dict, list, tuple)):
+                return row[self.key]
+            else:
+                return getattr(row, self.key)
 
     def prepare(self, raw_value):
         if self.formatter is not None:

@@ -6,6 +6,12 @@ from atom.api import Typed
 
 from enamlext.widgets.table import ProxyTable
 
+ALIGN = {
+    'left': Qt.AlignLeft,
+    'center': Qt.AlignCenter,
+    'right': Qt.AlignRight,
+}
+
 
 class TableModel(QAbstractTableModel):
     def __init__(self, columns=None, rows=None, parent=None,
@@ -52,6 +58,9 @@ class TableModel(QAbstractTableModel):
         if role == Qt.DisplayRole:
             value = self.get_value(index.row(), index.column())
             return value
+        elif role == Qt.TextAlignmentRole:
+            return Qt.AlignVCenter | ALIGN[self.get_column(
+                index.column()).align]
         if role in [Qt.BackgroundRole, Qt.ForegroundRole]:
             if self.rowStyleCallback is not None:
                 return self.rowStyleCallback(self.get_row(index.row()),
