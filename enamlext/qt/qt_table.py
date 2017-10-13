@@ -61,7 +61,7 @@ class TableModel(QAbstractTableModel):
         elif role == Qt.TextAlignmentRole:
             return Qt.AlignVCenter | ALIGN[self.get_column(
                 index.column()).align]
-        if role in [Qt.BackgroundRole, Qt.ForegroundRole]:
+        elif role in [Qt.BackgroundRole, Qt.ForegroundRole]:
             if self.rowStyleCallback is not None:
                 return self.rowStyleCallback(self.get_row(index.row()),
                                              index.row(), role=role)
@@ -71,6 +71,10 @@ class TableModel(QAbstractTableModel):
             if role == Qt.DisplayRole:
                 column = self.get_column(section)
                 return column.title
+            elif role == Qt.SizeHintRole:
+                size = self.get_column(section).size
+                if size:
+                    return size
 
         return super(TableModel, self).headerData(section, orientation, role)
 

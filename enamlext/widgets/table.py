@@ -9,11 +9,13 @@ class Column(object):
     """ A Column definition for the Table/grid.
     """
 
-    def __init__(self, title, key, formatter=None, align='left'):
+    def __init__(self, title, key, formatter=None, align='left',
+                 size=None):
         self.title = title
         self.key = key
         self.formatter = formatter
         self.align = align
+        self.size = size
 
     def get_value(self, row):
         """ A Column knows how to extract the value from a given row.
