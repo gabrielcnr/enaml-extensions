@@ -1,0 +1,45 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+
+enamldef ManagerContainer(Container):
+    GroupBox:
+        padding = 2
+
+        constraints << [
+            hbox(btn_new, btn_edit, btn_delete, spacer, btn_refresh),
+            align('v_center', btn_new, btn_edit, btn_delete, btn_refresh),
+            btn_new.width == btn_edit.width == btn_delete.width == btn_refresh.width,
+        ]
+
+        PushButton: btn_new:
+            text = 'New'
+
+        PushButton: btn_edit:
+            text = 'Edit'
+
+        PushButton: btn_delete:
+            text = 'Delete'
+
+        PushButton: btn_refresh:
+            text = 'Refresh'
+
+    Container:
+        hug_height = 'weak'
+
+        background = 'yellow'
+
+    Container:
+        padding = 0
+
+        Separator:
+            pass
+
+        Label:
+            align = 'right'
+
+            text << 'Last update at 20-Oct-2017 18:22'
+
+
+enamldef Main(Window):
+    initial_size = (800, 600)
+    ManagerContainer: pass
