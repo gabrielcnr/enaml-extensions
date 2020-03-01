@@ -43,6 +43,11 @@
 
 
 # These are only needed for Python v2 but are harmless for Python v3.
+from __future__ import division
+from __future__ import print_function
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import sip
 
 sip.setapi('QString', 2)
@@ -50,8 +55,9 @@ sip.setapi('QVariant', 2)
 
 import math
 
-from PyQt4 import QtCore, QtGui
-from PyQt4.QtGui import *
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 
 from atom.api import Typed
 from enamlext.widgets.star import ProxyStarRating
@@ -60,7 +66,7 @@ from enaml.qt.qt_control import QtControl
 
 class StarRating(object):
     # enum EditMode
-    Editable, ReadOnly = range(2)
+    Editable, ReadOnly = list(range(2))
 
     PaintingScaleFactor = 20
 
@@ -88,7 +94,7 @@ class StarRating(object):
         return self._maxStarCount
 
     def setStarCount(self, starCount):
-        print 'setStarCount', starCount
+        print('setStarCount', starCount)
         self._starCount = starCount
 
     def setMaxStarCount(self, maxStarCount):
@@ -109,7 +115,7 @@ class StarRating(object):
         # else:
         #     painter.setBrush(palette.foreground())
 
-        yOffset = (rect.height() - self.PaintingScaleFactor) / 2
+        yOffset = old_div((rect.height() - self.PaintingScaleFactor), 2)
         painter.translate(rect.x(), rect.y() + yOffset)
         painter.scale(self.PaintingScaleFactor, self.PaintingScaleFactor)
 
@@ -124,7 +130,7 @@ class StarRating(object):
         painter.restore()
 
 
-class StarEditor(QtGui.QWidget):
+class StarEditor(QWidget):
     editingFinished = QtCore.pyqtSignal()
     ratingChanged = QtCore.pyqtSignal()
 
@@ -162,14 +168,14 @@ class StarEditor(QtGui.QWidget):
     def starAtPosition(self, x):
         # Enable a star, if pointer crosses the center horizontally.
         starwidth = self._starRating.sizeHint().width() // self._starRating.maxStarCount()
-        star = (x + starwidth / 2) // starwidth
+        star = (x + old_div(starwidth, 2)) // starwidth
         if 0 <= star <= self._starRating.maxStarCount():
             return star
 
         return -1
 
 
-class StarDelegate(QtGui.QStyledItemDelegate):
+class StarDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         starRating = index.data()
         if isinstance(starRating, StarRating):

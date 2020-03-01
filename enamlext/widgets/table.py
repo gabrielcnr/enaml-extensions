@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import object
 from enaml.core.declarative import d_
 
 from enaml.widgets.control import Control, ProxyControl

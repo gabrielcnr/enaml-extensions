@@ -20,7 +20,7 @@ def connect(model, model_attr, view, view_attr):
     # Initially the view should be sync'd with the model
     try:
         setattr(view, view_attr, getattr(model, model_attr))
-    except Exception, ex:
+    except Exception as ex:
         import pdb ;pdb.set_trace()
 
 
@@ -32,7 +32,7 @@ def create_editor(obj, form=None):
     form = form or Form()
 
     # get the members
-    for member_name, member_descriptor in klass.members().iteritems():
+    for member_name, member_descriptor in klass.members().items():
         # by default we are skipping members starting with _
         if member_name.startswith('_'):
             continue

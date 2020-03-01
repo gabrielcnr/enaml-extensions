@@ -1,6 +1,7 @@
 # TODO: import from Enaml's abstraction layer of Qt (so it works with PySide)
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 from enaml.qt.qt_control import QtControl
 from atom.api import Typed
 
@@ -28,7 +29,8 @@ class TableModel(QAbstractTableModel):
     @columns.setter
     def columns(self, columns):
         self._columns = columns
-        self.reset()
+        self.beginResetModel()
+        self.endResetModel()
 
     @property
     def rows(self):
@@ -37,7 +39,9 @@ class TableModel(QAbstractTableModel):
     @rows.setter
     def rows(self, rows):
         self._rows = rows
-        self.reset()
+        self.beginResetModel()
+        self.endResetModel()
+
 
     @property
     def rowStyleCallback(self):
@@ -46,7 +50,9 @@ class TableModel(QAbstractTableModel):
     @rowStyleCallback.setter
     def rowStyleCallback(self, rowStyleCallback):
         self._rowStyleCallback = rowStyleCallback
-        self.reset()
+        self.beginResetModel()
+        self.endResetModel()
+
 
     def rowCount(self, parent=None):
         return len(self.rows)

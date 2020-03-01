@@ -27,4 +27,4 @@ enamldef Main(Window):
                 text = 'Rating (No. stars):'
             Field:
                 read_only = True
-                text << unicode(sr.rating)
+                text << str(sr.rating)
