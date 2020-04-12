@@ -68,7 +68,7 @@ class StarRating(object):
     # enum EditMode
     Editable, ReadOnly = list(range(2))
 
-    PaintingScaleFactor = 20
+    PaintingScaleFactor = 10
 
     def __init__(self, starCount=1, maxStarCount=5):
         self._starCount = starCount

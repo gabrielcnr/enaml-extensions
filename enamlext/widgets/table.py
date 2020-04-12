@@ -11,7 +11,7 @@ class Column(object):
     """ A Column definition for the Table/grid.
     """
 
-    def __init__(self, title, key, formatter=None, align='left'):
+    def __init__(self, title, key, formatter=None, align="left"):
         self.title = title
         self.key = key
         self.formatter = formatter
@@ -44,6 +44,7 @@ class Column(object):
 class ProxyTable(ProxyControl):
     """ The abstract definition of a proxy Table object.
     """
+
     #: A reference to the Table declaration.
     declaration = ForwardTyped(lambda: Table)
 
@@ -68,6 +69,9 @@ class ProxyTable(ProxyControl):
     def set_row_style_callback(self, row_style_callback):
         raise NotImplementedError
 
+    def set_double_click_action(self, double_click_action):
+        raise NotImplementedError
+
 
 class Table(Control):
     """ Enaml declarative control for giving a Table grid widget.
@@ -79,19 +83,28 @@ class Table(Control):
     alternate_row_colors = d_(Bool(default=True))
     stretch_last_column = d_(Bool())
     select_mode = d_(
-        Enum('single_row', 'multi_rows', 'single_cell', 'multi_cells', 'none'))
+        Enum("single_row", "multi_rows", "single_cell", "multi_cells", "none")
+    )
 
     row_style_callback = d_(Value())
+    double_click_action = d_(Value())
 
     #: A reference to the ProxyTable implementation.
     proxy = Typed(ProxyTable)
 
-    hug_height = 'weak'
-    hug_width = 'weak'
+    hug_height = "weak"
+    hug_width = "weak"
 
     # Observers ---------------------------------------------------------------
-    @observe('rows', 'columns', 'alternate_row_colors', 'select_mode',
-             'stretch_last_column', 'selected_rows', 'row_style_callback')
+    @observe(
+        "rows",
+        "columns",
+        "alternate_row_colors",
+        "select_mode",
+        "stretch_last_column",
+        "selected_rows",
+        "row_style_callback",
+    )
     def _update_proxy(self, change):
         """ An observer which sends the state change to the proxy.
         """
@@ -101,10 +114,9 @@ class Table(Control):
 
 def table_factory():
     from enamlext.qt.qt_table import QtTable
-
     return QtTable
 
 
 from enaml.qt.qt_factories import QT_FACTORIES
 
-QT_FACTORIES['Table'] = table_factory
+QT_FACTORIES["Table"] = table_factory

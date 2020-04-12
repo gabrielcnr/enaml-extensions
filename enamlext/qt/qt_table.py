@@ -2,8 +2,8 @@
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from enaml.qt.qt_control import QtControl
 from atom.api import Typed
+from enaml.qt.qt_control import QtControl
 
 from enamlext.widgets.table import ProxyTable
 
@@ -52,7 +52,6 @@ class TableModel(QAbstractTableModel):
         self._rowStyleCallback = rowStyleCallback
         self.beginResetModel()
         self.endResetModel()
-
 
     def rowCount(self, parent=None):
         return len(self.rows)
@@ -112,8 +111,26 @@ class QTable(QTableView):
         self.selected_rows_changed.emit(rows)
         return super(QTable, self).selectionChanged(selected, deselected)
 
-    def setRowStyleCallback(self, rowStyleCallback):
+    def setRowStyleCallback(self, rowStyleCallback): 
         self.model().rowStyleCallback = rowStyleCallback
+
+    def setDoubleClickAction(self, doubleClickAction):
+        self.double_click_action = doubleClickAction
+
+    def mouseDoubleClickEvent(self, event):
+        if self.double_click_action:
+            row_number = self.rowAt(event.pos().y())
+            row = self.model().rows[row_number]
+            self.double_click_action(row)
+
+    def contextMenuEvent(self, event):
+        # TODO: complete this
+        menu = QMenu(self)
+        quitAction = menu.addAction("Quit")
+        action = menu.exec_(self.mapToGlobal(event.pos()))
+        if action == quitAction:
+            row = self.rowAt(event.pos().y())
+            print('Quitiing app')    
 
 
 class QtTable(QtControl, ProxyTable):
@@ -121,6 +138,7 @@ class QtTable(QtControl, ProxyTable):
 
     def create_widget(self):
         self.widget = QTable(parent=self.parent_widget())
+
 
     def init_widget(self):
         super(QtTable, self).init_widget()
@@ -132,6 +150,7 @@ class QtTable(QtControl, ProxyTable):
         self.set_stretch_last_column(d.stretch_last_column)
         self.set_selected_rows(d.selected_rows)
         self.set_row_style_callback(d.row_style_callback)
+        self.set_double_click_action(d.double_click_action)
 
         self.widget.selected_rows_changed.connect(
             self._on_selected_rows_changed)
@@ -141,6 +160,9 @@ class QtTable(QtControl, ProxyTable):
 
     def set_rows(self, rows):
         self.widget.setRows(rows)
+
+    def set_double_click_action(self, double_click_action):
+        self.widget.setDoubleClickAction(double_click_action)
 
     def set_alternate_row_colors(self, alternate_row_colors):
         self.widget.setAlternatingRowColors(alternate_row_colors)
