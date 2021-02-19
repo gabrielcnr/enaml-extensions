@@ -1,0 +1,47 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enaml.stdlib.fields import IntField
+from enaml.application import deferred_call
+from atom.api import *
+import random
+import threading
+import time
+
+
+class Model(Atom):
+    streaming = Bool()
+    value = Int()
+
+    @observe("streaming")
+    def on_streaming_changed(self, change=None):
+        if self.streaming:
+            thread = threading.Thread(target=worker, args=(self,))
+            thread.daemon = True
+            thread.start()
+
+
+def worker(model):
+    while model.streaming:
+        n = random.randint(100, 1000)
+        deferred_call(setattr, model, "value", n)
+        time.sleep(1)
+
+
+enamldef Main(MainWindow):
+    title = "Simple Thread App"
+    initial_size = (400, 300)
+
+    attr model = Model()
+
+    Container:
+        IntField:
+            value << model.value
+
+        PushButton:
+            text << "Stop streaming" if model.streaming else "Start streaming"
+            clicked ::
+                model.streaming = not model.streaming
+
+        Field:
+            pass
+
