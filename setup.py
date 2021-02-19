@@ -33,7 +33,8 @@ setup(
     license='LGPL',
     keywords='enaml qt widgets extras extensions',
     requires=['enaml'],
-    packages=find_packages(),
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     classifiers=[
         # 'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
