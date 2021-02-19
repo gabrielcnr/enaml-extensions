@@ -1,12 +1,10 @@
 from enaml.widgets.api import *
 from enaml.layout.api import *
 from enaml.stdlib.fields import IntField
-from enaml.application import deferred_call
 from atom.api import *
+from enamlext.atom import Atom, on_thread
 import random
-import threading
 import time
-
 
 class Model(Atom):
     streaming = Bool()
@@ -15,16 +13,16 @@ class Model(Atom):
     @observe("streaming")
     def on_streaming_changed(self, change=None):
         if self.streaming:
-            thread = threading.Thread(target=worker, args=(self,))
-            thread.daemon = True
-            thread.start()
+            worker(self)     # runs on a separate thread
 
 
+@on_thread
 def worker(model):
     while model.streaming:
         n = random.randint(100, 1000)
-        deferred_call(setattr, model, "value", n)
+        model.safe_set("value", n)    # deferred_call
         time.sleep(1)
+
 
 
 enamldef Main(MainWindow):
@@ -42,6 +40,10 @@ enamldef Main(MainWindow):
             clicked ::
                 model.streaming = not model.streaming
 
-        Field:
+        Field: fld:
             pass
 
+        PushButton:
+            text << "Set"
+            clicked ::
+                model.safe_set("value", 9181)
