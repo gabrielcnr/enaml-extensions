@@ -34,8 +34,10 @@ def to_qt_alignment(align: Alignment) -> QtAlignment:
 class Column:
     def __init__(self,
                  key: Union[str, Callable],
+                 title: Optional[str] = None,
                  align: Alignment = Alignment.LEFT):
         self.key = key
+        self.title = title
         self.align = align
 
     def get_value(self, data: Any) -> Any:
@@ -67,6 +69,17 @@ class QTableModel(QAbstractTableModel):
             column = self.columns[index.column()]  # O(1)
             return to_qt_alignment(column.align)
 
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
+        if orientation == Qt.Horizontal:
+            if role == Qt.DisplayRole:
+                column = self.columns[section]  # O(1)
+                if column.title is not None:
+                    return column.title
+            elif role == Qt.TextAlignmentRole:
+                column = self.columns[section]  # O(1)
+                return to_qt_alignment(column.align)
+
+        return super().headerData(section, orientation, role)
 
 
 class QTable(QTableView):
@@ -161,7 +174,7 @@ if __name__ == '__main__':
     app = QApplication([])
 
     columns = [
-        Column("name"),
+        Column("name", title="Name"),
         Column("age", align=Alignment.RIGHT)
     ]
 
@@ -183,6 +196,6 @@ if __name__ == '__main__':
     table.set_selection_mode(SelectionMode.SINGLE_ROW)
     table.show()
     table.set_vertical_header_visible(False)
-    table.hide_horizontal_header()
+    table.show_horizontal_header()
 
     app.exec_()
