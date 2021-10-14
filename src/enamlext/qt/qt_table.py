@@ -1,9 +1,17 @@
 import contextlib
 from dataclasses import dataclass
+from enum import Enum, auto
 from typing import Optional, Any, Union, Callable
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import QApplication, QTableView
+
+
+class SelectionMode(Enum):
+    SINGLE_CELL = auto()
+    MULTI_CELLS = auto()
+    SINGLE_ROW = auto()
+    MULTI_ROWS = auto()
 
 
 class Column:
@@ -76,6 +84,20 @@ class QTable(QTableView):
     def refresh(self):
         pass
 
+    def set_selection_mode(self, selection_mode: SelectionMode):
+        if selection_mode == SelectionMode.SINGLE_CELL:
+            self.setSelectionMode(self.SingleSelection)
+            self.setSelectionBehavior(self.SelectItems)
+        elif selection_mode == SelectionMode.MULTI_CELLS:
+            self.setSelectionMode(self.MultiSelection)
+            self.setSelectionBehavior(self.SelectItems)
+        elif selection_mode == SelectionMode.SINGLE_ROW:
+            self.setSelectionMode(self.SingleSelection)
+            self.setSelectionBehavior(self.SelectRows)
+        elif selection_mode == SelectionMode.MULTI_ROWS:
+            self.setSelectionMode(self.MultiSelection)
+            self.setSelectionBehaviour(self.SelectRows)
+
 
 if __name__ == '__main__':
     # Making Ctrl+C work
@@ -109,6 +131,8 @@ if __name__ == '__main__':
            ] * 10
 
     table = QTable(columns, data)
+    # table.set_selection_mode(SelectionMode.MULTI_CELLS)
+    table.set_selection_mode(SelectionMode.SINGLE_ROW)
     table.show()
 
     app.exec_()
