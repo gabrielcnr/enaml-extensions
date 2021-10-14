@@ -126,6 +126,26 @@ class QTable(QTableView):
             self.setSelectionMode(self.MultiSelection)
             self.setSelectionBehaviour(self.SelectRows)
 
+    # Header visibility controls
+
+    def show_vertical_header(self):
+        self.verticalHeader().show()
+
+    def hide_vertical_header(self):
+        self.verticalHeader().hide()
+
+    def set_vertical_header_visible(self, visible: bool):
+        self.verticalHeader().setVisible(visible)
+
+    def show_horizontal_header(self):
+        self.horizontalHeader().show()
+
+    def hide_horizontal_header(self):
+        self.horizontalHeader().hide()
+
+    def set_horizontal_header_visible(self, visible: bool):
+        self.horizontalHeader().setVisible(visible)
+
 
 if __name__ == '__main__':
     # Making Ctrl+C work
@@ -162,5 +182,7 @@ if __name__ == '__main__':
     # table.set_selection_mode(SelectionMode.MULTI_CELLS)
     table.set_selection_mode(SelectionMode.SINGLE_ROW)
     table.show()
+    table.set_vertical_header_visible(False)
+    table.hide_horizontal_header()
 
     app.exec_()
