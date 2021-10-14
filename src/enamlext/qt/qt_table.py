@@ -14,12 +14,36 @@ class SelectionMode(Enum):
     MULTI_ROWS = auto()
 
 
+class Alignment(str, Enum):
+    LEFT = "left"
+    CENTER = "center"
+    RIGHT = "right"
+
+
+QT_ALIGNMENT_MAP = {
+    Alignment.LEFT: int(Qt.AlignLeft | Qt.AlignVCenter),
+    Alignment.CENTER: int(Qt.AlignCenter | Qt.AlignVCenter),
+    Alignment.RIGHT: int(Qt.AlignRight | Qt.AlignVCenter),
+}
+
+QtAlignment = int
+def to_qt_alignment(align: Alignment) -> QtAlignment:
+    return QT_ALIGNMENT_MAP[align]
+
+
 class Column:
-    def __init__(self, key: Union[str, Callable]):
+    def __init__(self,
+                 key: Union[str, Callable],
+                 align: Alignment = Alignment.LEFT):
         self.key = key
+        self.align = align
 
     def get_value(self, data: Any) -> Any:
         return getattr(data, self.key)
+    #
+    # def get_align(self, data: Any) -> Alignment:
+    #     return self.align
+
 
 
 class QTableModel(QAbstractTableModel):
@@ -39,6 +63,10 @@ class QTableModel(QAbstractTableModel):
             column = self.columns[index.column()]  # O(1)
             data = self.data[index.row()]  # O(1)
             return column.get_value(data)
+        elif role == Qt.TextAlignmentRole:
+            column = self.columns[index.column()]  # O(1)
+            return to_qt_alignment(column.align)
+
 
 
 class QTable(QTableView):
@@ -114,7 +142,7 @@ if __name__ == '__main__':
 
     columns = [
         Column("name"),
-        Column("age")
+        Column("age", align=Alignment.RIGHT)
     ]
 
 
