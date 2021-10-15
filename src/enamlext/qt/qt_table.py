@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Any, Union, Callable
 
+from PyQt5.QtCore import QObject
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import QApplication, QTableView
 
@@ -35,27 +36,28 @@ class Column:
     def __init__(self,
                  key: Union[str, Callable],
                  title: Optional[str] = None,
-                 align: Alignment = Alignment.LEFT):
+                 align: Alignment = Alignment.LEFT,
+                 ):
         self.key = key
         self.title = title
         self.align = align
 
-    def get_value(self, data: Any) -> Any:
-        return getattr(data, self.key)
+    def get_value(self, item: Any) -> Any:
+        return getattr(item, self.key)
     #
-    # def get_align(self, data: Any) -> Alignment:
+    # def get_align(self, item: Any) -> Alignment:
     #     return self.align
 
 
 
 class QTableModel(QAbstractTableModel):
-    def __init__(self, columns, data=None, *, parent=None):
+    def __init__(self, columns, items=None, *, parent=None):
         super().__init__(parent)
         self.columns = columns
-        self.data = data
+        self.items = items
 
     def rowCount(self, parent: Optional[QModelIndex] = None) -> int:
-        return len(self.data)  # O(1)
+        return len(self.items)  # O(1)
 
     def columnCount(self, parent: Optional[QModelIndex] = None) -> int:
         return len(self.columns)  # O(1)
@@ -63,8 +65,8 @@ class QTableModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role: int) -> Any:
         if role == Qt.DisplayRole:
             column = self.columns[index.column()]  # O(1)
-            data = self.data[index.row()]  # O(1)
-            return column.get_value(data)
+            item = self.items[index.row()]  # O(1)
+            return column.get_value(item)
         elif role == Qt.TextAlignmentRole:
             column = self.columns[index.column()]  # O(1)
             return to_qt_alignment(column.align)
@@ -84,15 +86,20 @@ class QTableModel(QAbstractTableModel):
 
 class QTable(QTableView):
     """
-    A table has basically columns and data.
+    A table has basically columns and a collection of items.
     """
 
-    def __init__(self, columns, data=None, *, parent=None):
+    def __init__(self,
+                 columns,
+                 items=None,
+                 *,
+                 checkable: bool = False,
+                 parent: QObject = None):
         super().__init__(parent=parent)
         self.columns = columns
-        self.data = data or []
-
-        model = QTableModel(self.columns, data)
+        self.items = items or []
+        self.checkable = checkable
+        model = QTableModel(self.columns, items)
         self.setModel(model)
 
     @property
@@ -105,13 +112,21 @@ class QTable(QTableView):
         # refresh the model
 
     @property
-    def data(self):
-        return self._data
+    def items(self):
+        return self._items
 
-    @data.setter
-    def data(self, data):
-        self._data = data
+    @items.setter
+    def items(self, items):
+        self._items = items
         # refresh the model
+
+    @property
+    def checkable(self) -> bool:
+        return self._checkable
+
+    @checkable.setter
+    def checkable(self, checkable):
+        self._checkable = checkable
 
     @contextlib.contextmanager
     def updating_internals(self):
@@ -186,12 +201,12 @@ if __name__ == '__main__':
         sex: str
 
 
-    data = [
+    items = [
                Person(name="John", age=33, sex="M"),
                Person(name="Pam", age=22, sex="F"),
            ] * 10
 
-    table = QTable(columns, data)
+    table = QTable(columns, items)
     # table.set_selection_mode(SelectionMode.MULTI_CELLS)
     table.set_selection_mode(SelectionMode.SINGLE_ROW)
     table.show()
