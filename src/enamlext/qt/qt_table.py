@@ -51,34 +51,57 @@ class Column:
 
 
 class QTableModel(QAbstractTableModel):
-    def __init__(self, columns, items=None, *, parent=None):
+    def __init__(self, columns, items=None, *, checkable=False, parent=None):
         super().__init__(parent)
         self.columns = columns
         self.items = items
+        self.checkable = checkable
 
     def rowCount(self, parent: Optional[QModelIndex] = None) -> int:
         return len(self.items)  # O(1)
 
     def columnCount(self, parent: Optional[QModelIndex] = None) -> int:
-        return len(self.columns)  # O(1)
+        return len(self.columns) + int(self.checkable)  # O(1)
 
     def data(self, index: QModelIndex, role: int) -> Any:
         if role == Qt.DisplayRole:
-            column = self.columns[index.column()]  # O(1)
-            item = self.items[index.row()]  # O(1)
-            return column.get_value(item)
+            if self.checkable:
+                offset = 1
+            else:
+                offset = 0
+            if (col_index := index.column()) or not self.checkable:
+                column = self.columns[col_index - offset]  # O(1)
+                item = self.items[index.row()]  # O(1)
+                return column.get_value(item)
         elif role == Qt.TextAlignmentRole:
-            column = self.columns[index.column()]  # O(1)
-            return to_qt_alignment(column.align)
+            if self.checkable:
+                offset = 1
+            else:
+                offset = 0
+            if (col_index := index.column()) or not self.checkable:
+                column = self.columns[col_index - offset]  # O(1)
+                return to_qt_alignment(column.align)
+        elif role == Qt.CheckStateRole and self.checkable and index.column() == 0:
+            return Qt.Checked
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
         if orientation == Qt.Horizontal:
+            if self.checkable:
+                offset = 1
+
+                # TEMP
+                if section == 0:
+                    return
+                # END OF TEMP
+            else:
+                offset = 0
+
             if role == Qt.DisplayRole:
-                column = self.columns[section]  # O(1)
+                column = self.columns[section - offset]  # O(1)
                 if column.title is not None:
                     return column.title
             elif role == Qt.TextAlignmentRole:
-                column = self.columns[section]  # O(1)
+                column = self.columns[section - offset]  # O(1)
                 return to_qt_alignment(column.align)
 
         return super().headerData(section, orientation, role)
@@ -98,8 +121,7 @@ class QTable(QTableView):
         super().__init__(parent=parent)
         self.columns = columns
         self.items = items or []
-        self.checkable = checkable
-        model = QTableModel(self.columns, items)
+        model = QTableModel(self.columns, items, checkable=checkable)
         self.setModel(model)
 
     @property
@@ -122,11 +144,11 @@ class QTable(QTableView):
 
     @property
     def checkable(self) -> bool:
-        return self._checkable
+        return self.model().checkable
 
     @checkable.setter
     def checkable(self, checkable):
-        self._checkable = checkable
+        self.model().checkable = checkable
 
     @contextlib.contextmanager
     def updating_internals(self):
@@ -206,7 +228,7 @@ if __name__ == '__main__':
                Person(name="Pam", age=22, sex="F"),
            ] * 10
 
-    table = QTable(columns, items)
+    table = QTable(columns, items, checkable=True)
     # table.set_selection_mode(SelectionMode.MULTI_CELLS)
     table.set_selection_mode(SelectionMode.SINGLE_ROW)
     table.show()
