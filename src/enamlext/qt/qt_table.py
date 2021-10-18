@@ -32,11 +32,29 @@ def to_qt_alignment(align: Alignment) -> QtAlignment:
     return QT_ALIGNMENT_MAP[align]
 
 
+class TableContext:
+    """
+    Lazy evaluation of properties relative to the data request context.
+    The Qt MVC calls the data() in table model, passing the roles...
+    Depending on the role, we will call callbacks in the column to retrieve things like
+    cell style, font style, tooltip, etc...
+    We pass the object of TableContext to the callback, and everything there is
+    calculated on demand... which hopefully makes it more efficient
+    """
+    def __init__(self, model, index, role):
+        self.__model = model
+        self.index = index
+        self.role = role
+
+
+
+
 class Column:
     def __init__(self,
                  key: Union[str, Callable],
                  title: Optional[str] = None,
                  align: Alignment = Alignment.LEFT,
+                 tooltip: Optional[Union[str, Callable]] = None,  # TODO: how to specify the types for the signature of the callback here?
                  ):
         self.key = key
         self.title = title
@@ -44,6 +62,14 @@ class Column:
 
     def get_value(self, item: Any) -> Any:
         return getattr(item, self.key)
+
+    def get_tooltip(self, item: Any) -> str:
+        if self.tooltip is not None:
+            if callable(self.tooltip):
+                return self.tooltip()
+
+
+
     #
     # def get_align(self, item: Any) -> Alignment:
     #     return self.align
