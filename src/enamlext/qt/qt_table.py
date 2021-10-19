@@ -28,25 +28,10 @@ QT_ALIGNMENT_MAP = {
 }
 
 QtAlignment = int
+
+
 def to_qt_alignment(align: Alignment) -> QtAlignment:
     return QT_ALIGNMENT_MAP[align]
-
-
-class TableContext:
-    """
-    Lazy evaluation of properties relative to the data request context.
-    The Qt MVC calls the data() in table model, passing the roles...
-    Depending on the role, we will call callbacks in the column to retrieve things like
-    cell style, font style, tooltip, etc...
-    We pass the object of TableContext to the callback, and everything there is
-    calculated on demand... which hopefully makes it more efficient
-    """
-    def __init__(self, model, index, role):
-        self.__model = model
-        self.index = index
-        self.role = role
-
-
 
 
 class Column:
@@ -54,26 +39,27 @@ class Column:
                  key: Union[str, Callable],
                  title: Optional[str] = None,
                  align: Alignment = Alignment.LEFT,
-                 tooltip: Optional[Union[str, Callable]] = None,  # TODO: how to specify the types for the signature of the callback here?
+                 tooltip: Optional[Union[str, Callable]] = None,
+                 # TODO: how to specify the types for the signature of the callback here?
                  ):
         self.key = key
         self.title = title
         self.align = align
+        self.tooltip = tooltip
 
     def get_value(self, item: Any) -> Any:
         return getattr(item, self.key)
 
-    def get_tooltip(self, item: Any) -> str:
+    def get_tooltip(self, table_context: "TableContext") -> str:
         if self.tooltip is not None:
             if callable(self.tooltip):
-                return self.tooltip()
-
-
+                return str(self.tooltip(table_context))  # TODO: is it a good practice to enforce str() here?
+            else:
+                return self.tooltip  # str
 
     #
     # def get_align(self, item: Any) -> Alignment:
     #     return self.align
-
 
 
 class QTableModel(QAbstractTableModel):
@@ -82,6 +68,8 @@ class QTableModel(QAbstractTableModel):
         self.columns = columns
         self.items = items
         self.checkable = checkable
+
+    # QAbstractTableModel interface -----------------------------------------------------------------------------------
 
     def rowCount(self, parent: Optional[QModelIndex] = None) -> int:
         return len(self.items)  # O(1)
@@ -107,6 +95,17 @@ class QTableModel(QAbstractTableModel):
             if (col_index := index.column()) or not self.checkable:
                 column = self.columns[col_index - offset]  # O(1)
                 return to_qt_alignment(column.align)
+        elif role == Qt.ToolTipRole:
+            col_index = index.column()
+            column = self.get_column_by_index(col_index)
+            context = TableContext(
+                model=self,
+                index=index,
+                role=role,
+                column_index=col_index,
+                column=column,
+            )  # TODO: should we check if the column has a tooltip callback before creating this?
+            return column.get_tooltip(context)
         elif role == Qt.CheckStateRole and self.checkable and index.column() == 0:
             return Qt.Checked
 
@@ -131,6 +130,14 @@ class QTableModel(QAbstractTableModel):
                 return to_qt_alignment(column.align)
 
         return super().headerData(section, orientation, role)
+
+    # QTableModel interface -------------------------------------------------------------------------------------------
+    def get_column_by_index(self, index: int) -> Column:
+        offset = 1 if self.checkable else 0
+        return self.columns[index - offset]
+
+    def get_item_by_index(self, index: int) -> Any:
+        return self.items[index]
 
 
 class QTable(QTableView):
@@ -223,6 +230,47 @@ class QTable(QTableView):
         self.horizontalHeader().setVisible(visible)
 
 
+class TableContext:
+    """
+    Lazy evaluation of properties relative to the data request context.
+    The Qt MVC calls the data() in table model, passing the roles...
+    Depending on the role, we will call callbacks in the column to retrieve things like
+    cell style, font style, tooltip, etc...
+    We pass the object of TableContext to the callback, and everything there is
+    calculated on demand... which hopefully makes it more efficient
+    """
+
+    def __init__(self,
+                 model: QTableModel,
+                 index: QModelIndex,
+                 role: int,
+                 column_index: int,
+                 column: Column,
+                 ):
+        self.__model = model
+        self.index = index
+        self.role = role
+        self.column_index = column_index
+        self.column = column
+
+    @property
+    def row_index(self) -> int:
+        return self.index.row()
+
+    @property
+    def item(self) -> Any:
+        return self.__model.get_item_by_index(self.row_index)
+
+    @property
+    def raw_value(self) -> Any:
+        return self.column.get_value(self.item)
+
+    @property
+    def value(self) -> str:
+        """ Returns the displayed value. """
+        return self.column.get_displayed_value(self.item)
+
+
 if __name__ == '__main__':
     # Making Ctrl+C work
     import signal
@@ -236,9 +284,13 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
+    def tooltip_callback(table_context: TableContext) -> str:
+        item = table_context.item
+        return f"{item.name} is {item.age} years old"
+
     columns = [
         Column("name", title="Name"),
-        Column("age", align=Alignment.RIGHT)
+        Column("age", align=Alignment.RIGHT, tooltip=tooltip_callback)
     ]
 
 
@@ -250,9 +302,9 @@ if __name__ == '__main__':
 
 
     items = [
-               Person(name="John", age=33, sex="M"),
-               Person(name="Pam", age=22, sex="F"),
-           ] * 10
+                Person(name="John", age=33, sex="M"),
+                Person(name="Pam", age=22, sex="F"),
+            ] * 10
 
     table = QTable(columns, items, checkable=True)
     # table.set_selection_mode(SelectionMode.MULTI_CELLS)
