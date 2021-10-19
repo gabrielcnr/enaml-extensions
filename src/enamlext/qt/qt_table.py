@@ -1,11 +1,12 @@
 import contextlib
+from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Any, Union, Callable
+from typing import Optional, Any, Union, Callable, List
 
-from PyQt5.QtCore import QObject
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
-from qtpy.QtWidgets import QApplication, QTableView
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint
+from qtpy.QtGui import QContextMenuEvent
+from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
 
 class SelectionMode(Enum):
@@ -134,7 +135,7 @@ class QTableModel(QAbstractTableModel):
     # QTableModel interface -------------------------------------------------------------------------------------------
     def get_column_by_index(self, index: int) -> Column:
         offset = 1 if self.checkable else 0
-        return self.columns[index - offset]
+        return self.columns[max(index - offset, 0)]  # TODO: properly address checkable column here
 
     def get_item_by_index(self, index: int) -> Any:
         return self.items[index]
@@ -150,10 +151,12 @@ class QTable(QTableView):
                  items=None,
                  *,
                  checkable: bool = False,
+                 context_menu: List["ContextMenuAction"] = None,
                  parent: QObject = None):
         super().__init__(parent=parent)
         self.columns = columns
         self.items = items or []
+        self.context_menu = context_menu
         model = QTableModel(self.columns, items, checkable=checkable)
         self.setModel(model)
 
@@ -229,6 +232,29 @@ class QTable(QTableView):
     def set_horizontal_header_visible(self, visible: bool):
         self.horizontalHeader().setVisible(visible)
 
+    # Context Menu
+
+    def contextMenuEvent(self, event: QContextMenuEvent):
+        if not self.context_menu:
+            return
+
+        context = MenuActionContext(pos=event.pos(), table=self)
+        enabled_actions = [a for a in self.context_menu if a.is_enabled(context)]
+        if enabled_actions:
+            menu = QMenu(parent=self)
+            for context_menu_action in enabled_actions:
+                action = QAction(parent=menu)
+                action.setText(context_menu_action.get_caption(context))
+
+                def on_action_triggered(checked: bool = False, *, context_menu_action=context_menu_action):
+                    return context_menu_action.execute(context)
+
+                action.triggered.connect(on_action_triggered)
+                menu.addAction(action)
+
+            pos = self.mapToGlobal(event.pos())
+            menu.exec_(pos)
+
 
 class TableContext:
     """
@@ -271,6 +297,86 @@ class TableContext:
         return self.column.get_displayed_value(self.item)
 
 
+class MenuActionContext:
+    """
+    This class represents what gets passed to the context menu actions (ContextMenuAction)
+    when the user requests a context menu on the table (for example, by performing a right-click)
+    """
+
+    def __init__(self,
+                 pos: QPoint,
+                 table: QTable,
+                 ):
+        self.__table = table
+        self.pos = pos
+
+    @property
+    def model(self) -> QTableModel:
+        return self.__table.model()
+
+    @property
+    def index(self) -> QModelIndex:
+        return self.__table.indexAt(self.pos)
+
+    @property
+    def row_index(self) -> int:
+        return self.index.row()
+
+    @property
+    def column_index(self) -> int:
+        return self.index.column()
+
+    @property
+    def item(self) -> Any:
+        return self.model.get_item_by_index(self.row_index)
+
+    @property
+    def column(self) -> Column:
+        return self.model.get_column_by_index(self.column_index)
+
+    @property
+    def raw_value(self) -> Any:
+        return self.column.get_value(self.item)
+
+    @property
+    def value(self) -> str:
+        """ Returns the displayed value. """
+        return self.column.get_displayed_value(self.item)
+
+
+class ContextMenuAction(ABC):
+    @abstractmethod
+    def is_enabled(self, context: MenuActionContext) -> bool:
+        pass
+
+    @abstractmethod
+    def get_caption(self, context: MenuActionContext) -> bool:
+        pass
+
+    @abstractmethod
+    def execute(self, context: MenuActionContext):
+        pass
+
+
+def debug_trace():
+    """
+    Set a tracepoint in the Python debugger that works with Qt
+    """
+    import pdb
+    import sys
+    from PyQt5.QtCore import pyqtRemoveInputHook
+    pyqtRemoveInputHook()
+    # set up the debugger
+    debugger = pdb.Pdb()
+    debugger.reset()
+    # custom next to get outside of function scope
+    debugger.do_next(None)  # run the next command
+    users_frame = sys._getframe().f_back  # frame where the user invoked `pyqt_set_trace()`
+    debugger.interaction(users_frame, None)
+
+    # TODO: should call QtCore.pyqtRestoreInputHook() ?
+
+
 if __name__ == '__main__':
     # Making Ctrl+C work
     import signal
@@ -284,9 +390,11 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
+
     def tooltip_callback(table_context: TableContext) -> str:
         item = table_context.item
         return f"{item.name} is {item.age} years old"
+
 
     columns = [
         Column("name", title="Name"),
@@ -306,7 +414,29 @@ if __name__ == '__main__':
                 Person(name="Pam", age=22, sex="F"),
             ] * 10
 
-    table = QTable(columns, items, checkable=True)
+
+    def echo_factory(n: int) -> ContextMenuAction:
+        class EchoAction(ContextMenuAction):
+            def is_enabled(self, context):
+                return True
+
+            def get_caption(self, context):
+                return f"Echo {n}"
+
+            def execute(self, context):
+                print(
+                    f"Echo {n} - Cell: ({context.row_index}, {context.column_index}) has value: {context.raw_value!r}")
+
+        return EchoAction()
+
+
+    context_menu_actions = [
+        *(echo_factory(n) for n in range(1, 11)),
+    ]
+
+    print(context_menu_actions)
+
+    table = QTable(columns, items, checkable=True, context_menu=context_menu_actions)
     # table.set_selection_mode(SelectionMode.MULTI_CELLS)
     table.set_selection_mode(SelectionMode.SINGLE_ROW)
     table.show()
