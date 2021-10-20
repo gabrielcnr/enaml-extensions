@@ -64,7 +64,13 @@ class Column:
 
 
 class QTableModel(QAbstractTableModel):
-    def __init__(self, columns, items=None, *, checkable=False, parent=None):
+    def __init__(self,
+                 columns: List[Column],
+                 items: Optional[List] = None,
+                 *,
+                 checkable: bool = False,
+                 parent: Optional[QObject] = None,
+                 ):
         super().__init__(parent)
         self.columns = columns
         self.items = items
@@ -187,8 +193,8 @@ class QTable(QTableView):
     on_double_click: Signal = Signal(DoubleClickContext)
 
     def __init__(self,
-                 columns,
-                 items=None,
+                 columns: List[Column],
+                 items: Optional[List] = None,
                  *,
                  checkable: bool = False,
                  context_menu: List["ContextMenuAction"] = None,
@@ -200,45 +206,56 @@ class QTable(QTableView):
         self.context_menu = context_menu
         self.setAlternatingRowColors(alternate_row_colors)
         self.doubleClicked.connect(self.on_double_clicked)
-        model = QTableModel(self.columns, items, checkable=checkable)
+        model = QTableModel(self.columns, self.items, checkable=checkable)
         self.setModel(model)
+        # TODO: improve the way we update the internals - maybe offering a high-level function that gets everything
+        #       that is internal and is possible of updating?
+        #       Also, need to eliminate the duplication here - we should only work in terms of what's inside the model
+        #       this will prevent from view and model getting out of sync
 
     @property
-    def columns(self):
+    def columns(self) -> List[Column]:
         return self._columns
 
     @columns.setter
-    def columns(self, columns):
+    def columns(self, columns: List[Column]):
         self._columns = columns
         # refresh the model
+        if self.model() is not None:
+            self.model().columns = columns
 
     @property
-    def items(self):
+    def items(self) -> List:
         return self._items
 
     @items.setter
-    def items(self, items):
+    def items(self, items: List[Any]):
         self._items = items
         # refresh the model
+        if self.model() is not None:
+            self.model().items = items
 
     @property
     def checkable(self) -> bool:
         return self.model().checkable
 
     @checkable.setter
-    def checkable(self, checkable):
+    def checkable(self, checkable: bool):
         self.model().checkable = checkable
 
     @contextlib.contextmanager
     def updating_internals(self):
         self.__updating = True
         try:
+            self.model().beginResetModel()
             yield
         finally:
             self.__updating = False
+            self.model().endResetModel()
             self.refresh()
 
     def refresh(self):
+        self.model()
         pass
 
     def set_selection_mode(self, selection_mode: SelectionMode):
