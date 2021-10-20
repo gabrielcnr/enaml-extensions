@@ -378,6 +378,14 @@ class QTable(QTableView):
         super().selectionChanged(selected, deselected)
 
 
+class SelectionContext:
+    def __init__(self, selected_indexes, added, removed):
+        self.selected_indexes = selected_indexes
+        self.added = added
+        self.removed = removed
+
+
+
 class TableContext:
     """
     Lazy evaluation of properties relative to the data request context.
