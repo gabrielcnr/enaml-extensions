@@ -1,12 +1,20 @@
 import contextlib
+import time
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Any, Union, Callable, List, Tuple
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal
-from qtpy.QtGui import QContextMenuEvent
+from qtpy.QtGui import QContextMenuEvent, QFont
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
+
+# Contants
+DEFAULT_ROW_HEIGHT = 23
+DEFAULT_FONT_NAME = "Calibri"
+DEFAULT_FONT_SIZE_PX = 13
+
+
 
 
 class SelectionMode(Enum):
@@ -115,6 +123,11 @@ class QTableModel(QAbstractTableModel):
             return column.get_tooltip(context)
         elif role == Qt.CheckStateRole and self.checkable and index.column() == 0:
             return Qt.Checked
+        elif role == Qt.FontRole:
+            FONT = QFont(DEFAULT_FONT_NAME)
+            FONT.setPixelSize(DEFAULT_FONT_SIZE_PX)
+            return FONT
+
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
         if orientation == Qt.Horizontal:
@@ -208,6 +221,8 @@ class QTable(QTableView):
         self.doubleClicked.connect(self.on_double_clicked)
         model = QTableModel(self.columns, self.items, checkable=checkable)
         self.setModel(model)
+        self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
+        self.__updating = False  # sentinel
         # TODO: improve the way we update the internals - maybe offering a high-level function that gets everything
         #       that is internal and is possible of updating?
         #       Also, need to eliminate the duplication here - we should only work in terms of what's inside the model
@@ -510,6 +525,7 @@ if __name__ == '__main__':
     table.set_vertical_header_visible(False)
     table.show_horizontal_header()
 
+    # table.setStyleSheet("background-color: rgb(255, 255, 245); alternate-background-color: rgb(220,200,220);")
 
     def double_click_callback(context: DoubleClickContext):
         print(f"Double click happened:",
