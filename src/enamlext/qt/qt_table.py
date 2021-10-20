@@ -1,5 +1,4 @@
 import contextlib
-import time
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -13,8 +12,6 @@ from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 DEFAULT_ROW_HEIGHT = 23
 DEFAULT_FONT_NAME = "Calibri"
 DEFAULT_FONT_SIZE_PX = 13
-
-
 
 
 class SelectionMode(Enum):
@@ -51,6 +48,8 @@ class Column:
                  tooltip: Optional[Union[str, Callable]] = None,
                  # TODO: how to specify the types for the signature of the callback here?
                  ):
+        if callable(key):
+            self.get_value = key  # we re-wire the get_value() here
         self.key = key
         self.title = title
         self.align = align
@@ -127,7 +126,6 @@ class QTableModel(QAbstractTableModel):
             FONT = QFont(DEFAULT_FONT_NAME)
             FONT.setPixelSize(DEFAULT_FONT_SIZE_PX)
             return FONT
-
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
         if orientation == Qt.Horizontal:
@@ -215,7 +213,9 @@ class QTable(QTableView):
                  parent: QObject = None):
         super().__init__(parent=parent)
         self.columns = columns
-        self.items = items or []
+        if items is None:
+            items = []
+        self.items = items
         self.context_menu = context_menu
         self.setAlternatingRowColors(alternate_row_colors)
         self.doubleClicked.connect(self.on_double_clicked)
@@ -524,6 +524,7 @@ if __name__ == '__main__':
     table.show()
     table.set_vertical_header_visible(False)
     table.show_horizontal_header()
+
 
     # table.setStyleSheet("background-color: rgb(255, 255, 245); alternate-background-color: rgb(220,200,220);")
 
