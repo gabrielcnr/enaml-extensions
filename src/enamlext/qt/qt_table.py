@@ -2,9 +2,9 @@ import contextlib
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Any, Union, Callable, List
+from typing import Optional, Any, Union, Callable, List, Tuple
 
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal
 from qtpy.QtGui import QContextMenuEvent
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
@@ -141,10 +141,50 @@ class QTableModel(QAbstractTableModel):
         return self.items[index]
 
 
+class DoubleClickContext:
+    def __init__(self, index: QModelIndex, table: "QTable"):
+        self.index = index
+        self.__table = table
+
+    @property
+    def cell(self) -> Tuple[int, int]:
+        return (self.row_index, self.column_index)
+
+    @property
+    def row_index(self) -> int:
+        return self.index.row()
+
+    @property
+    def column_index(self) -> int:
+        return self.index.column()
+
+    @property
+    def column(self) -> Column:
+        model = self.__table.model()
+        return model.get_column_by_index(self.column_index)
+
+    @property
+    def item(self) -> Any:
+        model = self.__table.model()
+        return model.get_item_by_index(self.row_index)
+
+    @property
+    def raw_value(self) -> Any:
+        return self.column.get_value(self.item)
+
+    @property
+    def value(self) -> str:
+        """ Returns the displayed value. """
+        return self.column.get_displayed_value(self.item)  # TODO: should ask the column or should ask the model?
+
+
 class QTable(QTableView):
     """
     A table has basically columns and a collection of items.
     """
+
+    #: on_double_click signal is emited when doubleClicked signal is handled
+    on_double_click: Signal = Signal(DoubleClickContext)
 
     def __init__(self,
                  columns,
@@ -152,11 +192,14 @@ class QTable(QTableView):
                  *,
                  checkable: bool = False,
                  context_menu: List["ContextMenuAction"] = None,
+                 alternate_row_colors: bool = True,
                  parent: QObject = None):
         super().__init__(parent=parent)
         self.columns = columns
         self.items = items or []
         self.context_menu = context_menu
+        self.setAlternatingRowColors(alternate_row_colors)
+        self.doubleClicked.connect(self.on_double_clicked)
         model = QTableModel(self.columns, items, checkable=checkable)
         self.setModel(model)
 
@@ -254,6 +297,15 @@ class QTable(QTableView):
 
             pos = self.mapToGlobal(event.pos())
             menu.exec_(pos)
+
+    # Double Click
+
+    def on_double_clicked(self, index: QModelIndex):
+        """
+        Function handler listening whenever Qt fires the doubleClicked event.
+        """
+        double_click_context = DoubleClickContext(index=index, table=self)
+        self.on_double_click.emit(double_click_context)
 
 
 class TableContext:
@@ -424,8 +476,8 @@ if __name__ == '__main__':
                 return f"Echo {n}"
 
             def execute(self, context):
-                print(
-                    f"Echo {n} - Cell: ({context.row_index}, {context.column_index}) has value: {context.raw_value!r}")
+                print(f"Echo {n} - Cell: ({context.row_index}, "
+                      f"{context.column_index}) has value: {context.raw_value!r}")
 
         return EchoAction()
 
@@ -434,13 +486,22 @@ if __name__ == '__main__':
         *(echo_factory(n) for n in range(1, 11)),
     ]
 
-    print(context_menu_actions)
-
     table = QTable(columns, items, checkable=True, context_menu=context_menu_actions)
     # table.set_selection_mode(SelectionMode.MULTI_CELLS)
     table.set_selection_mode(SelectionMode.SINGLE_ROW)
     table.show()
     table.set_vertical_header_visible(False)
     table.show_horizontal_header()
+
+
+    def double_click_callback(context: DoubleClickContext):
+        print(f"Double click happened:",
+              f"  cell = {context.cell}",
+              f"  column = {context.column}",
+              f"  raw_value = {context.raw_value}",
+              sep="\n")
+
+
+    table.on_double_click.connect(double_click_callback)
 
     app.exec_()
