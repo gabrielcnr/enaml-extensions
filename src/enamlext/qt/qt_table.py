@@ -2,10 +2,10 @@ import contextlib
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Any, Union, Callable, List, Tuple
+from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal
-from qtpy.QtGui import QContextMenuEvent, QFont
+from qtpy.QtGui import QContextMenuEvent, QFont, QColor
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
 # Contants
@@ -40,6 +40,11 @@ def to_qt_alignment(align: Alignment) -> QtAlignment:
     return QT_ALIGNMENT_MAP[align]
 
 
+class CellStyle(TypedDict, total=False):
+    color: Optional[QColor]
+    background: Optional[QColor]
+
+
 class Column:
     def __init__(self,
                  key: Union[str, Callable],
@@ -47,6 +52,7 @@ class Column:
                  align: Alignment = Alignment.LEFT,
                  tooltip: Optional[Union[str, Callable]] = None,
                  # TODO: how to specify the types for the signature of the callback here?
+                 cell_style: Optional[Callable] = None,
                  ):
         if callable(key):
             self.get_value = key  # we re-wire the get_value() here
@@ -54,6 +60,7 @@ class Column:
         self.title = title
         self.align = align
         self.tooltip = tooltip
+        self.cell_style = cell_style
 
     def get_value(self, item: Any) -> Any:
         return getattr(item, self.key)
@@ -64,6 +71,10 @@ class Column:
                 return str(self.tooltip(table_context))  # TODO: is it a good practice to enforce str() here?
             else:
                 return self.tooltip  # str
+
+    def get_cell_style(self, table_context: "TableContext") -> Optional[CellStyle]:
+        if self.cell_style is not None:
+            return self.cell_style(table_context) or CellStyle()
 
     #
     # def get_align(self, item: Any) -> Alignment:
@@ -126,6 +137,19 @@ class QTableModel(QAbstractTableModel):
             FONT = QFont(DEFAULT_FONT_NAME)
             FONT.setPixelSize(DEFAULT_FONT_SIZE_PX)
             return FONT
+        elif role == Qt.ForegroundRole:
+            col_index = index.column()
+            column = self.get_column_by_index(col_index)
+            if column.cell_style is not None:
+                context = TableContext(
+                    model=self,
+                    index=index,
+                    role=role,
+                    column_index=col_index,
+                    column=column,
+                )
+                return column.get_cell_style(context).get("color")
+
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
         if orientation == Qt.Horizontal:
@@ -480,9 +504,14 @@ if __name__ == '__main__':
         return f"{item.name} is {item.age} years old"
 
 
+    def age_cell_style(table_context: TableContext) -> CellStyle:
+        if table_context.item.age > 30:
+            return CellStyle(color=QColor(200, 20, 100))
+
     columns = [
         Column("name", title="Name"),
-        Column("age", align=Alignment.RIGHT, tooltip=tooltip_callback)
+        Column("age", align=Alignment.RIGHT, tooltip=tooltip_callback,
+               cell_style=age_cell_style)
     ]
 
 
