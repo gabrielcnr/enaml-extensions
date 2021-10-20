@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict
 
+from PyQt5.QtCore import QItemSelection
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal
 from qtpy.QtGui import QContextMenuEvent, QFont, QColor
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
@@ -363,6 +364,19 @@ class QTable(QTableView):
         double_click_context = DoubleClickContext(index=index, table=self)
         self.on_double_click.emit(double_click_context)
 
+    # Selection
+
+    def selectionChanged(self, selected: QItemSelection, deselected: QItemSelection):
+        print("from selection model", [(i.row(), i.column()) for i in self.selectionModel().selectedIndexes()])
+        print()
+        print("selected", [(i.row(), i.column()) for i in selected.indexes()])
+        print("deselected", [(i.row(), i.column()) for i in deselected.indexes()])
+        print("current", (self.currentIndex().row(), self.currentIndex().column()))
+        print()
+        print()
+        print()
+        super().selectionChanged(selected, deselected)
+
 
 class TableContext:
     """
@@ -548,8 +562,8 @@ if __name__ == '__main__':
     ]
 
     table = QTable(columns, items, checkable=True, context_menu=context_menu_actions)
-    # table.set_selection_mode(SelectionMode.MULTI_CELLS)
-    table.set_selection_mode(SelectionMode.SINGLE_ROW)
+    table.set_selection_mode(SelectionMode.MULTI_CELLS)
+    # table.set_selection_mode(SelectionMode.SINGLE_ROW)
     table.show()
     table.set_vertical_header_visible(False)
     table.show_horizontal_header()
