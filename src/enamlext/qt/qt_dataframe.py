@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from qtpy.QtWidgets import QApplication
 
-from enamlext.qt.qt_table import Column, Alignment, QTable
+from enamlext.qt.qt_table import Column, Alignment, QTable, get_cell_style_for_negative_numbers
 
 
 def generate_columns_for_dataframe(df: pd.DataFrame) -> List[Column]:
@@ -13,11 +13,13 @@ def generate_columns_for_dataframe(df: pd.DataFrame) -> List[Column]:
     for i, (name, dtype) in enumerate(df.dtypes.items()):
         if np.issubdtype(dtype, np.number):
             align = Alignment.RIGHT
+            style = get_cell_style_for_negative_numbers
         else:
             align = Alignment.LEFT
+            style = None
 
         key = itemgetter(i)
-        column = Column(key, name, align=align)
+        column = Column(key, name, align=align, cell_style=style)
         columns.append(column)
     return columns
 
@@ -50,5 +52,6 @@ if __name__ == '__main__':
     df["name"] = ["John", "Pam", "Jess"]
     df["age"] = [23, 34, 45]
     df["enabled"] = [True, False, True]
+    df["balance"] = [1000, -250.2, 223.45]
 
     display_dataframe(df)

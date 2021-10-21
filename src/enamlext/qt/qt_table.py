@@ -4,12 +4,11 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple
 
-from PyQt5.QtCore import QItemSelection
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
 from qtpy.QtGui import QContextMenuEvent, QFont, QColor
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
-# Contants
+# Constants
 DEFAULT_ROW_HEIGHT = 23
 DEFAULT_FONT_NAME = "Calibri"
 DEFAULT_FONT_SIZE_PX = 13
@@ -512,6 +511,16 @@ class ContextMenuAction(ABC):
     @abstractmethod
     def execute(self, context: MenuActionContext):
         pass
+
+
+# Cell style callbacks
+RED = QColor(Qt.red)
+NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
+
+
+def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle:
+    if table_context.raw_value < 0:
+        return NEGATIVE_NUMBER_CELL_STYLE
 
 
 def debug_trace():
