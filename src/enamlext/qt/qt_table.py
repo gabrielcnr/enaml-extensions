@@ -1,8 +1,9 @@
 import contextlib
+import warnings
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple
+from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple, Collection
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
 from qtpy.QtGui import QContextMenuEvent, QFont, QColor
@@ -12,6 +13,8 @@ from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 DEFAULT_ROW_HEIGHT = 23
 DEFAULT_FONT_NAME = "Calibri"
 DEFAULT_FONT_SIZE_PX = 13
+
+CHECKBOX_FLAG = Qt.ItemNeverHasChildren | Qt.ItemIsEditable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
 
 
 class SelectionMode(Enum):
@@ -89,15 +92,22 @@ class Column:
 class QTableModel(QAbstractTableModel):
     def __init__(self,
                  columns: List[Column],
-                 items: Optional[List] = None,
+                 items: Optional[List[Any]] = None,
                  *,
                  checkable: bool = False,
+                 checked_items: Optional[Collection[Any]] = None,
                  parent: Optional[QObject] = None,
                  ):
         super().__init__(parent)
         self.columns = columns
         self.items = items
         self.checkable = checkable
+        if checked_items is None:
+            checked_items = set()
+        if not isinstance(checked_items, set):
+            warnings.warn(f"QTableModel checked_items is recommend to be a "
+                          f"set, but got: {type(checked_items).__name__} instead")
+        self.checked_items = checked_items
 
     # QAbstractTableModel interface -----------------------------------------------------------------------------------
 
@@ -106,6 +116,13 @@ class QTableModel(QAbstractTableModel):
 
     def columnCount(self, parent: Optional[QModelIndex] = None) -> int:
         return len(self.columns) + int(self.checkable)  # O(1)
+
+    def flags(self, index: QModelIndex) -> Qt.ItemFlags:
+        column_index = index.column()
+        if column_index == 0 and self.checkable:
+            return CHECKBOX_FLAG
+        else:
+            return super().flags(index)
 
     def data(self, index: QModelIndex, role: int) -> Any:
         if role == Qt.DisplayRole:
@@ -137,7 +154,15 @@ class QTableModel(QAbstractTableModel):
             )  # TODO: should we check if the column has a tooltip callback before creating this?
             return column.get_tooltip(context)
         elif role == Qt.CheckStateRole and self.checkable and index.column() == 0:
-            return Qt.Checked
+            # TODO: think about using the check state of the vertical header to control checked items
+            #       what if we want to have more than 1 column that is checkable?
+            #       should we keep a collection of checked items separately or should we consider wrapping each
+            #       item in a wrapper object that holds the checked state? how about a proxy object?
+            item = self.items[index.row()]  # O(1)
+            if item in self.checked_items:
+                return Qt.Checked
+            else:
+                return Qt.Unchecked
         elif role == Qt.FontRole:
             FONT = QFont(DEFAULT_FONT_NAME)
             FONT.setPixelSize(DEFAULT_FONT_SIZE_PX)
@@ -154,6 +179,18 @@ class QTableModel(QAbstractTableModel):
                     column=column,
                 )
                 return column.get_cell_style(context).get("color")
+
+    def setData(self, index: QModelIndex, value: Any, role: int) -> bool:
+        if index.column() == 0 and role == Qt.CheckStateRole and self.checkable:
+            item = self.items[index.row()]
+            if value == Qt.Checked:
+                self.checked_items.add(item)
+                return True
+            elif value == Qt.Unchecked:
+                self.checked_items.discard(item)
+                return True
+
+        return False
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
         if orientation == Qt.Horizontal:
@@ -565,6 +602,7 @@ if __name__ == '__main__':
         if table_context.item.age > 30:
             return CellStyle(color=QColor(200, 20, 100))
 
+
     columns = [
         Column("name", title="Name"),
         Column("age", align=Alignment.RIGHT, tooltip=tooltip_callback,
@@ -572,7 +610,7 @@ if __name__ == '__main__':
     ]
 
 
-    @dataclass
+    @dataclass(frozen=True)
     class Person:
         name: str
         age: int
@@ -620,6 +658,7 @@ if __name__ == '__main__':
               f"  raw_value = {context.raw_value}",
               sep="\n")
 
+
     table.on_double_click.connect(double_click_callback)
 
 
@@ -631,6 +670,7 @@ if __name__ == '__main__':
             f"Current: {context.current_index}",
             sep="\n",
         )
+
 
     table.on_selection.connect(selection_callback)
 
