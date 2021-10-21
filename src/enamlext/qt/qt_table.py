@@ -2,7 +2,7 @@ import contextlib
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict
+from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple
 
 from PyQt5.QtCore import QItemSelection
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal
@@ -44,6 +44,11 @@ def to_qt_alignment(align: Alignment) -> QtAlignment:
 class CellStyle(TypedDict, total=False):
     color: Optional[QColor]
     background: Optional[QColor]
+
+
+class Cell(NamedTuple):
+    row: int
+    column: int
 
 
 class Column:
@@ -151,7 +156,6 @@ class QTableModel(QAbstractTableModel):
                 )
                 return column.get_cell_style(context).get("color")
 
-
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
         if orientation == Qt.Horizontal:
             if self.checkable:
@@ -220,13 +224,44 @@ class DoubleClickContext:
         return self.column.get_displayed_value(self.item)  # TODO: should ask the column or should ask the model?
 
 
+class SelectionContext:
+    def __init__(self,
+                 selected_indexes: List[QModelIndex],
+                 added: List[QModelIndex],
+                 removed: List[QModelIndex],
+                 current: QModelIndex):
+        self.selected_model_indexes = selected_indexes
+        self.added_model_indexes = added
+        self.removed_model_indexes = removed
+        self.current_model_index = current
+
+    @property
+    def selected_indexes(self) -> List[Cell]:
+        return [(i.row(), i.column()) for i in self.selected_model_indexes]
+
+    @property
+    def added_indexes(self) -> List[Cell]:
+        return [(i.row(), i.column()) for i in self.added_model_indexes]
+
+    @property
+    def removed_indexes(self) -> List[Cell]:
+        return [(i.row(), i.column()) for i in self.removed_model_indexes]
+
+    @property
+    def current_index(self) -> Cell:
+        return (self.current_model_index.row(), self.current_model_index.column())
+
+
 class QTable(QTableView):
     """
     A table has basically columns and a collection of items.
     """
 
-    #: on_double_click signal is emited when doubleClicked signal is handled
+    #: on_double_click signal is emitted when doubleClicked signal is handled
     on_double_click: Signal = Signal(DoubleClickContext)
+
+    #: on_selection signal is emitted whenever the selection on the table changes
+    on_selection: Signal = Signal(SelectionContext)
 
     def __init__(self,
                  columns: List[Column],
@@ -367,23 +402,14 @@ class QTable(QTableView):
     # Selection
 
     def selectionChanged(self, selected: QItemSelection, deselected: QItemSelection):
-        print("from selection model", [(i.row(), i.column()) for i in self.selectionModel().selectedIndexes()])
-        print()
-        print("selected", [(i.row(), i.column()) for i in selected.indexes()])
-        print("deselected", [(i.row(), i.column()) for i in deselected.indexes()])
-        print("current", (self.currentIndex().row(), self.currentIndex().column()))
-        print()
-        print()
-        print()
         super().selectionChanged(selected, deselected)
-
-
-class SelectionContext:
-    def __init__(self, selected_indexes, added, removed):
-        self.selected_indexes = selected_indexes
-        self.added = added
-        self.removed = removed
-
+        selection_context = SelectionContext(
+            selected_indexes=self.selectionModel().selectedIndexes(),
+            added=selected.indexes(),
+            removed=selected.indexes(),
+            current=self.currentIndex(),
+        )
+        self.on_selection.emit(selection_context)
 
 
 class TableContext:
@@ -572,7 +598,6 @@ if __name__ == '__main__':
     table = QTable(columns, items, checkable=True, context_menu=context_menu_actions)
     table.set_selection_mode(SelectionMode.MULTI_CELLS)
     # table.set_selection_mode(SelectionMode.SINGLE_ROW)
-    table.show()
     table.set_vertical_header_visible(False)
     table.show_horizontal_header()
 
@@ -586,7 +611,20 @@ if __name__ == '__main__':
               f"  raw_value = {context.raw_value}",
               sep="\n")
 
-
     table.on_double_click.connect(double_click_callback)
+
+
+    def selection_callback(context: SelectionContext):
+        print(
+            f"Selected indexes: {context.selected_indexes}",
+            f"Added: {context.added_indexes}",
+            f"Removed: {context.removed_indexes}",
+            f"Current: {context.current_index}",
+            sep="\n",
+        )
+
+    table.on_selection.connect(selection_callback)
+
+    table.show()
 
     app.exec_()
