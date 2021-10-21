@@ -3,7 +3,7 @@ import warnings
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple, Collection
+from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple, Collection, Set
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
 from qtpy.QtGui import QContextMenuEvent, QFont, QColor
@@ -90,6 +90,10 @@ class Column:
 
 
 class QTableModel(QAbstractTableModel):
+
+    #: signal used to notify the view whenever checked_items changes
+    on_checked_items: Signal = Signal(set)
+
     def __init__(self,
                  columns: List[Column],
                  items: Optional[List[Any]] = None,
@@ -102,11 +106,14 @@ class QTableModel(QAbstractTableModel):
         self.columns = columns
         self.items = items
         self.checkable = checkable
+
+        # Internally we keep track of which items are checked using a set
         if checked_items is None:
             checked_items = set()
         if not isinstance(checked_items, set):
             warnings.warn(f"QTableModel checked_items is recommend to be a "
-                          f"set, but got: {type(checked_items).__name__} instead")
+                          f"set, but got: {type(checked_items).__name__} instead - coercing to set")
+            checked_items = set(checked_items)
         self.checked_items = checked_items
 
     # QAbstractTableModel interface -----------------------------------------------------------------------------------
@@ -185,9 +192,11 @@ class QTableModel(QAbstractTableModel):
             item = self.items[index.row()]
             if value == Qt.Checked:
                 self.checked_items.add(item)
+                self.on_checked_items.emit(self.checked_items)
                 return True
             elif value == Qt.Unchecked:
                 self.checked_items.discard(item)
+                self.on_checked_items.emit(self.checked_items)
                 return True
 
         return False
@@ -299,13 +308,17 @@ class QTable(QTableView):
     #: on_selection signal is emitted whenever the selection on the table changes
     on_selection: Signal = Signal(SelectionContext)
 
+    #: signal to notify whenever the checked items change
+    on_checked_items: Signal = Signal(set)
+
     def __init__(self,
                  columns: List[Column],
-                 items: Optional[List] = None,
+                 items: Optional[List[Any]] = None,
                  *,
                  checkable: bool = False,
                  context_menu: List["ContextMenuAction"] = None,
                  alternate_row_colors: bool = True,
+                 checked_items: Collection[Any] = None,
                  parent: QObject = None):
         super().__init__(parent=parent)
         self.columns = columns
@@ -315,7 +328,8 @@ class QTable(QTableView):
         self.context_menu = context_menu
         self.setAlternatingRowColors(alternate_row_colors)
         self.doubleClicked.connect(self.on_double_clicked)
-        model = QTableModel(self.columns, self.items, checkable=checkable)
+        model = QTableModel(self.columns, self.items, checkable=checkable, checked_items=checked_items)
+        model.on_checked_items.connect(self.on_model_checked_items_changed)
         self.setModel(model)
         self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
         self.__updating = False  # sentinel
@@ -446,6 +460,20 @@ class QTable(QTableView):
             current=self.currentIndex(),
         )
         self.on_selection.emit(selection_context)
+
+    # Checked Items
+
+    def on_model_checked_items_changed(self, checked_items: Set):
+        """ Just passes along the notification of the change on the checked items.
+        """
+        self.on_checked_items.emit(checked_items)
+
+    @property
+    def checked_items(self) -> Set:
+        if self.checkable:
+            return self.model().checked_items
+        else:
+            return set()
 
 
 class TableContext:
@@ -580,6 +608,9 @@ def debug_trace():
 
 
 if __name__ == '__main__':
+    import itertools
+    import uuid
+
     # Making Ctrl+C work
     import signal
 
@@ -612,15 +643,18 @@ if __name__ == '__main__':
 
     @dataclass(frozen=True)
     class Person:
+        id: str
         name: str
         age: int
         sex: str
 
 
-    items = [
-                Person(name="John", age=33, sex="M"),
-                Person(name="Pam", age=22, sex="F"),
-            ] * 10
+    people_kwargs = [
+        dict(name="John", age=33, sex="M"),
+        dict(name="Pam", age=22, sex="F"),
+    ]
+
+    items = [Person(id=uuid.uuid4(), **kw) for kw in itertools.islice(itertools.cycle(people_kwargs), 0, 10)]
 
 
     def echo_factory(n: int) -> ContextMenuAction:
@@ -673,6 +707,12 @@ if __name__ == '__main__':
 
 
     table.on_selection.connect(selection_callback)
+
+    def checked_items_callback(checked_items: set):
+        print("Checked items:", checked_items)
+
+    table.on_checked_items.connect(checked_items_callback)
+
 
     table.show()
 
