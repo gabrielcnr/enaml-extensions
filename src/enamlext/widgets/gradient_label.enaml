@@ -5,7 +5,13 @@ from enaml.colors import Color
 _DEFAULT_COLOR_START = "#4790DE"
 _DEFAULT_COLOR_END = "#000000"
 
-# TODO: implement font dialog and font combobox
+
+from enamlext.widgets.font_combo_box import FontComboBox
+from enamlext.qt.qt_font_combo_box import QtFontComboBox
+#TypeError: could not resolve a toolkit implementation for the 'FontComboBox' component when running under a 'QtApplication'
+from enaml.qt.qt_factories import QT_FACTORIES
+QT_FACTORIES["FontComboBox"] = lambda: QtFontComboBox
+
 
 enamldef GradientLabel(Label):
     attr color_0 = _DEFAULT_COLOR_START
@@ -21,6 +27,7 @@ enamldef GradientLabel(Label):
     attr x2 = 0
     attr y2 = 1
     attr font_color = "#ffffff"
+    attr font_name = "Segoe UI"
 
     StyleSheet:
         Style:
@@ -44,13 +51,15 @@ enamldef GradientLabel(Label):
             style_class = 'large-font'
             Setter:
                 field = 'font'
-                value = 'bold 12pt Segoe UI'
+                value << 'bold 12pt {font_name}'
         Style:
             element = 'Label'
             style_class = 'bold'
             Setter:
                 field = 'font'
-                value = 'bold 10pt Segoe UI'
+                value << 'bold 10pt {font_name}'
+                value ::
+                    print(f"{value=}")
 
     style_class = "gradient-label bold large-font"
 
@@ -230,9 +239,15 @@ enamldef Main(MainWindow):
                     lbl.stop_3 = value / 100.
 
             Label:
+                text = "Font"
+            FontComboBox:
+                font := lbl.font_name
+
+            Label:
                 text = "Font Color"
             ColorButton:
                 hex_color >> lbl.font_color
+
 
         PushButton:
             text = "Print Properties"
