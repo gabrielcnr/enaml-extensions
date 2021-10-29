@@ -1,10 +1,6 @@
-from enaml.widgets.api import Label
+from enaml.widgets.api import Label, Field
 from enaml.styling import StyleSheet, Style, Setter
 from enaml.colors import Color
-
-_DEFAULT_COLOR_START = "#4790DE"
-_DEFAULT_COLOR_END = "#000000"
-
 
 from enamlext.widgets.font_combo_box import FontComboBox
 from enamlext.qt.qt_font_combo_box import QtFontComboBox
@@ -12,6 +8,9 @@ from enamlext.qt.qt_font_combo_box import QtFontComboBox
 from enaml.qt.qt_factories import QT_FACTORIES
 QT_FACTORIES["FontComboBox"] = lambda: QtFontComboBox
 
+
+_DEFAULT_COLOR_START = "#4790DE"
+_DEFAULT_COLOR_END = "#000000"
 
 enamldef GradientLabel(Label):
     attr color_0 = _DEFAULT_COLOR_START
@@ -28,6 +27,10 @@ enamldef GradientLabel(Label):
     attr y2 = 1
     attr font_color = "#ffffff"
     attr font_name = "Segoe UI"
+    attr font_size = 10
+    attr border_color = "#034994"
+    attr border_size = 1
+    attr padding = 1
 
     StyleSheet:
         Style:
@@ -40,28 +43,21 @@ enamldef GradientLabel(Label):
                             f'stop: {stop_2} {color_2}, stop: {stop_3} {color_3})')
             Setter:
                 field = 'border'
-                value = '1px solid #034994'
+                value << f'{border_size}px solid {border_color}'
             Setter:
                 field = 'padding'
-                value = '2px'
+                value << f"{padding}px"
             Setter:
                 field = 'color'
                 value << font_color
-        Style:
-            style_class = 'large-font'
-            Setter:
-                field = 'font'
-                value << 'bold 12pt {font_name}'
         Style:
             element = 'Label'
             style_class = 'bold'
             Setter:
                 field = 'font'
-                value << 'bold 10pt {font_name}'
-                value ::
-                    print(f"{value=}")
+                value << f'bold {font_size}pt {font_name}'
 
-    style_class = "gradient-label bold large-font"
+    style_class = "gradient-label bold"
 
 
 from enaml.widgets.api import MainWindow, Container, PushButton, ColorDialog
@@ -111,8 +107,10 @@ enamldef ColorButton(PushButton):
 
 
 enamldef CustomGradientLabel(GradientLabel):
+
     func print_properties():
-        print(f"{font_color = }",
+        print("GradientLabel:",
+              f"{font_color = }",
               f"{x1 = }",
               f"{x2 = }",
               f"{y1 = }",
@@ -125,7 +123,13 @@ enamldef CustomGradientLabel(GradientLabel):
               f"{color_1 = }",
               f"{color_2 = }",
               f"{color_3 = }",
-              sep="\n")
+              f"{font_name = }",
+              f"{font_size = }",
+              f"{font_color = }",
+              f"{border_size = }",
+              f"{border_color = }",
+              f"{padding = }",
+              sep="\n    ")
 
 
 from enaml.widgets.api import Form, SpinBox
@@ -175,7 +179,6 @@ enamldef Main(MainWindow):
                 maximum = 100
                 value = int(lbl.x2 * 100)
                 value ::
-                    print("setting")
                     lbl.x2 = value / 100.
 
             Label:
@@ -185,7 +188,6 @@ enamldef Main(MainWindow):
                 maximum = 100
                 value = int(lbl.y1 * 100)
                 value ::
-                    print("setting")
                     lbl.y1 = value / 100.
 
             Label:
@@ -195,9 +197,7 @@ enamldef Main(MainWindow):
                 maximum = 100
                 value = int(lbl.y2 * 100)
                 value ::
-                    print("setting")
                     lbl.y2 = value / 100.
-
 
             Label:
                 text = "stop_0"
@@ -215,7 +215,6 @@ enamldef Main(MainWindow):
                 maximum = 100
                 value = int(lbl.stop_1 * 100)
                 value ::
-                    print("setting")
                     lbl.stop_1 = value / 100.
 
             Label:
@@ -225,7 +224,6 @@ enamldef Main(MainWindow):
                 maximum = 100
                 value = int(lbl.stop_2 * 100)
                 value ::
-                    print("setting")
                     lbl.stop_2 = value / 100.
 
             Label:
@@ -235,7 +233,6 @@ enamldef Main(MainWindow):
                 maximum = 100
                 value = int(lbl.stop_3 * 100)
                 value ::
-                    print("setting")
                     lbl.stop_3 = value / 100.
 
             Label:
@@ -248,6 +245,37 @@ enamldef Main(MainWindow):
             ColorButton:
                 hex_color >> lbl.font_color
 
+            Label:
+                text = "Font Size"
+            SpinBox:
+                minimum = 5
+                maximum = 50
+                value := lbl.font_size
+
+            Label:
+                text = "Border Color"
+            ColorButton:
+                hex_color >> lbl.border_color
+
+            Label:
+                text = "Border Size"
+            SpinBox:
+                minimum = 1
+                maximum = 50
+                value := lbl.border_size
+
+            Label:
+                text = "Padding"
+            SpinBox:
+                minimum = 0
+                maximum = 50
+                value := lbl.padding
+
+            Label:
+                text = "Text"
+            Field:
+                submit_triggers = ["lost_focus", "return_pressed", "auto_sync"]
+                text := lbl.text
 
         PushButton:
             text = "Print Properties"
