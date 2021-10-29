@@ -1,0 +1,226 @@
+from enamlext.widgets.font_combo_box import FontComboBox
+from enamlext.qt.qt_font_combo_box import QtFontComboBox
+#TypeError: could not resolve a toolkit implementation for the 'FontComboBox' component when running under a 'QtApplication'
+from enaml.qt.qt_factories import QT_FACTORIES
+QT_FACTORIES["FontComboBox"] = lambda: QtFontComboBox
+
+from enamlext.widgets.color_button import ColorButton
+from enamlext.widgets.gradient_label import GradientLabel
+
+from enaml.widgets.api import MainWindow, Container, PushButton, ColorDialog, Label, Field
+
+from enaml.scintilla.scintilla import Scintilla
+from enaml.scintilla.themes import THEMES
+from enaml.widgets.timer import Timer
+from enaml.layout.api import hbox
+
+
+enamldef CustomGradientLabel(GradientLabel):
+
+    func print_properties():
+        return "\n    ".join((f"GradientLabel:",
+                              f"{font_color = }",
+                              f"{x1 = }",
+                              f"{x2 = }",
+                              f"{y1 = }",
+                              f"{y2 = }",
+                              f"{stop_0 = }",
+                              f"{stop_1 = }",
+                              f"{stop_2 = }",
+                              f"{stop_3 = }",
+                              f"{color_0 = }",
+                              f"{color_1 = }",
+                              f"{color_2 = }",
+                              f"{color_3 = }",
+                              f"{font_name = }",
+                              f"{font_size = }",
+                              f"{font_color = }",
+                              f"{border_size = }",
+                              f"{border_color = }",
+                              f"{padding = }",
+                              ))
+
+
+from enaml.widgets.api import Form, SpinBox
+
+enamldef GradientLabelControls(Container):
+
+    func get_label_properties():
+        return lbl.print_properties()
+
+#    title = "Gradient Label Studio"
+
+    Container:
+        CustomGradientLabel: lbl:
+            text = "Hello World"
+
+        Form:
+
+            Label:
+                text = "color_0"
+            ColorButton:
+                hex_color >> lbl.color_0
+
+            Label:
+                text = "color_1"
+            ColorButton:
+                hex_color >> lbl.color_1
+
+            Label:
+                text = "color_2"
+            ColorButton:
+                hex_color >> lbl.color_2
+
+            Label:
+                text = "color_3"
+            ColorButton:
+                hex_color >> lbl.color_3
+
+            Label:
+                text = "x1"
+            SpinBox:
+                minimum = 0
+                maximum = 100
+                value = int(lbl.x1 * 100)
+                value ::
+                    lbl.x1 = value / 100.
+
+            Label:
+                text = "x2"
+            SpinBox:
+                minimum = 0
+                maximum = 100
+                value = int(lbl.x2 * 100)
+                value ::
+                    lbl.x2 = value / 100.
+
+            Label:
+                text = "y1"
+            SpinBox:
+                minimum = 0
+                maximum = 100
+                value = int(lbl.y1 * 100)
+                value ::
+                    lbl.y1 = value / 100.
+
+            Label:
+                text = "y2"
+            SpinBox:
+                minimum = 0
+                maximum = 100
+                value = int(lbl.y2 * 100)
+                value ::
+                    lbl.y2 = value / 100.
+
+            Label:
+                text = "stop_0"
+            SpinBox:
+                minimum = 0
+                maximum = 100
+                value = int(lbl.stop_0 * 100)
+                value ::
+                    lbl.stop_0 = value / 100.
+
+            Label:
+                text = "stop_1"
+            SpinBox:
+                minimum = 0
+                maximum = 100
+                value = int(lbl.stop_1 * 100)
+                value ::
+                    lbl.stop_1 = value / 100.
+
+            Label:
+                text = "stop_2"
+            SpinBox:
+                minimum = 0
+                maximum = 100
+                value = int(lbl.stop_2 * 100)
+                value ::
+                    lbl.stop_2 = value / 100.
+
+            Label:
+                text = "stop_3"
+            SpinBox:
+                minimum = 0
+                maximum = 100
+                value = int(lbl.stop_3 * 100)
+                value ::
+                    lbl.stop_3 = value / 100.
+
+            Label:
+                text = "Font"
+            FontComboBox:
+                font := lbl.font_name
+
+            Label:
+                text = "Font Color"
+            ColorButton:
+                hex_color >> lbl.font_color
+
+            Label:
+                text = "Font Size"
+            SpinBox:
+                minimum = 5
+                maximum = 50
+                value := lbl.font_size
+
+            Label:
+                text = "Border Color"
+            ColorButton:
+                hex_color >> lbl.border_color
+
+            Label:
+                text = "Border Size"
+            SpinBox:
+                minimum = 1
+                maximum = 50
+                value := lbl.border_size
+
+            Label:
+                text = "Padding"
+            SpinBox:
+                minimum = 0
+                maximum = 50
+                value := lbl.padding
+
+            Label:
+                text = "Text"
+            Field:
+                submit_triggers = ["lost_focus", "return_pressed", "auto_sync"]
+                text := lbl.text
+
+
+enamldef Main(MainWindow):
+    title = "GradientLabel Studio"
+
+    Container:
+        constraints = [
+            hbox(left, editor),
+            left.width == editor.width,
+            left.width == 450,
+        ]
+        GradientLabelControls: left:
+            padding = 1
+
+        Scintilla: editor:
+            syntax = 'enaml'
+            theme << THEMES['idle']
+            settings = {
+                "tab_width": 4,
+                "use_tabs": False,
+                "indent": 4,
+                "tab_indents": True,
+                "backspace_unindents": True,
+                "autocompletion_threshold": 3,
+                "show_line_numbers": True,
+            }
+            autocomplete = 'all'
+            autocompletions = ['enamldef']
+            activated ::
+                self.proxy.widget.setReadOnly(True)
+                timer.start()
+            Timer: timer:
+                interval = 250
+                timeout ::
+                    editor.set_text(left.get_label_properties())

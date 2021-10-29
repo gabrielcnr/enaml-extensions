@@ -1,0 +1,46 @@
+from enaml.widgets.api import PushButton, ColorDialog
+from enaml.colors import Color
+from enaml.styling import StyleSheet, Style, Setter
+
+
+enamldef ColorButton(PushButton):
+    attr color = Color()
+
+    # how to make this one read-only?
+    attr hex_color
+
+    initialized ::
+        self.hex_color = self.to_hex(self.color)
+
+    color ::
+        self.hex_color = self.to_hex(self.color)
+
+
+    func to_hex(color):
+        return (f"#"
+                f"{color.alpha:02x}"
+                f"{color.red:02x}"
+                f"{color.green:02x}"
+                f"{color.blue:02x}")
+
+    StyleSheet:
+        Style:
+            element = "PushButton"
+            style_class = "color-picker-button"
+            Setter:
+                field = "background"
+                value << hex_color or "white"
+            Setter:
+                field = 'border'
+                value = '1px solid #034994'
+
+    style_class = "color-picker-button"
+
+    constraints << [
+        height == width,
+    ]
+
+    clicked ::
+        chosen_color = ColorDialog().get_color()
+        if chosen_color:
+            self.color = chosen_color
