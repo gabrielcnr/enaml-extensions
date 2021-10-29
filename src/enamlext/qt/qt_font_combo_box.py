@@ -1,50 +1,49 @@
-from qtpy.QtWidgets import *
-from qtpy.QtCore import *
-from qtpy.QtGui import *
+from atom.api import Typed, Int
+from enaml.qt.QtWidgets import QFontComboBox
+from enaml.qt.QtGui import QFont
+from enaml.qt.qt_control import QtControl
+
+from enamlext.widgets.font_combo_box import ProxyFontComboBox
 
 
-def debug_trace():
+# cyclic notification guard flags
+INDEX_GUARD = 0x1
+
+
+class QtFontComboBox(QtControl, ProxyFontComboBox):
+    """ A Qt implementation of an Enaml FontComboBox.
     """
-    Set a tracepoint in the Python debugger that works with Qt
-    """
-    import pdb
-    import sys
-    from PyQt5.QtCore import pyqtRemoveInputHook
-    pyqtRemoveInputHook()
-    # set up the debugger
-    debugger = pdb.Pdb()
-    debugger.reset()
-    # custom next to get outside of function scope
-    debugger.do_next(None)  # run the next command
-    users_frame = sys._getframe().f_back  # frame where the user invoked `pyqt_set_trace()`
-    debugger.interaction(users_frame, None)
+    #: A reference to the widget created by the proxy.
+    widget = Typed(QFontComboBox)
 
-    # TODO: should call QtCore.pyqtRestoreInputHook() ?
+    # TODO: context manager
+    #: Cyclic notification guard. This a bitfield of multiple guards.
+    _guard = Int(0)
 
+    # Initialization API
+    def create_widget(self):
+        """ Create the QFontComboBox widget.
+        """
+        self.widget = QFontComboBox(self.parent_widget())
 
-if __name__ == '__main__':
-    # Making Ctrl+C work
-    import signal
+    def init_widget(self):
+        """ Create and initialize the underlying widget.
+        """
+        super().init_widget()
+        self.widget.currentFontChanged.connect(self.on_font_changed)
 
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    # Signal Handlers
+    def on_font_changed(self, qfont: QFont):
+        """ The signal handler for the font changed signal.
+        """
+        if not self._guard & INDEX_GUARD:
+            self.declaration.font = qfont.family()
 
-    # Fixing PyQt issue on MacOS BigSur
-    import os
-
-    os.environ["QT_MAC_WANTS_LAYER"] = "1"
-
-    app = QApplication([])
-
-    font_combo_box = QFontComboBox()
-    font_combo_box.show()
-
-    def on_font(*args, **kwargs):
-        debug_trace()
-        print("done")
-
-    font_combo_box.currentFontChanged.connect(on_font)
-
-    print("showing")
-    app.exec_()
-
-
+    def set_font(self, font: str):
+        self._guard |= INDEX_GUARD
+        try:
+            qfont = QFont()
+            qfont.fromString(font)
+            self.widget.setCurrentFont(qfont)
+        finally:
+            self._guard &= ~INDEX_GUARD
