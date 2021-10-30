@@ -1,9 +1,18 @@
 from enaml.widgets.api import *
 from enaml.layout.api import *
-from enamlext.widgets import Table, Column
+from enamlext.widgets import Table
+from enamlext.qt.qtable import Column
 
 
-enamldef Main(Window):
+from enamlext.qt.qt_table import QtTable
+
+from enaml.qt.qt_factories import QT_FACTORIES
+QT_FACTORIES["Table"] = lambda: QtTable
+
+from operator import itemgetter
+
+
+enamldef Main(MainWindow):
 
     title = 'Table Example'
 
@@ -12,36 +21,15 @@ enamldef Main(Window):
     GroupBox:
         title = 'The Beatles'
 
-        CheckBox: chk_alternate_row_colors:
-            text = 'Alternate Row Colors'
-
-        CheckBox: chk_stretch_last_column:
-            text = 'Stretch Last Column'
-
-        Container:
-            padding = 0
-            constraints = [hbox(lbl_select_mode, cbo_select_mode, spacer),
-                           align('v_center', lbl_select_mode, cbo_select_mode)]
-
-            Label: lbl_select_mode:
-                text = 'Select Mode:'
-
-            ObjectCombo: cbo_select_mode:
-                items = list(table.__class__.select_mode.items)
-                selected := table.select_mode
-
-        Label:
-            text << 'Selected: {}'.format(', '.join([x['name'] for x in table.selected_rows]))
-
         Table: table:
             columns = [
-                Column('Name', 'name'),
-                Column('Surname', 'surname'),
-                Column('Born (Year)', 'year'),
-                Column('Role', 'role'),
+                Column(itemgetter("name")),
+                Column(itemgetter('surname')),
+                Column(itemgetter('year')),
+                Column(itemgetter('role')),
             ]
 
-            rows = [
+            items = [
                 {
                     'name': 'John',
                     'surname': 'Lennon',
@@ -68,6 +56,3 @@ enamldef Main(Window):
                 },
 
             ]
-
-            alternate_row_colors := chk_alternate_row_colors.checked
-            stretch_last_column := chk_stretch_last_column.checked

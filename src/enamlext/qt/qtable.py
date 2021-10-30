@@ -65,6 +65,8 @@ class Column:
         if callable(key):
             self.get_value = key  # we re-wire the get_value() here
         self.key = key
+        if title is None and isinstance(key, str):
+            title = key.title()
         self.title = title
         self.align = align
         self.tooltip = tooltip
