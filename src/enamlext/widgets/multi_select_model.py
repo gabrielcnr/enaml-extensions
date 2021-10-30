@@ -66,6 +66,9 @@ class MultiSelectModel(Atom):
     def get_available_items(self):
         return [i for i in self.items if i not in self.selected_items]
 
+    def invert_selection(self):
+        self.selected_items = self.available_items
+
 
 def test_is_valid_selection():
     # there should be no duplicated items
@@ -104,4 +107,13 @@ def test_exception_is_raised_when_model_reaches_invalid_state_after_update():
     multi_select_model = MultiSelectModel(items=[1, 2, 3, 4], selected_items=[2, 3])
     with pytest.raises(MultiSelectUpdateError):
         multi_select_model.selected_items = [2, 2, 3]
+
+
+def test_invert_selection():
+    multi_select_model = MultiSelectModel(items=[1, 2, 3, 4], selected_items=[2, 3])
+    assert multi_select_model.available_items == [1, 4]
+
+    multi_select_model.invert_selection()
+    assert multi_select_model.available_items == [2, 3]
+    assert multi_select_model.selected_items == [1, 4]
 
