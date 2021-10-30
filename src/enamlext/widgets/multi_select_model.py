@@ -69,6 +69,14 @@ class MultiSelectModel(Atom):
     def invert_selection(self):
         self.selected_items = self.available_items
 
+    def select_all(self):
+        self.selected_items = self.items
+
+    def select_none(self):
+        self.selected_items = []
+
+    clear_selection = select_none
+
 
 def test_is_valid_selection():
     # there should be no duplicated items

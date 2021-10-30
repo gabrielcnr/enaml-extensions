@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from enamlext.qt.qt_table import Column, Alignment, QTable, Qt, QModelIndex
+from enamlext.qt.qtable import Column, Alignment, QTable, Qt, QModelIndex
 
 
 class QTestTable(QTable):

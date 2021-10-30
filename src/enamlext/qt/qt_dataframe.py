@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from qtpy.QtWidgets import QApplication
 
-from enamlext.qt.qt_table import Column, Alignment, QTable, get_cell_style_for_negative_numbers
+from enamlext.qt.qtable import Column, Alignment, QTable, get_cell_style_for_negative_numbers
 
 
 def generate_columns_for_dataframe(df: pd.DataFrame) -> List[Column]:
