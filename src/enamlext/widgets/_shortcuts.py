@@ -1,8 +1,10 @@
-from enaml.stdlib.message_box import question
 import enaml
 
 
 def ask_yes_no(title, message, parent=None):
+    with enaml.imports():
+        from enaml.stdlib.message_box import question
+
     button = question(parent, title, message)
     return button.text == 'Yes'
 
