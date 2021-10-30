@@ -2,6 +2,7 @@
 MultiSelect widget - allows for multiple selection/choices.
 """
 from typing import Optional
+from unittest import mock
 
 from atom.api import Atom, List
 from atom.atom import observe
@@ -17,7 +18,6 @@ def is_valid_selection(items: List, selected_items: List) -> bool:
 
 
 class MultiSelectModel(Atom):
-
     #: collection of all available items for selection
     items = List()
 
@@ -54,7 +54,6 @@ class MultiSelectModel(Atom):
         return [i for i in self.items if i not in self.selected_items]
 
 
-
 def test_is_valid_selection():
     # there should be no duplicated items
     # the items should respect original order/sequence
@@ -74,3 +73,15 @@ def test_multi_select_model_refreshes_available_items_correctly():
 
     multi_select_model.selected_items = [1, 2, 3, 4, 5]
     assert multi_select_model.available_items == []
+
+
+def test_can_observe_on_available_items_notifications():
+    multi_select_model = MultiSelectModel(items=[1, 2, 3, 4], selected_items=[2, 3])
+
+    callback = mock.Mock(spec=True)
+
+    multi_select_model.observe("available_items", callback)
+
+    multi_select_model.selected_items = [2, 3, 4]
+
+    callback.assert_called_once()
