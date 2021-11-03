@@ -1,7 +1,7 @@
 from atom.api import Int, Typed
 from enaml.qt.qt_control import QtControl
 
-from enamlext.qt.qtable import QTable
+from enamlext.qt.qtable import QTable, DoubleClickContext
 from enamlext.widgets.table import ProxyTable
 
 # cyclic notification guard flags
@@ -32,10 +32,13 @@ class QtTable(QtControl, ProxyTable):
         with self.widget.updating_internals():
             self.set_columns(d.columns)
             self.set_items(d.items)
+        self.widget.on_double_click.connect(self._on_double_clicked)
         # self.widget.currentIndexChanged.connect(self.on_index_changed)
 
     # Signal Handlers
-    ...
+    def _on_double_clicked(self, context: DoubleClickContext):
+        # TODO: DoubleClickContext has a lot of knowledge of Qt details - we don't want this to leak!
+        self.declaration.double_clicked(context)
 
     # ProxyTable API
     def set_items(self, items):

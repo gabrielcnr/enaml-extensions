@@ -75,6 +75,13 @@ class MultiSelectModel(Atom):
     def select_none(self):
         self.selected_items = []
 
+    def select(self, items):
+        # TODO: preserve the order of the original list of items
+        selected_items = list(self.selected_items)
+        selected_items.extend(items)
+        self.selected_items = selected_items
+
+
     clear_selection = select_none
 
 

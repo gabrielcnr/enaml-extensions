@@ -49,6 +49,10 @@ enamldef MultiSelect(Container): _multi_select:
         ]
         items << _multi_select_model.available_items
 
+        double_clicked ::
+            context = change["value"]
+            _multi_select_model.select([context.item])
+
     Table: _table_selected:
         columns = [
             Column(key=(lambda item: item)),

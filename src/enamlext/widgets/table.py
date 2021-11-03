@@ -1,8 +1,10 @@
 from typing import Dict
 
-from atom.api import Typed, ForwardTyped, List, observe
+from atom.api import Typed, ForwardTyped, List, observe, Event
 from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
+
+from enamlext.qt.qtable import DoubleClickContext  # TODO: weak design (leaking Qt details)
 
 
 class ProxyTable(ProxyControl):
@@ -29,11 +31,16 @@ class Table(Control):
     #: The items to be displayed in individual rows of the table
     items = d_(List())
 
+    #: Event fired whenever the user double clicks in a cell
+    #: The payload will be a DoubleClickContext
+    double_clicked = d_(Event(DoubleClickContext), writable=False)
+
     #: A reference to the ProxyTable object.
     proxy = Typed(ProxyTable)
 
 
     # Observers
+
     @observe('columns', 'items')
     def _update_proxy(self, change: Dict):
         """ An observer which sends state change to the proxy.
