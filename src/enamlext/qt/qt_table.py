@@ -41,7 +41,8 @@ class QtTable(QtControl, ProxyTable):
     def set_items(self, items):
         """ Set the items (rows) of the QTable.
         """
-        self.widget.items = items
+        with self.widget.updating_internals():
+            self.widget.items = items
 
     def set_columns(self, columns):
         """ Set the columns of the QTable.

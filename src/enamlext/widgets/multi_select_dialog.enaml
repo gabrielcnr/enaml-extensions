@@ -14,13 +14,67 @@ QT_FACTORIES["Table"] = lambda: QtTable
 
 from enamlext.widgets.multi_select_model import MultiSelectModel
 
-enamldef MultiSelect(Container):
+
+enamldef MultiSelect(Container): _multi_select:
     attr items
     attr selected_items
 
+    alias select_all_text: _btn_select_all.text
+    alias clear_selection_text: _btn_clear_selection.text
+
+    attr _multi_select_model
+
+    constraints = [
+        hbox(
+            vbox(
+                _table_available,
+                _btn_select_all,
+            ),
+            vbox(
+                _table_selected,
+                _btn_clear_selection,
+            ),
+        ),
+        _table_available.width == _table_selected.width,
+        _table_available.height == _table_selected.height,
+        _table_available.top == _table_selected.top,
+    ]
+
     initialized ::
-        breakpoint()
-        print("done")
+        self._multi_select_model = MultiSelectModel(items=items, selected_items=selected_items)
+
+    Table: _table_available:
+        columns = [
+            Column(key=(lambda item: item)),
+        ]
+        items << _multi_select_model.available_items
+
+    Table: _table_selected:
+        columns = [
+            Column(key=(lambda item: item)),
+        ]
+        items << _multi_select_model.selected_items
+
+    PushButton: _btn_select_all:
+        text = "Select All"
+        clicked ::
+            _multi_select_model.select_all()
+
+    PushButton: _btn_clear_selection:
+        text = "Clear Selection"
+        clicked ::
+            _multi_select_model.select_none()
+
+
+#    PushButton: btn_select:
+#        text = ">"
+#        constraints = [
+#            height == width,
+#            width == 23,
+#        ]
+#        clicked ::
+#            import pdb; pdb.set_trace()
+#            print()
 
 
 enamldef Main(MainWindow):

@@ -1,4 +1,6 @@
-from atom.api import Typed, ForwardTyped, List
+from typing import Dict
+
+from atom.api import Typed, ForwardTyped, List, observe
 from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
 
@@ -29,3 +31,12 @@ class Table(Control):
 
     #: A reference to the ProxyTable object.
     proxy = Typed(ProxyTable)
+
+
+    # Observers
+    @observe('columns', 'items')
+    def _update_proxy(self, change: Dict):
+        """ An observer which sends state change to the proxy.
+        """
+        # The superclass handler implementation is sufficient.
+        super()._update_proxy(change)
