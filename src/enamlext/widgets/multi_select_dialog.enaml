@@ -1,0 +1,32 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+
+# this all should go
+from enamlext.widgets import Table
+from enamlext.qt.qtable import Column
+
+
+from enamlext.qt.qt_table import QtTable
+
+from enaml.qt.qt_factories import QT_FACTORIES
+QT_FACTORIES["Table"] = lambda: QtTable
+# end
+
+from enamlext.widgets.multi_select_model import MultiSelectModel
+
+enamldef MultiSelect(Container):
+    attr items
+    attr selected_items
+
+    initialized ::
+        breakpoint()
+        print("done")
+
+
+enamldef Main(MainWindow):
+    title = "MultiSelect Widget Demo"
+
+    Container:
+        MultiSelect:
+            items = ["apple", "banana", "melon", "papaya"]
+            selected_items = ["apple", "melon"]
