@@ -1,6 +1,7 @@
 from typing import Dict
 
 from atom.api import Typed, ForwardTyped, List, observe, Event
+from atom.atom import set_default
 from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
 
@@ -45,6 +46,10 @@ class Table(Control):
 
     #: A reference to the ProxyTable object.
     proxy = Typed(ProxyTable)
+
+    # Tables expand freely in height and width by default.
+    hug_width = set_default('ignore')
+    hug_height = set_default('ignore')
 
 
     # Observers
