@@ -4,7 +4,7 @@ from atom.api import Typed, ForwardTyped, List, observe, Event
 from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
 
-from enamlext.qt.qtable import DoubleClickContext  # TODO: weak design (leaking Qt details)
+from enamlext.qt.qtable import DoubleClickContext, SelectionContext  # TODO: weak design (leaking Qt details)
 
 
 class ProxyTable(ProxyControl):
@@ -19,6 +19,8 @@ class ProxyTable(ProxyControl):
     def set_items(self, items):
         raise NotImplementedError
 
+    def set_selected_items(self, selected_items):
+        raise NotImplementedError
 
 
 class Table(Control):
@@ -31,9 +33,15 @@ class Table(Control):
     #: The items to be displayed in individual rows of the table
     items = d_(List())
 
+    #: The items that are currently selected on the table # TODO: how to distinguish when mode=cell
+    selected_items = d_(List())
+
     #: Event fired whenever the user double clicks in a cell
     #: The payload will be a DoubleClickContext
     double_clicked = d_(Event(DoubleClickContext), writable=False)
+
+    #: Event fired whenever the selection in the table changes
+    selection_changed = d_(Event(SelectionContext), writable=False)
 
     #: A reference to the ProxyTable object.
     proxy = Typed(ProxyTable)
@@ -41,7 +49,10 @@ class Table(Control):
 
     # Observers
 
-    @observe('columns', 'items')
+    @observe("columns",
+             "items",
+             "selected_items",
+             )
     def _update_proxy(self, change: Dict):
         """ An observer which sends state change to the proxy.
         """

@@ -81,6 +81,10 @@ class MultiSelectModel(Atom):
         selected_items.extend(items)
         self.selected_items = selected_items
 
+    def unselect(self, items):
+        items = set(items)
+        self.selected_items = [item for item in self.selected_items if item not in items]
+
 
     clear_selection = select_none
 

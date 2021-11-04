@@ -31,6 +31,13 @@ enamldef MultiSelect(Container): _multi_select:
                 _btn_select_all,
             ),
             vbox(
+                spacer,
+                btn_select,
+                btn_unselect,
+                btn_flip,
+                spacer,
+            ),
+            vbox(
                 _table_selected,
                 _btn_clear_selection,
             ),
@@ -38,6 +45,7 @@ enamldef MultiSelect(Container): _multi_select:
         _table_available.width == _table_selected.width,
         _table_available.height == _table_selected.height,
         _table_available.top == _table_selected.top,
+        btn_select.bottom == (_table_selected.height / 2),
     ]
 
     initialized ::
@@ -59,6 +67,10 @@ enamldef MultiSelect(Container): _multi_select:
         ]
         items << _multi_select_model.selected_items
 
+        double_clicked ::
+            context = change["value"]
+            _multi_select_model.unselect([context.item])
+
     PushButton: _btn_select_all:
         text = "Select All"
         clicked ::
@@ -69,16 +81,34 @@ enamldef MultiSelect(Container): _multi_select:
         clicked ::
             _multi_select_model.select_none()
 
+    PushButton: btn_select:
+        text = ">"
+        constraints = [
+            height == width,
+            width == 23,
+        ]
+        enabled << bool(_table_available.selected_items)
+        clicked ::
+            _multi_select_model.select(_table_available.selected_items)
 
-#    PushButton: btn_select:
-#        text = ">"
-#        constraints = [
-#            height == width,
-#            width == 23,
-#        ]
-#        clicked ::
-#            import pdb; pdb.set_trace()
-#            print()
+    PushButton: btn_unselect:
+        text = "<"
+        constraints = [
+            height == width,
+            width == 23,
+        ]
+        enabled << bool(_table_selected.selected_items)
+        clicked ::
+            _multi_select_model.unselect(_table_selected.selected_items)
+
+    PushButton: btn_flip:
+        text = "x"
+        constraints = [
+            height == width,
+            width == 23,
+        ]
+        clicked ::
+            _multi_select_model.invert_selection()
 
 
 enamldef Main(MainWindow):

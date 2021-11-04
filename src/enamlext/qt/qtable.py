@@ -1,5 +1,6 @@
 import contextlib
 import warnings
+import weakref
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -273,10 +274,12 @@ class DoubleClickContext:
 
 class SelectionContext:
     def __init__(self,
+                 table: "QTable",
                  selected_indexes: List[QModelIndex],
                  added: List[QModelIndex],
                  removed: List[QModelIndex],
                  current: QModelIndex):
+        self.__table = weakref.ref(table)
         self.selected_model_indexes = selected_indexes
         self.added_model_indexes = added
         self.removed_model_indexes = removed
@@ -297,6 +300,16 @@ class SelectionContext:
     @property
     def current_index(self) -> Cell:
         return (self.current_model_index.row(), self.current_model_index.column())
+
+    # TODO: distinguish between when selection is based on single cell, single row,
+    #       multiple cells, multiple rows
+    @property
+    def selected_items(self) -> List[Any]:
+        table = self.__table()
+        if table is not None:
+            row_indexes = (i.row() for i in self.selected_model_indexes)
+            return [table.model().get_item_by_index(i)
+                    for i in set(row_indexes)]
 
 
 class QTable(QTableView):
@@ -456,6 +469,7 @@ class QTable(QTableView):
     def selectionChanged(self, selected: QItemSelection, deselected: QItemSelection):
         super().selectionChanged(selected, deselected)
         selection_context = SelectionContext(
+            table=self,
             selected_indexes=self.selectionModel().selectedIndexes(),
             added=selected.indexes(),
             removed=selected.indexes(),

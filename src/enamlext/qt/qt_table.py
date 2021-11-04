@@ -1,7 +1,9 @@
+from typing import List, Any
+
 from atom.api import Int, Typed
 from enaml.qt.qt_control import QtControl
 
-from enamlext.qt.qtable import QTable, DoubleClickContext
+from enamlext.qt.qtable import QTable, DoubleClickContext, SelectionContext, Column
 from enamlext.widgets.table import ProxyTable
 
 # cyclic notification guard flags
@@ -32,7 +34,13 @@ class QtTable(QtControl, ProxyTable):
         with self.widget.updating_internals():
             self.set_columns(d.columns)
             self.set_items(d.items)
+            self.set_selected_items(d.selected_items)
+
+        # double click action
         self.widget.on_double_click.connect(self._on_double_clicked)
+
+        # single click selection
+        self.widget.on_selection.connect(self._on_selection_changed)
         # self.widget.currentIndexChanged.connect(self.on_index_changed)
 
     # Signal Handlers
@@ -40,14 +48,22 @@ class QtTable(QtControl, ProxyTable):
         # TODO: DoubleClickContext has a lot of knowledge of Qt details - we don't want this to leak!
         self.declaration.double_clicked(context)
 
+    def _on_selection_changed(self, context: SelectionContext):
+        self.declaration.selected_items = context.selected_items
+
     # ProxyTable API
-    def set_items(self, items):
+    def set_items(self, items: List[Any]):
         """ Set the items (rows) of the QTable.
         """
         with self.widget.updating_internals():
             self.widget.items = items
 
-    def set_columns(self, columns):
+    def set_columns(self, columns: List[Column]):
         """ Set the columns of the QTable.
         """
-        self.widget.columns = columns
+        with self.widget.updating_internals():
+            self.widget.columns = columns
+
+    def set_selected_items(self, selected_items: List[Any]):
+        pass
+
