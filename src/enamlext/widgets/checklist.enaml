@@ -36,12 +36,22 @@ enamldef CheckList(Container): self_checklist:
     Include: _inc:
         objects << [make_checkbox(i, self_checklist) for i in items]
 
+    checked_items ::
+        self.sync_view()
+
+    initialized ::
+        self.sync_view()
+
     func sync_model():
         new_checked_items = []
         for checkbox in _inc.objects:
             if checkbox.checked:
                 new_checked_items.append(checkbox.value)
         self.checked_items = new_checked_items
+
+    func sync_view():
+        for checkbox in _inc.objects:
+            checkbox.checked = checkbox.value in self.checked_items
 
     func check_all():
         for checkbox in _inc.objects:
@@ -87,3 +97,11 @@ enamldef Main(Window):
 
         CheckList: _chklist:
             items = list('abcdef')
+            checked_items = list('be')
+
+        Form:
+            Label:
+                text = 'Checked:'
+
+            Label:
+                text << ', '.join(str(i) for i in _chklist.checked_items)
