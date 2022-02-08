@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple, Collection, Set
 
+from PyQt5.QtCore import QSize, QRect
+from PyQt5.QtGui import QPainter, QWheelEvent
+from PyQt5.QtWidgets import QHeaderView
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
 from qtpy.QtGui import QContextMenuEvent, QFont, QColor
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
@@ -346,12 +349,43 @@ class QTable(QTableView):
         model = QTableModel(self.columns, self.items, checkable=checkable, checked_items=checked_items)
         model.on_checked_items.connect(self.on_model_checked_items_changed)
         self.setModel(model)
+
+        self._zoom = 1.0
+        self.setHorizontalHeader(GridHeaderView(Qt.Horizontal, self))
+        self.setVerticalHeader(GridHeaderView(Qt.Vertical, self))
+
         self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
         self.__updating = False  # sentinel
         # TODO: improve the way we update the internals - maybe offering a high-level function that gets everything
         #       that is internal and is possible of updating?
         #       Also, need to eliminate the duplication here - we should only work in terms of what's inside the model
         #       this will prevent from view and model getting out of sync
+
+    @property
+    def zoom(self):
+        return self._zoom
+
+    @zoom.setter
+    def zoom(self, x):
+        self._zoom = x
+        self.verticalHeader().update_zoom()
+        self.horizontalHeader().update_zoom()
+
+    def wheelEvent(self, event: QWheelEvent):
+        """Overrides mouse wheel event handler
+
+        :param event: Mouse wheel event
+
+        """
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers == Qt.ControlModifier:
+            if event.angleDelta().y() > 0:
+                self.zoom += .1
+            else:
+                self.zoom -= .1
+        else:
+            super().wheelEvent(event)
+
 
     @property
     def columns(self) -> List[Column]:
@@ -492,6 +526,123 @@ class QTable(QTableView):
             return set()
 
 
+
+@contextlib.contextmanager
+def painter_save(painter: QPainter):
+    """Context manager saving and restoring painter state
+
+    :param painter: Painter, for which the state is preserved
+
+    """
+
+    painter.save()
+    yield
+    painter.restore()
+
+
+
+class GridHeaderView(QHeaderView):
+    """QHeaderView with zoom support"""
+
+    def __init__(self, orientation: Qt.Orientation, grid: QTable):
+        """
+        :param orientation: Orientation of the `QHeaderView`
+        :param grid: The main grid widget
+
+        """
+
+        super().__init__(orientation, grid)
+        self.setSectionsClickable(True)
+        self.setHighlightSections(True)
+        self.default_section_size = self.defaultSectionSize()
+        self.grid = grid
+
+    # Overrides
+
+    def sizeHint(self) -> QSize:
+        """Overrides sizeHint, which supports zoom"""
+
+        unzoomed_size = super().sizeHint()
+        return QSize(int(unzoomed_size.width() * self.grid.zoom),
+                     int(unzoomed_size.height() * self.grid.zoom))
+
+    def sectionSizeHint(self, logicalIndex: int) -> int:
+        """Overrides sectionSizeHint, which supports zoom
+
+        :param logicalIndex: Index of the section for the size hint
+
+        """
+
+        unzoomed_size = super().sectionSizeHint(logicalIndex)
+        return int(unzoomed_size * self.grid.zoom)
+
+    def paintSection(self, painter: QPainter, rect: QRect, logicalIndex: int):
+        """Overrides paintSection, which supports zoom
+
+        :param painter: Painter with which the section is drawn
+        :param rect: Outer rectangle of the section to be drawn
+        :param logicalIndex: Index of the section to be drawn
+
+        """
+
+        unzoomed_rect = QRect(0, 0,
+                              rect.width()//self.grid.zoom,
+                              rect.height()//self.grid.zoom)
+        with painter_save(painter):
+            painter.translate(rect.x(), rect.y())
+            painter.scale(self.grid.zoom, self.grid.zoom)
+            super().paintSection(painter, unzoomed_rect, logicalIndex)
+    #
+    # def contextMenuEvent(self, event: QContextMenuEvent):
+    #     """Overrides contextMenuEvent
+    #
+    #     Installs HorizontalHeaderContextMenu or VerticalHeaderContextMenu
+    #     depending on self.orientation().
+    #
+    #     :param event: The triggering event
+    #
+    #     """
+    #
+    #     actions = self.grid.main_window.main_window_actions
+    #     if self.orientation() == Qt.Horizontal:
+    #         menu = HorizontalHeaderContextMenu(actions)
+    #     else:
+    #         menu = VerticalHeaderContextMenu(actions)
+    #     menu.exec_(self.mapToGlobal(event.pos()))
+
+    # End of overrides
+
+    def update_zoom(self):
+        """Updates zoom for the section sizes"""
+        print("header view update zoom")
+        self.setDefaultSectionSize(int(self.default_section_size
+                                       * self.grid.zoom))
+        #
+        # if self.orientation() == Qt.Horizontal:
+        #     section_sizes = self.grid.column_widths
+        # else:
+        #     section_sizes = self.grid.row_heights
+        #
+        for i in range(self.count()):
+            size = self.sectionSize(i)
+            self.resizeSection(i, int(size * self.grid.zoom))
+        # for section, size in section_sizes:
+        #     self.resizeSection(section, int(size * self.grid.zoom))
+
+        # with self.grid.undo_resizing_row():
+        #     with self.grid.undo_resizing_column():
+        #         self.setDefaultSectionSize(int(self.default_section_size
+        #                                        * self.grid.zoom))
+        #
+        #         if self.orientation() == Qt.Horizontal:
+        #             section_sizes = self.grid.column_widths
+        #         else:
+        #             section_sizes = self.grid.row_heights
+        #
+        #         for section, size in section_sizes:
+        #             self.resizeSection(section, int(size * self.grid.zoom))
+
+
 class TableContext:
     """
     Lazy evaluation of properties relative to the data request context.
@@ -621,6 +772,9 @@ def debug_trace():
     debugger.interaction(users_frame, None)
 
     # TODO: should call QtCore.pyqtRestoreInputHook() ?
+
+from PyQt5.QtCore import pyqtRemoveInputHook
+pyqtRemoveInputHook()
 
 
 if __name__ == '__main__':
