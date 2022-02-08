@@ -3,8 +3,22 @@ from enaml.core.include import Include
 from enaml.layout.api import hbox, vbox
 
 
-def make_checkbox(item):
-    return CheckBox(text=str(item))
+enamldef CheckBoxItem(CheckBox):
+    attr checklist
+    attr value
+
+    initialized ::
+        self.text = str(self.value)
+
+    value ::
+        text = str(value)
+
+    checked ::
+        checklist.sync_model()
+
+
+def make_checkbox(item, checklist):
+    return CheckBoxItem(value=item, checklist=checklist)
 
 
 def make_checklist_constraints(include, orientation):
@@ -12,7 +26,7 @@ def make_checklist_constraints(include, orientation):
     return [box(*include.objects)]
 
 
-enamldef CheckList(Container):
+enamldef CheckList(Container): self_checklist:
     attr items = []
     attr checked_items = []
     attr orientation = 'vertical'
@@ -20,7 +34,14 @@ enamldef CheckList(Container):
     constraints << make_checklist_constraints(_inc, orientation)
 
     Include: _inc:
-        objects << [make_checkbox(i) for i in items]
+        objects << [make_checkbox(i, self_checklist) for i in items]
+
+    func sync_model():
+        new_checked_items = []
+        for checkbox in _inc.objects:
+            if checkbox.checked:
+                new_checked_items.append(checkbox.value)
+        self.checked_items = new_checked_items
 
     func check_all():
         for checkbox in _inc.objects:
