@@ -62,10 +62,10 @@ class Column:
                  tooltip: Optional[Union[str, Callable]] = None,
                  # TODO: how to specify the types for the signature of the callback here?
                  cell_style: Optional[Callable] = None,
+                 use_getitem: bool = False,
                  ):
-        if callable(key):
-            self.get_value = key  # we re-wire the get_value() here
         self.key = key
+        self._link_get_value_method(key, use_getitem)
         if title is None and isinstance(key, str):
             title = key.title()
         self.title = title
@@ -73,8 +73,22 @@ class Column:
         self.tooltip = tooltip
         self.cell_style = cell_style
 
+    def _link_get_value_method(self, key, use_getitem):
+        if callable(key):
+            self.get_value = key  # we re-wire the get_value() here
+        elif use_getitem:
+            self.get_value = self.get_value_by_getitem_lookup
+        else:
+            self.get_value = self.get_value_by_attribute_lookup
+
     def get_value(self, item: Any) -> Any:
+        raise RuntimeError('get_value() not dynamic linked during initialization')
+
+    def get_value_by_attribute_lookup(self, item: Any) -> Any:
         return getattr(item, self.key)
+
+    def get_value_by_getitem_lookup(self, item: Any) -> Any:
+        return item[self.key]
 
     def get_tooltip(self, table_context: "TableContext") -> str:
         if self.tooltip is not None:
