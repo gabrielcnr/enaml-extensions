@@ -1,7 +1,9 @@
 import contextlib
+import datetime
 import warnings
 import weakref
 from abc import abstractmethod, ABC
+from numbers import Number
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple, Collection, Set
@@ -54,11 +56,14 @@ class Cell(NamedTuple):
     column: int
 
 
+AUTO_ALIGN = object()  # sentinel
+
+
 class Column:
     def __init__(self,
                  key: Union[str, Callable],
                  title: Optional[str] = None,
-                 align: Alignment = Alignment.LEFT,
+                 align: Alignment = AUTO_ALIGN,
                  tooltip: Optional[Union[str, Callable]] = None,
                  # TODO: how to specify the types for the signature of the callback here?
                  cell_style: Optional[Callable] = None,
@@ -101,9 +106,27 @@ class Column:
         if self.cell_style is not None:
             return self.cell_style(table_context) or CellStyle()
 
-    #
-    # def get_align(self, item: Any) -> Alignment:
-    #     return self.align
+    def get_align(self, item: Any) -> Alignment:
+        if self.align is AUTO_ALIGN:
+            # TODO: consider shortcircuiting this - maybe
+            #       maybe this should only be done once, for the first time - then shortcircuit
+            #       or maybe the user wants to have mixed alignments on the same column, so it can provide a callback
+            value = self.get_value(item)
+            align = self.resolve_column_alignment_based_on_value(value)
+            return align
+        else:
+            return self.align
+
+    def resolve_column_alignment_based_on_value(self, value: Any) -> Alignment:
+        if isinstance(value, Number):
+            return Alignment.RIGHT
+        elif isinstance(value, (datetime.datetime, datetime.date)):
+            return Alignment.CENTER
+        elif isinstance(value, str):
+            return Alignment.LEFT
+        else:
+            return Alignment.LEFT
+
 
 
 class QTableModel(QAbstractTableModel):
@@ -132,6 +155,9 @@ class QTableModel(QAbstractTableModel):
                           f"set, but got: {type(checked_items).__name__} instead - coercing to set")
             checked_items = set(checked_items)
         self.checked_items = checked_items
+
+    def __len__(self):
+        return len(self.items)  # O(1)
 
     # QAbstractTableModel interface -----------------------------------------------------------------------------------
 
@@ -163,9 +189,11 @@ class QTableModel(QAbstractTableModel):
                 offset = 1
             else:
                 offset = 0
+            # Only the first column is checkable (index = 0) - so we need to account for that offset
             if (col_index := index.column()) or not self.checkable:
                 column = self.columns[col_index - offset]  # O(1)
-                return to_qt_alignment(column.align)
+                item = self.items[index.row()]  # O(1)
+                return to_qt_alignment(column.get_align(item))
         elif role == Qt.ToolTipRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
@@ -236,7 +264,13 @@ class QTableModel(QAbstractTableModel):
                     return column.title
             elif role == Qt.TextAlignmentRole:
                 column = self.columns[section - offset]  # O(1)
-                return to_qt_alignment(column.align)
+                if len(self):
+                    first_item = self.items[0]
+                    align = column.get_align(first_item)
+                else:
+                    if (align := column.align) is AUTO_ALIGN:
+                        align = Alignment.LEFT
+                return to_qt_alignment(align)
 
         return super().headerData(section, orientation, role)
 
