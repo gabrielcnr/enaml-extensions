@@ -23,6 +23,9 @@ class ProxyTable(ProxyControl):
     def set_selected_items(self, selected_items):
         raise NotImplementedError
 
+    def set_context_menu(self, context_menu):
+        raise NotImplementedError
+
 
 class Table(Control):
     """ A tabular grid/table, column-oriented, where individual items are
@@ -51,12 +54,15 @@ class Table(Control):
     hug_width = set_default('ignore')
     hug_height = set_default('ignore')
 
+    # Context Menu
+    context_menu = d_(List())
 
     # Observers
 
     @observe("columns",
              "items",
              "selected_items",
+             "context_menu"
              )
     def _update_proxy(self, change: Dict):
         """ An observer which sends state change to the proxy.

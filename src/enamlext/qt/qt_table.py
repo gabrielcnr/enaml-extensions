@@ -35,6 +35,7 @@ class QtTable(QtControl, ProxyTable):
             self.set_columns(d.columns)
             self.set_items(d.items)
             self.set_selected_items(d.selected_items)
+            self.set_context_menu(d.context_menu)
 
         # double click action
         self.widget.on_double_click.connect(self._on_double_clicked)
@@ -66,4 +67,7 @@ class QtTable(QtControl, ProxyTable):
 
     def set_selected_items(self, selected_items: List[Any]):
         pass
+
+    def set_context_menu(self, context_menu: List):
+        self.widget.context_menu = context_menu # TODO: make this a property of the QTable
 
