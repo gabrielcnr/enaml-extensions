@@ -7,6 +7,8 @@ from enaml.qt import QtCore
 from enaml.widgets.api import *
 from enaml.layout.api import *
 from functools import partial
+import json
+import sys
 
 CUSTOM_THEME = IDLE_THEME.copy()
 
@@ -32,7 +34,12 @@ CUSTOM_THEME['sql'] = {
         "single_quoted_string": {"color": "blue"},
 }
 
-CUSTOM_THEME['settings']['font'] = '11pt Consolas'
+if 'win' in sys.platform:
+    font = 'Consolas'
+else:
+    font = 'Menlo'
+
+CUSTOM_THEME['settings']['font'] = f'21pt {font}'
 
 
 enamldef SQLEditor(Scintilla): editor:
@@ -53,16 +60,22 @@ enamldef SQLEditor(Scintilla): editor:
         self.proxy.widget.setReadOnly(read_only)
 
 
-INVALID_JSON = object()  # sentinel
+class InvalidJSONType:
+    def __repr__(self):
+        return '<<InvalidJSON>>'
+
+
+INVALID_JSON = InvalidJSONType()  # sentinel
 
 
 enamldef JSONEditor(Scintilla): editor:
     attr content   # text contents
     attr value
     attr read_only = False
+    attr updating = False
+
     syntax = 'python'
     theme = CUSTOM_THEME
-
 
     settings = {
         'tab_width': 4,
@@ -90,35 +103,53 @@ enamldef JSONEditor(Scintilla): editor:
         set_text(nonlocals.content)
         widget_.setReadOnly(nonlocals.read_only)
         self.proxy.widget.wheelEvent = partial(wheelEvent, self.proxy.widget)
-        self.content
-        self.value
+        self.content, self.value, self.updating  # TODO: why?
 
     read_only ::
         self.proxy.widget.setReadOnly(read_only)
 
-    # every time the text contents change - we need to sync with the json object
     content ::
-        import json
         try:
-            nonlocals.value = json.loads(contents)
-        except Exception:
-            nonlocals.value = INVALID_JSON
+            self.value = json.loads(content)
+        except Exception as exc:
+            self.value = INVALID_JSON
 
     value ::
-        print('json value changed\n', value)
-
+        if value is not INVALID_JSON:
+            try:
+                new_contents = json.dumps(value, indent=4)
+            except Exception as exc:
+                self.value = INVALID_JSON
+            else:
+                if not self.updating:
+                    self.set_text(str(new_contents))
+#
     text_changed ::
-        timer.stop()
         timer.start()
 
     Timer: timer:
         interval = 500  # ms
         single_shot = True
         timeout ::
-            editor.content = editor.get_text()
+            nonlocals.updating = True
+            editor.content = str(editor.get_text())
+            nonlocals.updating = False
 
 
 enamldef Main(MainWindow):
+    initial_size = (900, 600)
+
     Container:
-        JSONEditor:
+        JSONEditor: json_editor:
             pass
+
+        PushButton:
+            text = 'Set data'
+            clicked ::
+                import datetime
+                json_editor.value = {'name': 'Gabriel Reis', 'children': ['Sophie', 'Alice'], 'age': 39, 'ts': str(datetime.datetime.now())}
+
+        PushButton:
+            text = 'Print value'
+            clicked ::
+                print(json_editor.value)
