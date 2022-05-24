@@ -3,10 +3,14 @@ It needs conda package: qscintilla2
 """
 from enaml.scintilla.scintilla import Scintilla
 from enaml.scintilla.themes.idle import IDLE_THEME
+from enaml.qt import QtCore
 from enaml.widgets.api import *
 from enaml.layout.api import *
+from functools import partial
 
-IDLE_THEME['sql'] = {
+CUSTOM_THEME = IDLE_THEME.copy()
+
+CUSTOM_THEME['sql'] = {
         "comment": { "color": "gray" },
         "comment_doc": { "color": "gray" },
         "comment_doc_keyword": { "color": "gray" },
@@ -28,12 +32,14 @@ IDLE_THEME['sql'] = {
         "single_quoted_string": {"color": "blue"},
 }
 
+CUSTOM_THEME['settings']['font'] = '11pt Consolas'
+
 
 enamldef SQLEditor(Scintilla): editor:
     attr sql
     attr read_only = False
     syntax = 'sql'
-    theme = IDLE_THEME
+    theme = CUSTOM_THEME
 
     activated ::
         # Margin 0 is used for line numbers
@@ -55,7 +61,26 @@ enamldef JSONEditor(Scintilla): editor:
     attr value
     attr read_only = False
     syntax = 'python'
-    theme = IDLE_THEME
+    theme = CUSTOM_THEME
+
+
+    settings = {
+        'tab_width': 4,
+        'use_tabs': False,
+        'indent': 4,
+        'tab_indents': True,
+        'backspace_unindents': True,
+    }
+
+    func wheelEvent(self, event):
+        if event.modifiers() == QtCore.Qt.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoomIn()
+            elif delta < 0:
+                self.zoomOut()
+        else:
+            return type(self).wheelEvent(self, event)
 
     activated ::
         # Margin 0 is used for line numbers
@@ -64,6 +89,7 @@ enamldef JSONEditor(Scintilla): editor:
         widget_.setMarginLineNumbers(0, True)
         set_text(nonlocals.content)
         widget_.setReadOnly(nonlocals.read_only)
+        self.proxy.widget.wheelEvent = partial(wheelEvent, self.proxy.widget)
 
     read_only ::
         self.proxy.widget.setReadOnly(read_only)
