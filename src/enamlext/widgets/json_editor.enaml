@@ -90,6 +90,8 @@ enamldef JSONEditor(Scintilla): editor:
         set_text(nonlocals.content)
         widget_.setReadOnly(nonlocals.read_only)
         self.proxy.widget.wheelEvent = partial(wheelEvent, self.proxy.widget)
+        self.content
+        self.value
 
     read_only ::
         self.proxy.widget.setReadOnly(read_only)
@@ -105,6 +107,15 @@ enamldef JSONEditor(Scintilla): editor:
     value ::
         print('json value changed\n', value)
 
+    text_changed ::
+        timer.stop()
+        timer.start()
+
+    Timer: timer:
+        interval = 500  # ms
+        single_shot = True
+        timeout ::
+            editor.content = editor.get_text()
 
 
 enamldef Main(MainWindow):
