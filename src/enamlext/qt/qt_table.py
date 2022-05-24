@@ -36,6 +36,7 @@ class QtTable(QtControl, ProxyTable):
             self.set_items(d.items)
             self.set_selected_items(d.selected_items)
             self.set_context_menu(d.context_menu)
+            self.set_checkable(d.checkable)
 
         # double click action
         self.widget.on_double_click.connect(self._on_double_clicked)
@@ -71,3 +72,5 @@ class QtTable(QtControl, ProxyTable):
     def set_context_menu(self, context_menu: List):
         self.widget.context_menu = context_menu # TODO: make this a property of the QTable
 
+    def set_checkable(self, checkable: bool) -> None:
+        self.widget.checkable = checkable

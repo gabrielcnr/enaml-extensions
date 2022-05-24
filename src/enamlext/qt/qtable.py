@@ -6,7 +6,7 @@ from abc import abstractmethod, ABC
 from numbers import Number
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple, Collection, Set
+from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple, Collection, Set, Iterable
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
 from qtpy.QtGui import QContextMenuEvent, QFont, QColor
@@ -612,20 +612,24 @@ class MenuActionContext:
 
     @property
     def item(self) -> Any:
-        return self.model.get_item_by_index(self.row_index)
+        if (row_index := self.row_index) != -1:
+            return self.model.get_item_by_index(row_index)
 
     @property
     def column(self) -> Column:
-        return self.model.get_column_by_index(self.column_index)
+        if (col_index := self.column_index) != -1:
+            return self.model.get_column_by_index(col_index)
 
     @property
     def raw_value(self) -> Any:
-        return self.column.get_value(self.item)
+        if (item := self.item) is not None:  # TODO: use a different sentinel here?
+            return self.column.get_value(item)
 
     @property
     def value(self) -> str:
         """ Returns the displayed value. """
-        return self.column.get_displayed_value(self.item)
+        if (item := self.item) is not None:  # TODO: use a different sentinel here?
+            return self.column.get_displayed_value(item)
 
 
 class ContextMenuAction(ABC):
@@ -650,6 +654,22 @@ NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
 def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle:
     if table_context.raw_value < 0:
         return NEGATIVE_NUMBER_CELL_STYLE
+
+
+# Utility functions
+
+def auto_generate_columns(items: Iterable) -> list[Column]:
+    """
+    Automatically generate the columns given an items dataset.
+
+    It works with:
+        - list of dicts (where each dict is a record)
+        - list of namedtuples
+        - list of tuples
+        - list of Atom instances
+    """
+
+
 
 
 def debug_trace():

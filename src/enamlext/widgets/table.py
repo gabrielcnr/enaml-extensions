@@ -1,6 +1,6 @@
 from typing import Dict
 
-from atom.api import Typed, ForwardTyped, List, observe, Event
+from atom.api import Typed, ForwardTyped, List, Bool, observe, Event
 from atom.atom import set_default
 from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
@@ -24,6 +24,9 @@ class ProxyTable(ProxyControl):
         raise NotImplementedError
 
     def set_context_menu(self, context_menu):
+        raise NotImplementedError
+
+    def set_checkable(self, checkable: bool) -> None:
         raise NotImplementedError
 
 
@@ -57,12 +60,16 @@ class Table(Control):
     # Context Menu
     context_menu = d_(List())
 
+    # Flag controlling if the user can check/tick items on the table
+    checkable = d_(Bool())
+
     # Observers
 
     @observe("columns",
              "items",
              "selected_items",
-             "context_menu"
+             "context_menu",
+             "checkable",
              )
     def _update_proxy(self, change: Dict):
         """ An observer which sends state change to the proxy.
