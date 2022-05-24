@@ -1,0 +1,72 @@
+"""
+It needs conda package: qscintilla2
+"""
+from enaml.scintilla.scintilla import Scintilla
+from enaml.scintilla.themes.idle import IDLE_THEME
+from enaml.widgets.api import *
+from enaml.layout.api import *
+
+IDLE_THEME['sql'] = {
+        "comment": { "color": "gray" },
+        "comment_doc": { "color": "gray" },
+        "comment_doc_keyword": { "color": "gray" },
+        "comment_doc_keyword_error": { "color": "gray" },
+        "comment_line":{ "color": "gray" },
+        "comment_line_hash": { "color": "gray" },
+        "identifier": {"color": "orange"},
+        "keyword": {"color": "blue"},
+        "keyword_set5":  {"color": "blue"},
+        "keyword_set6":  {"color": "blue"},
+        "keyword_set7":  {"color": "blue"},
+        "keyword_set8":  {"color": "blue"},
+        "number": {"color": "green"},
+#        "operator": {"color": "red"},
+#        "plus_comment": "PlusComment",
+#        "plus_keyword": "PlusKeyword",
+#        "plus_prompt": "PlusPrompt",
+        "quoted_identifier": {"color": "orange"},
+        "single_quoted_string": {"color": "blue"},
+}
+
+
+enamldef SQLEditor(Scintilla): editor:
+    attr sql
+    attr read_only = False
+    syntax = 'sql'
+    theme = IDLE_THEME
+
+    activated ::
+        # Margin 0 is used for line numbers
+        widget_ = editor.proxy.widget
+        widget_.setMarginWidth(0, 22)
+        widget_.setMarginLineNumbers(0, True)
+        set_text(nonlocals.sql)
+        widget_.setReadOnly(nonlocals.read_only)
+
+    read_only ::
+        self.proxy.widget.setReadOnly(read_only)
+
+
+enamldef JSONEditor(Scintilla): editor:
+    attr sql
+    attr read_only = False
+    syntax = 'python'
+    theme = IDLE_THEME
+
+    activated ::
+        # Margin 0 is used for line numbers
+        widget_ = editor.proxy.widget
+        widget_.setMarginWidth(0, 22)
+        widget_.setMarginLineNumbers(0, True)
+        set_text(nonlocals.sql)
+        widget_.setReadOnly(nonlocals.read_only)
+
+    read_only ::
+        self.proxy.widget.setReadOnly(read_only)
+
+
+
+enamldef Main(MainWindow):
+    Container:
+        JSONEditor:
+            pass
