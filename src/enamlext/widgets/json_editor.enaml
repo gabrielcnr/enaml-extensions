@@ -47,8 +47,12 @@ enamldef SQLEditor(Scintilla): editor:
         self.proxy.widget.setReadOnly(read_only)
 
 
+INVALID_JSON = object()  # sentinel
+
+
 enamldef JSONEditor(Scintilla): editor:
-    attr sql
+    attr content   # text contents
+    attr value
     attr read_only = False
     syntax = 'python'
     theme = IDLE_THEME
@@ -58,11 +62,22 @@ enamldef JSONEditor(Scintilla): editor:
         widget_ = editor.proxy.widget
         widget_.setMarginWidth(0, 22)
         widget_.setMarginLineNumbers(0, True)
-        set_text(nonlocals.sql)
+        set_text(nonlocals.content)
         widget_.setReadOnly(nonlocals.read_only)
 
     read_only ::
         self.proxy.widget.setReadOnly(read_only)
+
+    # every time the text contents change - we need to sync with the json object
+    content ::
+        import json
+        try:
+            nonlocals.value = json.loads(contents)
+        except Exception:
+            nonlocals.value = INVALID_JSON
+
+    value ::
+        print('json value changed\n', value)
 
 
 
