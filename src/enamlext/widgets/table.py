@@ -1,7 +1,10 @@
+from collections.abc import Sequence
 from typing import Dict
 
+import numpy as np
 from atom.api import Typed, ForwardTyped, List, Bool, observe, Event
 from atom.atom import set_default
+from atom.instance import Instance
 from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
 
@@ -38,7 +41,7 @@ class Table(Control):
     columns = d_(List())
 
     #: The items to be displayed in individual rows of the table
-    items = d_(List())
+    items = d_(Instance((Sequence, np.ndarray), factory=list))
 
     #: The items that are currently selected on the table # TODO: how to distinguish when mode=cell
     selected_items = d_(List())

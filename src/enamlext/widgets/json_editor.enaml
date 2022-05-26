@@ -39,7 +39,7 @@ if 'win' in sys.platform:
 else:
     font = 'Menlo'
 
-CUSTOM_THEME['settings']['font'] = f'21pt {font}'
+CUSTOM_THEME['settings']['font'] = f'12pt {font}'
 
 
 enamldef SQLEditor(Scintilla): editor:
