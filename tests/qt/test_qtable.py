@@ -5,7 +5,7 @@ from numbers import Number
 from operator import itemgetter
 from typing import Any, Iterable, Generator
 
-from enamlext.qt.qtable import Column, Alignment, AUTO_ALIGN
+from enamlext.qt.qtable import Column, Alignment, AUTO_ALIGN, compute_summary, TableSelectionSummary
 
 
 def make_title(title: str):
@@ -223,3 +223,29 @@ def test_filters():
     ]
 
     assert expected == list(filters.filter_items(items))
+
+###########
+# Summary
+###########
+
+def test_compute_summary():
+    values = [1, 2, 'foo', 'bar', -3, -4, -1]
+    summary = compute_summary(values)
+    expected_summary = TableSelectionSummary(sum=-5, values=values, min=-4, max=2,
+                                             count_numbers=5)
+    assert expected_summary == summary
+
+    assert 7 == summary.count
+    assert -1 == summary.avg
+
+
+def test_compute_summary_diff():
+    values = [-4, 11]
+    summary = compute_summary(values)
+    expected_summary = TableSelectionSummary(sum=7, values=values, min=-4, max=11,
+                                             count_numbers=2)
+    assert expected_summary == summary
+
+    assert 2 == summary.count
+    assert 3.5 == summary.avg
+    assert 15 == summary.diff
