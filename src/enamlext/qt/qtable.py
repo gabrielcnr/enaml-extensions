@@ -401,6 +401,12 @@ class QTable(QTableView):
         #       Also, need to eliminate the duplication here - we should only work in terms of what's inside the model
         #       this will prevent from view and model getting out of sync
 
+
+        # Horizontal header with filter capabilities
+        h_header = QFilterableHeaderView(Qt.Horizontal, parent=self)
+        self.setHorizontalHeader(h_header)
+
+
     @property
     def columns(self) -> List[Column]:
         return self._columns
@@ -646,6 +652,87 @@ class ContextMenuAction(ABC):
         pass
 
 
+from qtpy.QtWidgets import QWidget, QHeaderView, QLineEdit, QPushButton, QGroupBox, QHBoxLayout, QVBoxLayout, QLabel
+
+
+class QFilterWidget(QWidget):
+    def __init__(self, column, callback, *, parent):
+        super().__init__(parent)
+        self.column = column
+        self.callback = callback
+        self._setup_ui()
+
+    def _setup_ui(self):
+        caption = f'Filter: {self.column.title}'
+        self.setWindowTitle(caption)
+
+        layout = QVBoxLayout()
+
+        label = QLabel(caption)
+        label.font().setBold(True)
+        layout.addWidget(label)
+
+        self._input_field = input_field = QLineEdit()
+        layout.addWidget(input_field)
+        input_field.returnPressed.connect(self._notify_callback)
+
+        gb = QGroupBox()
+        gb.setFlat(True)
+        gb.setTitle('')
+
+        gb_layout = QHBoxLayout()
+        btn_ok = QPushButton('OK')
+        btn_ok.setDefault(True)
+        btn_ok.clicked.connect(self._notify_callback)
+
+        btn_cancel = QPushButton('Cancel')
+        btn_cancel.setDefault(False)
+        btn_cancel.clicked.connect(self.close)
+
+        gb_layout.addStretch()
+        gb_layout.addWidget(btn_ok)
+        gb_layout.addWidget(btn_cancel)
+
+        gb.setLayout(gb_layout)
+
+        layout.addWidget(gb)
+
+        self.setLayout(layout)
+
+        self.setWindowFlags(Qt.Popup)
+        self.resize(200, 80)
+
+    def show(self, global_pos):
+        self.move(global_pos)
+        super().show()
+        self._input_field.setFocus()
+
+    def _notify_callback(self, *args):
+        expression = str(self._input_field.text()).strip()
+        self.callback(self.column, expression)
+        self._input_field = None
+        self.close()
+
+
+class QFilterableHeaderView(QHeaderView):
+    filterChanged = Signal(Column, str)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.RightButton:
+            table: QTable = self.parent()
+            model: QTableModel = table.model()
+            column_index = self.logicalIndexAt(event.pos())
+            column = model.get_column_by_index(column_index)
+            filter_widget = QFilterWidget(column, self.filter_callback, parent=table)
+            filter_widget.show(event.globalPos())
+
+        return super().mousePressEvent(event)
+
+    def filter_callback(self, column: Column, expression: str):
+        # TODO: use column index?
+        self.filterChanged.emit(column, expression)
+
+
 # Cell style callbacks
 RED = QColor(Qt.red)
 NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
@@ -654,22 +741,6 @@ NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
 def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle:
     if table_context.raw_value < 0:
         return NEGATIVE_NUMBER_CELL_STYLE
-
-
-# Utility functions
-
-def auto_generate_columns(items: Iterable) -> list[Column]:
-    """
-    Automatically generate the columns given an items dataset.
-
-    It works with:
-        - list of dicts (where each dict is a record)
-        - list of namedtuples
-        - list of tuples
-        - list of Atom instances
-    """
-
-
 
 
 def debug_trace():
