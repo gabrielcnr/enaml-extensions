@@ -3,6 +3,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from numbers import Number
 from operator import itemgetter
+from typing import Any, Iterable, Generator
 
 from enamlext.qt.qtable import Column, Alignment, AUTO_ALIGN
 
@@ -120,3 +121,105 @@ def test_generate_columns_from_list_of_namedtuples():
 
     assert [66, 99] == [col_1.get_value(item) for item in items]
     assert ['Bob', 'Charlie'] == [col_2.get_value(item) for item in items]
+
+
+############################
+# Filter
+############################
+
+class Filter:
+    """ One filter, bound to one column.
+    """
+    def __init__(self, column: Column, expression: str):
+        self.column = column
+        self.expression = expression  # as entered by the user
+
+        operators = {'>', '<', '>=', '<=', '==', '!='}
+
+        for op in operators:
+            if op in expression:
+                self.final_expression = expression
+                break
+        else:
+            self.final_expression = f'== {expression}'
+
+        self._evaluate_filter = self._generate_filter_evaluation_callback()
+
+    def _generate_filter_evaluation_callback(self):
+        def callback(x):
+            ns = {'x': x}
+            return eval(f'x {self.final_expression}', ns)
+
+        return callback
+
+    def __call__(self, item: Any) -> bool:
+        value = self.column.get_value(item)
+        return self._evaluate_filter(value)
+
+
+class TableFilters:
+    """ Collection of Filters.
+    """
+    def __init__(self, filters: list[Filter]):
+        self.filters = filters
+
+    def filter_items(self, items: Iterable) -> Generator:
+        for item in items:
+            if self.filter(item):
+                yield item
+
+    def filter(self, item: Any) -> bool:
+        """ Returns True if the given item is included after evaluating all the filters.
+        """
+        for filter in self.filters:
+            if not filter(item):
+                return False
+        return True
+
+
+def test_filter():
+    column = Column('age', use_getitem=True)
+
+    filter = Filter(column, '> 25')
+
+    assert filter({'age': 30})
+    assert not filter({'age': 25})
+    assert not filter({'age': 20})
+
+
+def test_filter_assumes_equality_by_default():
+    column = Column('age', use_getitem=True)
+
+    filter = Filter(column, '25')
+
+    assert filter({'age': 25})
+    assert not filter({'age': 30})
+    assert not filter({'age': 20})
+
+
+def test_filters():
+    col_age = Column('age', use_getitem=True)
+    col_name = Column('name', use_getitem=True)
+
+    filters = TableFilters([
+        Filter(col_age, '> 12'),
+        Filter(col_name, "'Leo'"),
+    ])
+
+    items = [
+        {'name': 'Leo', 'age': 13},
+        {'name': 'Leo', 'age': 11},
+        {'name': 'Leo', 'age': 18},
+        {'name': 'Joe', 'age': 11},
+        {'name': 'Joe', 'age': 14},
+        {'name': 'Joe', 'age': 20},
+        {'name': 'Leo', 'age': 19},
+    ]
+
+    expected = [
+        {'name': 'Leo', 'age': 13},
+        {'name': 'Leo', 'age': 18},
+        {'name': 'Leo', 'age': 19},
+    ]
+
+    assert expected == list(filters.filter_items(items))
