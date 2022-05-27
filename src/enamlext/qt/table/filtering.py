@@ -11,6 +11,9 @@ class Filter:
         self.expression = expression.strip()  # as entered by the user
         self._evaluate_filter = self._generate_filter_evaluation_callback()
 
+    def __str__(self):
+        return self.expression
+
     def _expression_startswith_operator(self, expression: str) -> bool:
         operators = {'>', '<', '>=', '<=', '==', '!='}
 
@@ -63,3 +66,8 @@ class TableFilters:
         filters = [f for f in self.filters if f.column != filter.column]
         filters.append(filter)
         self.filters = filters
+
+    def get(self, column: Column) -> Filter | None:
+        for f in self.filters:
+            if f.column == column:
+                return f

@@ -149,6 +149,11 @@ def test_filter_assumes_equality_by_default():
     assert not filter({'age': 20})
 
 
+def test_filter_str():
+    filter = Filter(None, '> 15')
+    assert str(filter) == '> 15'
+
+
 def test_filters():
     col_age = Column('age', use_getitem=True)
     col_name = Column('name', use_getitem=True)
@@ -175,6 +180,17 @@ def test_filters():
     ]
 
     assert expected == list(filters.filter_items(items))
+
+
+def test_get_filter_for_column():
+    col_1 = Column('a')
+    col_2 = Column('b')
+
+    filters = TableFilters([Filter(col_1, '> 10'), Filter(col_2, '<= 12')])
+
+    assert str(filters.get(col_1)) == '> 10'
+    assert str(filters.get(col_2)) == '<= 12'
+
 
 ###########
 # Summary
