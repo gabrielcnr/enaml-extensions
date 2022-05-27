@@ -603,10 +603,11 @@ from qtpy.QtWidgets import QWidget, QHeaderView, QLineEdit, QPushButton, QGroupB
 
 
 class QFilterWidget(QWidget):
-    def __init__(self, column, callback, *, parent):
+    def __init__(self, column, callback, filters, *, parent):
         super().__init__(parent)
         self.column = column
         self.callback = callback
+        self.filters = filters
         self._setup_ui()
 
     def _setup_ui(self):
@@ -622,6 +623,9 @@ class QFilterWidget(QWidget):
         self._input_field = input_field = QLineEdit()
         layout.addWidget(input_field)
         input_field.returnPressed.connect(self._notify_callback)
+
+        if (current_filter := self.filters.get(self.column)) is not None:
+            input_field.setText(str(current_filter))
 
         gb = QGroupBox()
         gb.setFlat(True)
@@ -670,7 +674,7 @@ class QFilterableHeaderView(QHeaderView):
             model: QTableModel = table.model()
             column_index = self.logicalIndexAt(event.pos())
             column = model.get_column_by_index(column_index)
-            filter_widget = QFilterWidget(column, self.filter_callback, parent=table)
+            filter_widget = QFilterWidget(column, self.filter_callback, model.filters, parent=table)
             filter_widget.show(event.globalPos())
 
         return super().mousePressEvent(event)
