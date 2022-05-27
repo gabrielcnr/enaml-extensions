@@ -3,7 +3,8 @@ from typing import List, Any
 from atom.api import Int, Typed
 from enaml.qt.qt_control import QtControl
 
-from enamlext.qt.qtable import QTable, DoubleClickContext, SelectionContext, Column
+from enamlext.qt.qtable import QTable, DoubleClickContext, SelectionContext
+from enamlext.qt.table.column import Column
 from enamlext.widgets.table import ProxyTable
 
 # cyclic notification guard flags

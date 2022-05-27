@@ -3,9 +3,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from numbers import Number
 from operator import itemgetter
-from typing import Any, Iterable, Generator
 
-from enamlext.qt.qtable import Column, Alignment, AUTO_ALIGN, compute_summary, TableSelectionSummary
+from enamlext.qt.qtable import compute_summary, TableSelectionSummary
+from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
+from enamlext.qt.table.filtering import TableFilters, Filter
 
 
 def make_title(title: str):
@@ -127,55 +128,6 @@ def test_generate_columns_from_list_of_namedtuples():
 # Filter
 ############################
 
-class Filter:
-    """ One filter, bound to one column.
-    """
-    def __init__(self, column: Column, expression: str):
-        self.column = column
-        self.expression = expression  # as entered by the user
-
-        operators = {'>', '<', '>=', '<=', '==', '!='}
-
-        for op in operators:
-            if op in expression:
-                self.final_expression = expression
-                break
-        else:
-            self.final_expression = f'== {expression}'
-
-        self._evaluate_filter = self._generate_filter_evaluation_callback()
-
-    def _generate_filter_evaluation_callback(self):
-        def callback(x):
-            ns = {'x': x}
-            return eval(f'x {self.final_expression}', ns)
-
-        return callback
-
-    def __call__(self, item: Any) -> bool:
-        value = self.column.get_value(item)
-        return self._evaluate_filter(value)
-
-
-class TableFilters:
-    """ Collection of Filters.
-    """
-    def __init__(self, filters: list[Filter]):
-        self.filters = filters
-
-    def filter_items(self, items: Iterable) -> Generator:
-        for item in items:
-            if self.filter(item):
-                yield item
-
-    def filter(self, item: Any) -> bool:
-        """ Returns True if the given item is included after evaluating all the filters.
-        """
-        for filter in self.filters:
-            if not filter(item):
-                return False
-        return True
-
 
 def test_filter():
     column = Column('age', use_getitem=True)
@@ -203,7 +155,7 @@ def test_filters():
 
     filters = TableFilters([
         Filter(col_age, '> 12'),
-        Filter(col_name, "'Leo'"),
+        Filter(col_name, 'Leo'),
     ])
 
     items = [

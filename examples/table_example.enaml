@@ -1,8 +1,7 @@
 from enaml.widgets.api import *
 from enaml.layout.api import *
 from enamlext.widgets import Table
-from enamlext.qt.qtable import Column
-
+from enamlext.qt.table.column import Column
 
 from enamlext.qt.qt_table import QtTable
 

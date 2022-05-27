@@ -1,18 +1,20 @@
 import contextlib
-import datetime
 import warnings
 import weakref
 from abc import abstractmethod, ABC
-from numbers import Number
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Any, Union, Callable, List, Tuple, TypedDict, NamedTuple, Collection, Set, Iterable
+from typing import Optional, Any, List, Tuple, NamedTuple, Collection, Set, Iterable
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
 from qtpy.QtGui import QContextMenuEvent, QFont, QColor
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
 # Constants
+from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
+from enamlext.qt.table.defs import CellStyle
+from enamlext.qt.table.filtering import TableFilters, Filter
+
 DEFAULT_ROW_HEIGHT = 23
 DEFAULT_FONT_NAME = "Calibri"
 DEFAULT_FONT_SIZE_PX = 13
@@ -25,12 +27,6 @@ class SelectionMode(Enum):
     MULTI_CELLS = auto()
     SINGLE_ROW = auto()
     MULTI_ROWS = auto()
-
-
-class Alignment(str, Enum):
-    LEFT = "left"
-    CENTER = "center"
-    RIGHT = "right"
 
 
 QT_ALIGNMENT_MAP = {
@@ -46,87 +42,9 @@ def to_qt_alignment(align: Alignment) -> QtAlignment:
     return QT_ALIGNMENT_MAP[align]
 
 
-class CellStyle(TypedDict, total=False):
-    color: Optional[QColor]
-    background: Optional[QColor]
-
-
 class Cell(NamedTuple):
     row: int
     column: int
-
-
-AUTO_ALIGN = object()  # sentinel
-
-
-class Column:
-    def __init__(self,
-                 key: Union[str, Callable],
-                 title: Optional[str] = None,
-                 align: Alignment = AUTO_ALIGN,
-                 tooltip: Optional[Union[str, Callable]] = None,
-                 # TODO: how to specify the types for the signature of the callback here?
-                 cell_style: Optional[Callable] = None,
-                 use_getitem: bool = False,
-                 ):
-        self.key = key
-        self._link_get_value_method(key, use_getitem)
-        if title is None and isinstance(key, str):
-            title = key.title()
-        self.title = title
-        self.align = align
-        self.tooltip = tooltip
-        self.cell_style = cell_style
-
-    def _link_get_value_method(self, key, use_getitem):
-        if callable(key):
-            self.get_value = key  # we re-wire the get_value() here
-        elif use_getitem:
-            self.get_value = self.get_value_by_getitem_lookup
-        else:
-            self.get_value = self.get_value_by_attribute_lookup
-
-    def get_value(self, item: Any) -> Any:
-        raise RuntimeError('get_value() not dynamic linked during initialization')
-
-    def get_value_by_attribute_lookup(self, item: Any) -> Any:
-        return getattr(item, self.key)
-
-    def get_value_by_getitem_lookup(self, item: Any) -> Any:
-        return item[self.key]
-
-    def get_tooltip(self, table_context: "TableContext") -> str:
-        if self.tooltip is not None:
-            if callable(self.tooltip):
-                return str(self.tooltip(table_context))  # TODO: is it a good practice to enforce str() here?
-            else:
-                return self.tooltip  # str
-
-    def get_cell_style(self, table_context: "TableContext") -> Optional[CellStyle]:
-        if self.cell_style is not None:
-            return self.cell_style(table_context) or CellStyle()
-
-    def get_align(self, item: Any) -> Alignment:
-        if self.align is AUTO_ALIGN:
-            # TODO: consider shortcircuiting this - maybe
-            #       maybe this should only be done once, for the first time - then shortcircuit
-            #       or maybe the user wants to have mixed alignments on the same column, so it can provide a callback
-            value = self.get_value(item)
-            align = self.resolve_column_alignment_based_on_value(value)
-            return align
-        else:
-            return self.align
-
-    def resolve_column_alignment_based_on_value(self, value: Any) -> Alignment:
-        if isinstance(value, Number):
-            return Alignment.RIGHT
-        elif isinstance(value, (datetime.datetime, datetime.date)):
-            return Alignment.CENTER
-        elif isinstance(value, str):
-            return Alignment.LEFT
-        else:
-            return Alignment.LEFT
-
 
 
 class QTableModel(QAbstractTableModel):
@@ -144,8 +62,13 @@ class QTableModel(QAbstractTableModel):
                  ):
         super().__init__(parent)
         self.columns = columns
-        self.items = items
+        self._original_items = items
         self.checkable = checkable
+
+        # Filtering
+        self._filtered_items = None
+        self.filters = TableFilters()
+        self._apply_filters()
 
         # Internally we keep track of which items are checked using a set
         if checked_items is None:
@@ -282,6 +205,27 @@ class QTableModel(QAbstractTableModel):
     def get_item_by_index(self, index: int) -> Any:
         return self.items[index]
 
+    @property
+    def items(self) -> List[Any]:
+        """ read from the filtered items """
+        return self._filtered_items
+
+    @items.setter
+    def items(self, items: Iterable[Any]) -> None:
+        """ write to the original items (not filtered) """
+        self._original_items = items
+        self._apply_filters()
+
+    def set_filter(self, column: Column, expression: str) -> None:
+        filter = Filter(column, expression)
+        self.filters.add_filter(filter)
+        self._apply_filters()
+
+    def _apply_filters(self) -> None:
+        self.beginResetModel()
+        self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
+        self.endResetModel()
+
 
 class DoubleClickContext:
     def __init__(self, index: QModelIndex, table: "QTable"):
@@ -404,8 +348,11 @@ class QTable(QTableView):
 
         # Horizontal header with filter capabilities
         h_header = QFilterableHeaderView(Qt.Horizontal, parent=self)
+        h_header.filterChanged.connect(self.on_filter_changed)
         self.setHorizontalHeader(h_header)
 
+    def on_filter_changed(self, column: Column, expression: str) -> None:
+        self.model().set_filter(column, expression)
 
     @property
     def columns(self) -> List[Column]:
