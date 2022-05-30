@@ -10,8 +10,24 @@ QT_FACTORIES["Table"] = lambda: QtTable
 
 from operator import itemgetter
 
+enamldef TableSummary(Container):
+    attr table = None
+    padding = 0
 
-enamldef Main(MainWindow):
+    func on_selection_changed(change):
+        selection_context = change['value']
+        print(list(selection_context.selected_values))
+
+    initialized ::
+        if table is not None:
+            print('observing')
+            self.table.observe('selection_changed', self.on_selection_changed)
+
+
+
+
+
+enamldef Main(MainWindow): window:
 
     title = 'Table Example'
 
@@ -20,7 +36,16 @@ enamldef Main(MainWindow):
     GroupBox:
         title = 'The Beatles'
 
-        Table: table:
+        PushButton:
+            text = 'Click'
+            clicked ::
+                print(the_table.selected_items)
+
+        TableSummary:
+            table << the_table
+            # selection << the_table.selected_items
+
+        Table: the_table:
             columns = [
                 Column(itemgetter("name")),
                 Column(itemgetter('surname')),

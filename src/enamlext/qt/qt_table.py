@@ -53,6 +53,7 @@ class QtTable(QtControl, ProxyTable):
 
     def _on_selection_changed(self, context: SelectionContext):
         self.declaration.selected_items = context.selected_items
+        self.declaration.selection_changed(context)
 
     # ProxyTable API
     def set_items(self, items: List[Any]):

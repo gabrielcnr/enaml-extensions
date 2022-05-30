@@ -205,6 +205,12 @@ class QTableModel(QAbstractTableModel):
     def get_item_by_index(self, index: int) -> Any:
         return self.items[index]
 
+    def get_cell_value(self, row_index: int, column_index: int) -> Any:
+        if column_index or not self.checkable:
+            column = self.columns[column_index]  # O(1)
+            item = self.items[row_index]  # O(1)
+            return column.get_value(item)
+
     @property
     def items(self) -> List[Any]:
         """ read from the filtered items """
@@ -302,6 +308,15 @@ class SelectionContext:
             row_indexes = (i.row() for i in self.selected_model_indexes)
             return [table.model().get_item_by_index(i)
                     for i in set(row_indexes)]
+
+    @property
+    def selected_values(self) -> List[Any]:  # TODO: generator?
+        table = self.__table()
+        if table is not None:
+            get_cell_value = table.model().get_cell_value
+            for row_index, column_index in self.selected_indexes:
+                yield((row_index, column_index), get_cell_value(row_index, column_index))
+
 
 
 class QTable(QTableView):
