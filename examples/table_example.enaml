@@ -10,21 +10,16 @@ QT_FACTORIES["Table"] = lambda: QtTable
 
 from operator import itemgetter
 
+
+from enamlext.qt.table.summary import TableSelectionSummary
+
 enamldef TableSummary(Container):
-    attr table = None
+    attr table
     padding = 0
 
-    func on_selection_changed(change):
-        selection_context = change['value']
-        print(list(selection_context.selected_values))
-
-    initialized ::
-        if table is not None:
-            print('observing')
-            self.table.observe('selection_changed', self.on_selection_changed)
-
-
-
+    Label: lbl_summary:
+        font = 'bold 9pt Consolas'
+        text << str(table.summary)
 
 
 enamldef Main(MainWindow): window:
@@ -43,9 +38,10 @@ enamldef Main(MainWindow): window:
 
         TableSummary:
             table << the_table
-            # selection << the_table.selected_items
 
         Table: the_table:
+            show_summary = True
+
             columns = [
                 Column(itemgetter("name")),
                 Column(itemgetter('surname')),

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from numbers import Number
 from operator import itemgetter
 
-from enamlext.qt.qtable import compute_summary, TableSelectionSummary
+from enamlext.qt.table.summary import TableSelectionSummary, compute_summary
 from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
 from enamlext.qt.table.filtering import TableFilters, Filter
 
@@ -217,3 +217,13 @@ def test_compute_summary_diff():
     assert 2 == summary.count
     assert 3.5 == summary.avg
     assert 15 == summary.diff
+
+
+def test_summary_string_text():
+    summary = TableSelectionSummary(sum=5, values=[...] * 7, min=-4.5, max=12.25, count_numbers=4)
+    assert 'Count: 7   Average: 1.25   Sum: 5   CountNumbers: 4   Min: -4.5   Max: 12.25' == str(summary)
+
+
+def test_summary_string_text_with_diff():
+    summary = TableSelectionSummary(sum=4, values=[1, 3], min=1, max=3, count_numbers=2)
+    assert 'Count: 2   Average: 2.0   Sum: 4   CountNumbers: 2   Min: 1   Max: 3   Diff: 2' == str(summary)

@@ -9,6 +9,7 @@ from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
 
 from enamlext.qt.qtable import DoubleClickContext, SelectionContext  # TODO: weak design (leaking Qt details)
+from enamlext.qt.table.summary import TableSelectionSummary
 
 
 class ProxyTable(ProxyControl):
@@ -66,6 +67,12 @@ class Table(Control):
     # Flag controlling if the user can check/tick items on the table
     checkable = d_(Bool())
 
+    # Flag controlling if the table will have a summary label displayed at the bottom/footer
+    show_summary = d_(Bool())
+
+    # Only calculate summary when show_summary is True
+    summary = d_(Typed(TableSelectionSummary))
+
     # Observers
 
     @observe("columns",
@@ -73,6 +80,7 @@ class Table(Control):
              "selected_items",
              "context_menu",
              "checkable",
+             "show_summary",
              )
     def _update_proxy(self, change: Dict):
         """ An observer which sends state change to the proxy.

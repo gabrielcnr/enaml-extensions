@@ -6,14 +6,13 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Any, List, Tuple, NamedTuple, Collection, Set, Iterable
 
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
-from qtpy.QtGui import QContextMenuEvent, QFont, QColor
-from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
-
 # Constants
 from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
 from enamlext.qt.table.defs import CellStyle
 from enamlext.qt.table.filtering import TableFilters, Filter
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
+from qtpy.QtGui import QContextMenuEvent, QFont, QColor
+from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
 DEFAULT_ROW_HEIGHT = 23
 DEFAULT_FONT_NAME = "Calibri"
@@ -697,58 +696,6 @@ class QFilterableHeaderView(QHeaderView):
     def filter_callback(self, column: Column, expression: str):
         # TODO: use column index?
         self.filterChanged.emit(column, expression)
-
-
-###########################
-# Selection aggregator
-###########################
-@dataclass
-class TableSelectionSummary:
-    sum: float
-    count_numbers: int
-    min: float
-    max: float
-    values: list
-
-    @property
-    def count(self) -> int:
-        return len(self.values)
-
-    @property
-    def avg(self) -> float | None:
-        if self.count_numbers:
-            return self.sum / self.count_numbers
-
-    @property
-    def diff(self) -> float | None:
-        """ Returns the absolute difference/distance between 2 selected numbers
-        when all is selected are those 2 numbers and nothing else.
-        """
-        if self.count == self.count_numbers == 2:
-            v1, v2 = self.values
-            return abs(v1 - v2)
-
-
-# TODO: Qt selection model has a better/more clever way to compute the summary
-#       based on what's been deselected and selected since "last time"
-def compute_summary(selected_values: list) -> TableSelectionSummary:
-    sum_ = 0.0
-    count_numbers = 0
-    min_value = float('inf')
-    max_value = -float('inf')
-
-    for value in selected_values:
-        try:
-            sum_ += value
-        except TypeError:
-            pass
-        else:
-            count_numbers += 1
-            min_value = min(min_value, value)
-            max_value = max(max_value, value)
-
-    return TableSelectionSummary(sum=sum_, count_numbers=count_numbers,
-                                 min=min_value, max=max_value, values=selected_values)
 
 
 # Cell style callbacks

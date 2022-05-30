@@ -5,6 +5,7 @@ from enaml.qt.qt_control import QtControl
 
 from enamlext.qt.qtable import QTable, DoubleClickContext, SelectionContext
 from enamlext.qt.table.column import Column
+from enamlext.qt.table.summary import TableSelectionSummary
 from enamlext.widgets.table import ProxyTable
 
 # cyclic notification guard flags
@@ -54,6 +55,9 @@ class QtTable(QtControl, ProxyTable):
     def _on_selection_changed(self, context: SelectionContext):
         self.declaration.selected_items = context.selected_items
         self.declaration.selection_changed(context)
+
+        if self.declaration.show_summary:
+            self.declaration.summary = TableSelectionSummary.from_selection_context(context)
 
     # ProxyTable API
     def set_items(self, items: List[Any]):
