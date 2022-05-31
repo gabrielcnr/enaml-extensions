@@ -1,68 +1,9 @@
 from collections import namedtuple
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from numbers import Number
-from operator import itemgetter
 
 from enamlext.qt.table.summary import TableSelectionSummary, compute_summary
-from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
+from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN, generate_columns
 from enamlext.qt.table.filtering import TableFilters, Filter
-
-
-def make_title(title: str):
-    return title.replace('_', ' ').title()
-
-
-def is_namedtuple(obj):
-    return isinstance(obj, tuple) and hasattr((T := type(obj)), '_fields') and hasattr(T, '_asdict')
-
-
-def generate_columns(items: Sequence):
-    first_row = items[0]
-    columns = []
-    if isinstance(first_row, tuple):
-        if is_namedtuple(first_row):
-            fields = type(first_row)._fields
-        else:
-            fields = None
-        for i, value in enumerate(first_row):
-            kwargs = {}
-            if isinstance(value, Number):
-                kwargs['align'] = Alignment.RIGHT
-            if fields is not None:
-                title = make_title(fields[i])
-            else:
-                title = str(i)
-            column = Column(itemgetter(i), title, **kwargs)
-            columns.append(column)
-
-    elif isinstance(first_row, Mapping):
-        for key, value in first_row.items():
-            if isinstance(key, str):
-                title = make_title(key)
-            else:
-                title = str(key)
-
-            kwargs = {}
-            if isinstance(value, Number):
-                kwargs['align'] = Alignment.RIGHT
-
-            column = Column(itemgetter(key), title, **kwargs)
-            columns.append(column)
-
-    elif hasattr(type(first_row), '__dataclass_fields__'):
-        fields = type(first_row).__dataclass_fields__
-        for field in fields:
-            value = getattr(first_row, field)
-            title = make_title(field)
-            kwargs = {}
-            if isinstance(value, Number):
-                kwargs['align'] = Alignment.RIGHT
-
-            column = Column(field, title, **kwargs)
-            columns.append(column)
-
-    return columns
 
 
 def test_generate_columns_from_list_of_tuples():

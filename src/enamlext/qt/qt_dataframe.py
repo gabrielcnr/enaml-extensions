@@ -12,7 +12,7 @@ from enamlext.qt.table.column import Column, Alignment
 def generate_columns_for_dataframe(df: pd.DataFrame) -> List[Column]:
     columns = []
     for i, (name, dtype) in enumerate(df.dtypes.items()):
-        if np.issubdtype(dtype, np.number):
+        if not isinstance(dtype, pd.core.dtypes.dtypes.CategoricalDtype) and np.issubdtype(dtype, np.number):
             align = Alignment.RIGHT
             style = get_cell_style_for_negative_numbers
         else:
