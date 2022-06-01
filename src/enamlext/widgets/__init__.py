@@ -3,6 +3,10 @@ from .star import StarRating
 from .field import Field
 from ._shortcuts import ask_yes_no, ask_text
 
+import enaml
+with enaml.imports():
+    from enamlext.widgets.ipython_console import IPythonConsole
+
 
 from enaml.qt.qt_factories import QT_FACTORIES
 
