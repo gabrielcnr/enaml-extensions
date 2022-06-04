@@ -1,4 +1,4 @@
-from typing import Iterable, Generator, Any, List
+from typing import Iterable, Generator, Any, List, Optional
 
 from enamlext.qt.table.column import Column
 
@@ -67,7 +67,7 @@ class TableFilters:
         filters.append(filter)
         self.filters = filters
 
-    def get(self, column: Column) -> Filter | None:
+    def get(self, column: Column) -> Optional[Filter]:
         for f in self.filters:
             if f.column == column:
                 return f
