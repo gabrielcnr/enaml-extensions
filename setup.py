@@ -43,6 +43,5 @@ setup(
             "pytest-mock",
         ]
     },    
-    tests_requires=['pytest'],
-    cmdclass={'test': PyTest},
+    #tests_requires=['pytest'],
 )
