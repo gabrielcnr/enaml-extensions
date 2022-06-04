@@ -1,26 +1,6 @@
 import sys
 
 from setuptools import setup, find_packages
-from setuptools.command.test import test as TestCommand
-
-
-class PyTest(TestCommand):
-    """
-    Overrides setup "test" command, taken from here:
-    http://pytest.org/latest/goodpractises.html
-    """
-
-    def finalize_options(self):
-        TestCommand.finalize_options(self)
-        self.test_args = []
-        self.test_suite = True
-
-    def run_tests(self):
-        # import here, cause outside the eggs aren't loaded
-        import pytest
-
-        errno = pytest.main([])
-        sys.exit(errno)
 
 
 setup(
@@ -49,6 +29,20 @@ setup(
         'Topic :: Software Development :: User Interfaces',
         'Topic :: Software Development :: Widget Sets',
     ],
+    use_scm_version={"write_to": "src/enamlext/_version.py"},
+    setup_requires=["setuptools-scm", "setuptools>=30.3.0"],    
+    python_requires=">=3.7",
+    install_requires=[
+        "enaml",
+        "QScintilla",
+        "pip",
+    ],
+    extras_require={
+        "testing": [
+            "pytest",
+            "pytest-mock",
+        ]
+    },    
     tests_requires=['pytest'],
     cmdclass={'test': PyTest},
 )
