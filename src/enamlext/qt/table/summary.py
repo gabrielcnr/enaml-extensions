@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from enamlext.qt.qtable import SelectionContext
 
@@ -20,12 +21,12 @@ class TableSelectionSummary:
         return len(self.values)
 
     @property
-    def avg(self) -> float | None:
+    def avg(self) -> Optional[float]:
         if self.count_numbers:
             return self.sum / self.count_numbers
 
     @property
-    def diff(self) -> float | None:
+    def diff(self) -> Optional[float]:
         """ Returns the absolute difference/distance between 2 selected numbers
         when all is selected are those 2 numbers and nothing else.
         """
