@@ -43,5 +43,5 @@ setup(
             "pytest-mock",
         ]
     },    
-    #tests_requires=['pytest'],
+    tests_requires=['pytest', 'pytest-mock'],
 )

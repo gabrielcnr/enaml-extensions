@@ -11,5 +11,6 @@ legacy_tox_ini = """
 envlist = py{37,38,39,310}
 
 [testenv]
+deps = pytest
 commands = pytest -vv -s
 """
