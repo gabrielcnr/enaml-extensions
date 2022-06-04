@@ -1,4 +1,4 @@
-from atom.api import Atom, Unicode
+from atom.api import Atom, Str
 from enaml.widgets.api import Field
 
 from enamlext.auto import create_editor
@@ -6,7 +6,7 @@ from enamlext.auto._editor import connect, Editor
 
 
 class Person(Atom):
-    name = Unicode()
+    name = Str()
 
 
 def test_simple_editor():
@@ -18,7 +18,7 @@ def test_simple_editor():
 
 def test_exclude():
     class Person2(Atom):
-        name = Unicode().tag(exclude=True)
+        name = Str().tag(exclude=True)
 
     person = Person2()
     editor = create_editor(person)
@@ -54,7 +54,7 @@ def test_initial_sync():
 
 def test_label():
     class Person2(Atom):
-        name = Unicode().tag(label='Full Name')
+        name = Str().tag(label='Full Name')
 
     p = Person2()
     editor = create_editor(p)

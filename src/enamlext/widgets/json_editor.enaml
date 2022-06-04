@@ -1,0 +1,155 @@
+"""
+It needs conda package: qscintilla2
+"""
+from enaml.scintilla.scintilla import Scintilla
+from enaml.scintilla.themes.idle import IDLE_THEME
+from enaml.qt import QtCore
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from functools import partial
+import json
+import sys
+
+CUSTOM_THEME = IDLE_THEME.copy()
+
+CUSTOM_THEME['sql'] = {
+        "comment": { "color": "gray" },
+        "comment_doc": { "color": "gray" },
+        "comment_doc_keyword": { "color": "gray" },
+        "comment_doc_keyword_error": { "color": "gray" },
+        "comment_line":{ "color": "gray" },
+        "comment_line_hash": { "color": "gray" },
+        "identifier": {"color": "orange"},
+        "keyword": {"color": "blue"},
+        "keyword_set5":  {"color": "blue"},
+        "keyword_set6":  {"color": "blue"},
+        "keyword_set7":  {"color": "blue"},
+        "keyword_set8":  {"color": "blue"},
+        "number": {"color": "green"},
+#        "operator": {"color": "red"},
+#        "plus_comment": "PlusComment",
+#        "plus_keyword": "PlusKeyword",
+#        "plus_prompt": "PlusPrompt",
+        "quoted_identifier": {"color": "orange"},
+        "single_quoted_string": {"color": "blue"},
+}
+
+if 'win' in sys.platform:
+    font = 'Consolas'
+else:
+    font = 'Menlo'
+
+CUSTOM_THEME['settings']['font'] = f'12pt {font}'
+
+
+enamldef SQLEditor(Scintilla): editor:
+    attr sql
+    attr read_only = False
+    syntax = 'sql'
+    theme = CUSTOM_THEME
+
+    activated ::
+        # Margin 0 is used for line numbers
+        widget_ = editor.proxy.widget
+        widget_.setMarginWidth(0, 22)
+        widget_.setMarginLineNumbers(0, True)
+        set_text(nonlocals.sql)
+        widget_.setReadOnly(nonlocals.read_only)
+
+    read_only ::
+        self.proxy.widget.setReadOnly(read_only)
+
+
+class InvalidJSONType:
+    def __repr__(self):
+        return '<<InvalidJSON>>'
+
+
+INVALID_JSON = InvalidJSONType()  # sentinel
+
+
+enamldef JSONEditor(Scintilla): editor:
+    attr content   # text contents
+    attr value
+    attr read_only = False
+    attr updating = False
+
+    syntax = 'python'
+    theme = CUSTOM_THEME
+
+    settings = {
+        'tab_width': 4,
+        'use_tabs': False,
+        'indent': 4,
+        'tab_indents': True,
+        'backspace_unindents': True,
+    }
+
+    func wheelEvent(self, event):
+        if event.modifiers() == QtCore.Qt.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoomIn()
+            elif delta < 0:
+                self.zoomOut()
+        else:
+            return type(self).wheelEvent(self, event)
+
+    activated ::
+        # Margin 0 is used for line numbers
+        widget_ = editor.proxy.widget
+        widget_.setMarginWidth(0, 22)
+        widget_.setMarginLineNumbers(0, True)
+        set_text(nonlocals.content)
+        widget_.setReadOnly(nonlocals.read_only)
+        self.proxy.widget.wheelEvent = partial(wheelEvent, self.proxy.widget)
+        self.content, self.value, self.updating  # TODO: why?
+
+    read_only ::
+        self.proxy.widget.setReadOnly(read_only)
+
+    content ::
+        try:
+            self.value = json.loads(content)
+        except Exception as exc:
+            self.value = INVALID_JSON
+
+    value ::
+        if value is not INVALID_JSON:
+            try:
+                new_contents = json.dumps(value, indent=4)
+            except Exception as exc:
+                self.value = INVALID_JSON
+            else:
+                if not self.updating:
+                    self.set_text(str(new_contents))
+#
+    text_changed ::
+        timer.start()
+
+    Timer: timer:
+        interval = 500  # ms
+        single_shot = True
+        timeout ::
+            nonlocals.updating = True
+            editor.content = str(editor.get_text())
+            nonlocals.updating = False
+
+
+enamldef Main(MainWindow):
+    initial_size = (900, 600)
+
+    Container:
+        JSONEditor: json_editor:
+            pass
+
+        PushButton:
+            text = 'Set data'
+            clicked ::
+                import datetime
+                json_editor.value = {'name': 'Gabriel Reis', 'children': ['Sophie', 'Alice'], 'age': 39, 'ts': str(datetime.datetime.now())}
+
+        PushButton:
+            text = 'Print value'
+            clicked ::
+                print(json_editor.value)

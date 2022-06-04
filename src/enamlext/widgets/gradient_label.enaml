@@ -1,0 +1,55 @@
+from enaml.widgets.api import Label
+from enaml.styling import StyleSheet, Style, Setter
+from enaml.colors import Color
+
+
+_DEFAULT_COLOR_START = "#4790DE"
+_DEFAULT_COLOR_END = "#000000"
+
+
+enamldef GradientLabel(Label):
+    attr color_0 = _DEFAULT_COLOR_START
+    attr color_1 = _DEFAULT_COLOR_START
+    attr color_2 = _DEFAULT_COLOR_END
+    attr color_3 = _DEFAULT_COLOR_END
+    attr stop_0 = 0
+    attr stop_1 = 0.8
+    attr stop_2 = 0.8
+    attr stop_3 = 1
+    attr x1 = 0
+    attr y1 = 0
+    attr x2 = 0
+    attr y2 = 1
+    attr font_color = "#ffffff"
+    attr font_name = "Segoe UI"
+    attr font_size = 10
+    attr border_color = "#034994"
+    attr border_size = 1
+    attr padding = 1
+
+    StyleSheet:
+        Style:
+            element = 'Label'
+            style_class = 'gradient-label'
+            Setter:
+                field = 'background'
+                value << (f'lineargradient(x1: {x1}, y1:{y1}, x2:{x2}, y2:{y2}, '
+                            f'stop: {stop_0} {color_0}, stop: {stop_1} {color_1}, '
+                            f'stop: {stop_2} {color_2}, stop: {stop_3} {color_3})')
+            Setter:
+                field = 'border'
+                value << f'{border_size}px solid {border_color}'
+            Setter:
+                field = 'padding'
+                value << f"{padding}px"
+            Setter:
+                field = 'color'
+                value << font_color
+        Style:
+            element = 'Label'
+            style_class = 'bold'
+            Setter:
+                field = 'font'
+                value << f'bold {font_size}pt {font_name}'
+
+    style_class = "gradient-label bold"

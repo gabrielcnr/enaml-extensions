@@ -1,0 +1,66 @@
+from enaml.widgets.api import Container, CheckBox
+from enaml.core.include import Include
+from enaml.layout.api import hbox, vbox
+
+
+enamldef CheckBoxItem(CheckBox):
+    attr checklist
+    attr value
+
+    initialized ::
+        self.text = str(self.value)
+
+    value ::
+        text = str(value)
+
+    checked ::
+        checklist.sync_model()
+
+
+def make_checkbox(item, checklist):
+    return CheckBoxItem(value=item, checklist=checklist)
+
+
+def make_checklist_constraints(include, orientation):
+    box = hbox if orientation == 'horizontal' else vbox
+    return [box(*include.objects)]
+
+
+enamldef CheckList(Container): self_checklist:
+    attr items = []
+    attr checked_items = []
+    attr orientation = 'vertical'
+
+    constraints << make_checklist_constraints(_inc, orientation)
+
+    Include: _inc:
+        objects << [make_checkbox(i, self_checklist) for i in items]
+
+    checked_items ::
+        self.sync_view()
+
+    initialized ::
+        self.sync_view()
+
+    func sync_model():
+        new_checked_items = []
+        for checkbox in _inc.objects:
+            if checkbox.checked:
+                new_checked_items.append(checkbox.value)
+        self.checked_items = new_checked_items
+
+    func sync_view():
+        for checkbox in _inc.objects:
+            checkbox.checked = checkbox.value in self.checked_items
+
+    func check_all():
+        for checkbox in _inc.objects:
+            checkbox.checked = True
+
+    func uncheck_all():
+        for checkbox in _inc.objects:
+            checkbox.checked = False
+
+    func flip():
+        for checkbox in _inc.objects:
+            checkbox.checked = not checkbox.checked

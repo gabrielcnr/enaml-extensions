@@ -1,42 +1,15 @@
-from enaml.core.declarative import d_
+from collections.abc import Sequence
+from typing import Dict
 
+import numpy as np
+from atom.api import Typed, ForwardTyped, List, Bool, observe, Event
+from atom.atom import set_default
+from atom.instance import Instance
+from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
 
-from atom.api import ForwardTyped, List, Typed, observe, Bool, Enum, Value
-
-
-class Column(object):
-    """ A Column definition for the Table/grid.
-    """
-
-    def __init__(self, title, key, formatter=None, align='left'):
-        self.title = title
-        self.key = key
-        self.formatter = formatter
-        self.align = align
-
-    def get_value(self, row):
-        """ A Column knows how to extract the value from a given row.
-        """
-        raw_value = self.get_raw_value(row)
-        return self.prepare(raw_value)
-
-    def get_raw_value(self, row):
-        """ A Column knows how to extract the value from a given row.
-        """
-        if callable(self.key):
-            return self.key(row)
-        else:
-            if isinstance(row, (dict, list, tuple)):
-                return row[self.key]
-            else:
-                return getattr(row, self.key)
-
-    def prepare(self, raw_value):
-        if self.formatter is not None:
-            return self.formatter(raw_value)
-        else:
-            return str(raw_value)
+from enamlext.qt.qtable import DoubleClickContext, SelectionContext  # TODO: weak design (leaking Qt details)
+from enamlext.qt.table.summary import TableSelectionSummary
 
 
 class ProxyTable(ProxyControl):
@@ -45,64 +18,72 @@ class ProxyTable(ProxyControl):
     #: A reference to the Table declaration.
     declaration = ForwardTyped(lambda: Table)
 
-    def set_rows(self, rows):
-        raise NotImplementedError
-
     def set_columns(self, columns):
         raise NotImplementedError
 
-    def set_alternate_row_colors(self, alternate_row_colors):
+    def set_items(self, items):
         raise NotImplementedError
 
-    def set_select_mode(self, select_mode):
+    def set_selected_items(self, selected_items):
         raise NotImplementedError
 
-    def set_stretch_last_column(self, stretch_last_column):
+    def set_context_menu(self, context_menu):
         raise NotImplementedError
 
-    def set_selected_rows(self, rows):
-        raise NotImplementedError
-
-    def set_row_style_callback(self, row_style_callback):
+    def set_checkable(self, checkable: bool) -> None:
         raise NotImplementedError
 
 
 class Table(Control):
-    """ Enaml declarative control for giving a Table grid widget.
+    """ A tabular grid/table, column-oriented, where individual items are
+    displayed in individual rows, and should have the same type.
     """
-
-    rows = d_(List())
+    #: The columns for the table (horizontal axis/headers)
     columns = d_(List())
-    selected_rows = d_(List())
-    alternate_row_colors = d_(Bool(default=True))
-    stretch_last_column = d_(Bool())
-    select_mode = d_(
-        Enum('single_row', 'multi_rows', 'single_cell', 'multi_cells', 'none'))
 
-    row_style_callback = d_(Value())
+    #: The items to be displayed in individual rows of the table
+    items = d_(Instance((Sequence, np.ndarray), factory=list))
 
-    #: A reference to the ProxyTable implementation.
+    #: The items that are currently selected on the table # TODO: how to distinguish when mode=cell
+    selected_items = d_(List())
+
+    #: Event fired whenever the user double clicks in a cell
+    #: The payload will be a DoubleClickContext
+    double_clicked = d_(Event(DoubleClickContext), writable=False)
+
+    #: Event fired whenever the selection in the table changes
+    selection_changed = d_(Event(SelectionContext), writable=False)
+
+    #: A reference to the ProxyTable object.
     proxy = Typed(ProxyTable)
 
-    hug_height = 'weak'
-    hug_width = 'weak'
+    # Tables expand freely in height and width by default.
+    hug_width = set_default('ignore')
+    hug_height = set_default('ignore')
 
-    # Observers ---------------------------------------------------------------
-    @observe('rows', 'columns', 'alternate_row_colors', 'select_mode',
-             'stretch_last_column', 'selected_rows', 'row_style_callback')
-    def _update_proxy(self, change):
-        """ An observer which sends the state change to the proxy.
+    # Context Menu
+    context_menu = d_(List())
+
+    # Flag controlling if the user can check/tick items on the table
+    checkable = d_(Bool())
+
+    # Flag controlling if the table will have a summary label displayed at the bottom/footer
+    show_summary = d_(Bool())
+
+    # Only calculate summary when show_summary is True
+    summary = d_(Typed(TableSelectionSummary))
+
+    # Observers
+
+    @observe("columns",
+             "items",
+             "selected_items",
+             "context_menu",
+             "checkable",
+             "show_summary",
+             )
+    def _update_proxy(self, change: Dict):
+        """ An observer which sends state change to the proxy.
         """
-        # The superclass implementation is sufficient.
-        super(Table, self)._update_proxy(change)
-
-
-def table_factory():
-    from enamlext.qt.qt_table import QtTable
-
-    return QtTable
-
-
-from enaml.qt.qt_factories import QT_FACTORIES
-
-QT_FACTORIES['Table'] = table_factory
+        # The superclass handler implementation is sufficient.
+        super()._update_proxy(change)

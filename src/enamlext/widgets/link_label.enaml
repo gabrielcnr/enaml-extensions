@@ -1,0 +1,12 @@
+from enaml.widgets.api import Label
+import webbrowser
+
+
+enamldef LinkLabel(Label):
+    attr href
+    attr caption
+
+    text << '<a href="{}">{}</a>'.format(href, caption or href)
+
+    link_activated ::
+        webbrowser.open(href)

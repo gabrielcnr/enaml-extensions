@@ -1,0 +1,119 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+
+# this all should go
+from enamlext.widgets import Table
+from enamlext.qt.table.column import Column
+
+from enamlext.qt.qt_table import QtTable
+
+from enaml.qt.qt_factories import QT_FACTORIES
+QT_FACTORIES["Table"] = lambda: QtTable
+# end
+
+from enamlext.widgets.multi_select_model import MultiSelectModel
+
+
+enamldef MultiSelect(Container): _multi_select:
+    attr items
+    attr selected_items
+
+    alias select_all_text: _btn_select_all.text
+    alias clear_selection_text: _btn_clear_selection.text
+
+    attr _multi_select_model
+
+    constraints = [
+        hbox(
+            vbox(
+                _table_available,
+                _btn_select_all,
+            ),
+            vbox(
+                spacer,
+                btn_select,
+                btn_unselect,
+                btn_flip,
+                spacer,
+            ),
+            vbox(
+                _table_selected,
+                _btn_clear_selection,
+            ),
+        ),
+        _table_available.width == _table_selected.width,
+        _table_available.height == _table_selected.height,
+        _table_available.top == _table_selected.top,
+        btn_select.bottom == (_table_selected.height / 2),
+    ]
+
+    initialized ::
+        self._multi_select_model = MultiSelectModel(items=items, selected_items=selected_items)
+
+    Table: _table_available:
+        columns = [
+            Column(key=(lambda item: item)),
+        ]
+        items << _multi_select_model.available_items
+
+        double_clicked ::
+            context = change["value"]
+            _multi_select_model.select([context.item])
+
+    Table: _table_selected:
+        columns = [
+            Column(key=(lambda item: item)),
+        ]
+        items << _multi_select_model.selected_items
+
+        double_clicked ::
+            context = change["value"]
+            _multi_select_model.unselect([context.item])
+
+    PushButton: _btn_select_all:
+        text = "Select All"
+        clicked ::
+            _multi_select_model.select_all()
+
+    PushButton: _btn_clear_selection:
+        text = "Clear Selection"
+        clicked ::
+            _multi_select_model.select_none()
+
+    PushButton: btn_select:
+        text = ">"
+        constraints = [
+            height == width,
+            width == 23,
+        ]
+        enabled << bool(_table_available.selected_items)
+        clicked ::
+            _multi_select_model.select(_table_available.selected_items)
+
+    PushButton: btn_unselect:
+        text = "<"
+        constraints = [
+            height == width,
+            width == 23,
+        ]
+        enabled << bool(_table_selected.selected_items)
+        clicked ::
+            _multi_select_model.unselect(_table_selected.selected_items)
+
+    PushButton: btn_flip:
+        text = "x"
+        constraints = [
+            height == width,
+            width == 23,
+        ]
+        clicked ::
+            _multi_select_model.invert_selection()
+
+
+enamldef Main(MainWindow):
+    title = "MultiSelect Widget Demo"
+
+    Container:
+        MultiSelect:
+            items = ["apple", "banana", "melon", "papaya"]
+            selected_items = ["apple", "melon"]

@@ -1,0 +1,21 @@
+from enaml.core.declarative import d_
+from enamlext.widgets import Table
+import pandas as pd
+
+# TODO: generate_columns_for_dataframe is in the wrong module - refactor!
+from enamlext.qt.qt_dataframe import generate_columns_for_dataframe
+
+
+enamldef DataFrame(Table):
+    attr df = d_(pd.DataFrame())
+
+    initialized ::
+        self.df
+
+    df ::
+        if df is not None:
+            self.items = df.to_numpy()
+            self.columns = generate_columns_for_dataframe(df)
+        else:
+            self.items = []
+            self.columns = []

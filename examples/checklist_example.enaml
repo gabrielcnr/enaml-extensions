@@ -1,0 +1,40 @@
+from enaml.widgets.api import Window, Form, Label, ObjectCombo, PushButton, Container
+from enamlext.widgets.checklist import CheckList
+
+
+enamldef Main(Window):
+    title = 'CheckList Demo'
+
+    Container:
+        Form:
+            Label:
+                text = 'Orientation'
+            ObjectCombo:
+                items = ['vertical', 'horizontal']
+                selected := _chklist.orientation
+
+        PushButton:
+            text = 'Check All'
+            clicked ::
+                _chklist.check_all()
+
+        PushButton:
+            text = 'Uncheck All'
+            clicked ::
+                _chklist.uncheck_all()
+
+        PushButton:
+            text = 'Flip'
+            clicked ::
+                _chklist.flip()
+
+        CheckList: _chklist:
+            items = list('abcdef')
+            checked_items = list('be')
+
+        Form:
+            Label:
+                text = 'Checked:'
+
+            Label:
+                text << ', '.join(str(i) for i in _chklist.checked_items)

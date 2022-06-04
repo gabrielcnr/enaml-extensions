@@ -1,0 +1,38 @@
+from enaml.widgets.api import IPythonConsole as _IPythonConsole
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import qApp
+
+
+def add_zoom_shortcuts(ipython_widget):
+    # ipython_widget: qtconsole.jupyter_widget.IPythonWidget
+
+    def zoom_in(*args):
+        ipython_widget.increase_font_size.trigger()
+        qApp.processEvents()
+
+    def zoom_out(*args):
+        ipython_widget.decrease_font_size.trigger()
+        qApp.processEvents()
+
+    def on_wheel_event(event):
+        if event.modifiers() == Qt.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                zoom_in()
+            elif delta < 0:
+                zoom_out()
+
+    ipython_widget.wheelEvent = on_wheel_event
+
+
+enamldef IPythonConsole(_IPythonConsole):
+    activated ::
+        [_, ipython_widget] = self.proxy.widget.children()
+        add_zoom_shortcuts(ipython_widget)
+
+
+# from enaml.widgets.api import Window, Container
+# enamldef Main(Window):
+#     Container:
+#         IPythonConsole:
+#             pass
