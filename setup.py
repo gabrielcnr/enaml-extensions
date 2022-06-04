@@ -35,6 +35,8 @@ setup(
         "enaml",
         "QScintilla",
         "pip",
+        "qtpy",
+        "numpy",
     ],
     extras_require={
         "testing": [
