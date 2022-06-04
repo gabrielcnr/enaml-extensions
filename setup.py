@@ -21,7 +21,6 @@ setup(
         'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
@@ -31,7 +30,7 @@ setup(
     ],
     use_scm_version={"write_to": "src/enamlext/_version.py"},
     setup_requires=["setuptools-scm", "setuptools>=30.3.0"],    
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=[
         "enaml",
         "QScintilla",
