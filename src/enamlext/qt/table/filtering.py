@@ -1,4 +1,4 @@
-from typing import Iterable, Generator, Any
+from typing import Iterable, Generator, Any, List
 
 from enamlext.qt.table.column import Column
 
@@ -43,7 +43,7 @@ class Filter:
 class TableFilters:
     """ Collection of Filters.
     """
-    def __init__(self, filters: list[Filter] = None):
+    def __init__(self, filters: List[Filter] = None):
         if filters is None:
             filters = []
         self.filters = filters

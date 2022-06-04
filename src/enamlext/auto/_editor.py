@@ -20,8 +20,9 @@ def connect(model, model_attr, view, view_attr):
     # Initially the view should be sync'd with the model
     try:
         setattr(view, view_attr, getattr(model, model_attr))
-    except Exception, ex:
-        import pdb ;pdb.set_trace()
+    except Exception as ex:
+        #import pdb ;pdb.set_trace()
+        raise
 
 
 def create_editor(obj, form=None):
