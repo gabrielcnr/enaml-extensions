@@ -1,6 +1,7 @@
-import sys
-
 from setuptools import setup, find_packages
+
+with open('README.md', encoding='utf-8') as fp:
+    long_description = fp.read()
 
 
 setup(
@@ -9,6 +10,8 @@ setup(
     author='Gabriel Reis',
     author_email='gabrielcnr@gmail.com',
     description='Extra widgets and extensions for building UIs with Enaml',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     url='http://github.com/gabrielcnr/enaml-extensions',
     license='LGPL',
     keywords='enaml qt widgets extras extensions table qt-table ui gui',

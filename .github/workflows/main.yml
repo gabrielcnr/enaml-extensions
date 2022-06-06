@@ -10,6 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # TODO: include different versions of Qt and the 2 bindings (pyqt and pyside) on the matrix
         python: ["3.8", "3.9", "3.10"]
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
