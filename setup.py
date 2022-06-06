@@ -42,6 +42,7 @@ setup(
         "testing": [
             "pytest",
             "pytest-mock",
+            "pytest-qt",
         ]
     },    
     tests_requires=['pytest', 'pytest-mock', 'pytest-qt'],

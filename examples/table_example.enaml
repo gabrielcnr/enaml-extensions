@@ -22,6 +22,10 @@ enamldef TableSummary(Container):
         text << str(table.summary)
 
 
+def format_role(role):
+    return role.title()
+
+
 enamldef Main(MainWindow): window:
 
     title = 'Table Example'
@@ -43,10 +47,10 @@ enamldef Main(MainWindow): window:
             show_summary = True
 
             columns = [
-                Column(itemgetter("name")),
-                Column(itemgetter('surname')),
-                Column(itemgetter('year')),
-                Column(itemgetter('role')),
+                Column(itemgetter("name"), 'Name'),
+                Column(itemgetter('surname'), 'Surname'),
+                Column(itemgetter('year'), 'Year Born'),
+                Column(itemgetter('role'), 'Role', fmt=format_role),
             ]
 
             items = [

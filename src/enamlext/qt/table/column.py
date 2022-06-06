@@ -25,6 +25,7 @@ class Column:
                  # TODO: how to specify the types for the signature of the callback here?
                  cell_style: Optional[Callable] = None,
                  use_getitem: bool = False,
+                 fmt: str = '',
                  ):
         self.key = key
         self._link_get_value_method(key, use_getitem)
@@ -34,6 +35,7 @@ class Column:
         self.align = align
         self.tooltip = tooltip
         self.cell_style = cell_style
+        self.fmt = fmt
 
     def _link_get_value_method(self, key, use_getitem):
         if callable(key):
@@ -51,6 +53,13 @@ class Column:
 
     def get_value_by_getitem_lookup(self, item: Any) -> Any:
         return item[self.key]
+
+    def get_displayed_value(self, item: Any) -> str:
+        value = self.get_value(item)
+        if callable(self.fmt):
+            return self.fmt(value)
+        else:
+            return format(value, self.fmt)
 
     def get_tooltip(self, table_context: "TableContext") -> str:
         if self.tooltip is not None:
