@@ -105,7 +105,7 @@ class QTableModel(QAbstractTableModel):
             if (col_index := index.column()) or not self.checkable:
                 column = self.columns[col_index - offset]  # O(1)
                 item = self.items[index.row()]  # O(1)
-                return column.get_value(item)
+                return column.get_displayed_value(item)
         elif role == Qt.TextAlignmentRole:
             if self.checkable:
                 offset = 1
