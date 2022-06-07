@@ -18,6 +18,11 @@ setup(
     requires=['enaml'],
     packages=find_packages(where="src"),
     package_dir={"": "src"},
+    data_files = [("", ["LICENSE"])],
+    package_data={
+        '': ['*.enaml'],
+    },
+    include_package_data=True,
     classifiers=[
         # 'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
