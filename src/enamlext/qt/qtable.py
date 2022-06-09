@@ -516,7 +516,9 @@ class TableContext:
     We pass the object of TableContext to the callback, and everything there is
     calculated on demand... which hopefully makes it more efficient
     """
-
+    # TODO: the fact that the TableContext has knowledge of QTableModel and QModelIndex
+    #       is a smell of leaking abstraction - Qt details are leaking
+    #       Maybe should give callbacks to lazily evalute the item, value, raw_value, ...
     def __init__(self,
                  model: QTableModel,
                  index: QModelIndex,

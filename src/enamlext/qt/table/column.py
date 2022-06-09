@@ -16,12 +16,16 @@ class Alignment(str, Enum):
 AUTO_ALIGN = object()  # sentinel
 
 
+# Types
+TooltipCallback = Callable[['TableContext'], str]
+
+
 class Column:
     def __init__(self,
                  key: Union[str, Callable],
                  title: Optional[str] = None,
                  align: Alignment = AUTO_ALIGN,
-                 tooltip: Optional[Union[str, Callable]] = None,
+                 tooltip: Optional[Union[str, TooltipCallback]] = None,
                  # TODO: how to specify the types for the signature of the callback here?
                  cell_style: Optional[Callable] = None,
                  use_getitem: bool = False,
@@ -67,6 +71,8 @@ class Column:
                 return str(self.tooltip(table_context))  # TODO: is it a good practice to enforce str() here?
             else:
                 return self.tooltip  # str
+        else:
+            return repr(table_context.raw_value)
 
     def get_cell_style(self, table_context: "TableContext") -> Optional[CellStyle]:
         if self.cell_style is not None:
@@ -105,6 +111,9 @@ def is_namedtuple(obj):
 
 
 def generate_columns(items: Sequence):
+    if len(items) == 0:
+        return []
+
     first_row = items[0]
     columns = []
     if isinstance(first_row, tuple):
