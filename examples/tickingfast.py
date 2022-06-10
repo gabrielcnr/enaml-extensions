@@ -36,7 +36,6 @@ class Model(Atom):
 
 
 
-
 def tick(model):
     while True:
         model.n = random.randint(-100_000, 100_000)
@@ -63,8 +62,9 @@ def print_df_2(model):
         time.sleep(1)
 
 
-def main():
-    model = Model()
+def main(model=None):
+    if model is None:
+        model = Model()
 
     t = Thread(target=tick, args=(model,), daemon=True)
     t.start()
@@ -75,10 +75,11 @@ def main():
     t3 = Thread(target=print_df_2, args=(model,), daemon=True)
     t3.start()
 
-    t.join()
-    t2.join()
-    t3.start()
+    return t, t2, t3
 
 
 if __name__ == '__main__':
-    main()
+    t1, t2, t3 = main()
+    t1.join()
+    t2.join()
+    t3.join()

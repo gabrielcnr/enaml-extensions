@@ -412,8 +412,10 @@ class QTable(QTableView):
             self.refresh()
 
     def refresh(self):
-        self.model()
-        pass
+        m = self.model()
+        top_left = m.index(0, 0, QModelIndex())
+        bottom_right = m.index(len(self.items), len(self.columns), QModelIndex())
+        m.dataChanged.emit(top_left, bottom_right)
 
     def set_selection_mode(self, selection_mode: SelectionMode):
         if selection_mode == SelectionMode.SINGLE_CELL:
