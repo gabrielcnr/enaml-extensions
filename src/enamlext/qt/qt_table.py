@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List, Any, Optional
 
 from atom.api import Int, Typed
 from enaml.qt.qt_control import QtControl
@@ -57,7 +57,7 @@ class QtTable(QtControl, ProxyTable):
         self.declaration.selection_changed(context)
 
         if self.declaration.show_summary:
-            self.declaration.summary = TableSelectionSummary.from_selection_context(context)
+            self.refresh_summary(context)
 
     # ProxyTable API
     def set_items(self, items: List[Any]):
@@ -80,3 +80,8 @@ class QtTable(QtControl, ProxyTable):
 
     def set_checkable(self, checkable: bool) -> None:
         self.widget.checkable = checkable
+
+    def refresh_summary(self, context: Optional[SelectionContext] = None) -> None:
+        if context is None:
+            context = self.widget.get_current_selection_context()
+        self.declaration.summary = TableSelectionSummary.from_selection_context(context)

@@ -273,9 +273,9 @@ class SelectionContext:
     def __init__(self,
                  table: "QTable",
                  selected_indexes: List[QModelIndex],
-                 added: List[QModelIndex],
-                 removed: List[QModelIndex],
-                 current: QModelIndex):
+                 current: QModelIndex,
+                 added: Optional[List[QModelIndex]],
+                 removed: Optional[List[QModelIndex]]):
         self.__table = weakref.ref(table)
         self.selected_model_indexes = selected_indexes
         self.added_model_indexes = added
@@ -287,12 +287,14 @@ class SelectionContext:
         return [(i.row(), i.column()) for i in self.selected_model_indexes]
 
     @property
-    def added_indexes(self) -> List[Cell]:
-        return [(i.row(), i.column()) for i in self.added_model_indexes]
+    def added_indexes(self) -> Optional[List[Cell]]:
+        if self.added_model_indexes:
+            return [(i.row(), i.column()) for i in self.added_model_indexes]
 
     @property
-    def removed_indexes(self) -> List[Cell]:
-        return [(i.row(), i.column()) for i in self.removed_model_indexes]
+    def removed_indexes(self) -> Optional[List[Cell]]:
+        if self.removed_model_indexes:
+            return [(i.row(), i.column()) for i in self.removed_model_indexes]
 
     @property
     def current_index(self) -> Cell:
@@ -491,6 +493,16 @@ class QTable(QTableView):
             current=self.currentIndex(),
         )
         self.on_selection.emit(selection_context)
+
+    def get_current_selection_context(self) -> SelectionContext:
+        selection_context = SelectionContext(
+            table=self,
+            selected_indexes=self.selectionModel().selectedIndexes(),
+            added=None,
+            removed=None,
+            current=self.currentIndex(),
+        )
+        return selection_context
 
     # Checked Items
 

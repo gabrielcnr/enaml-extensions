@@ -33,6 +33,9 @@ class ProxyTable(ProxyControl):
     def set_checkable(self, checkable: bool) -> None:
         raise NotImplementedError
 
+    def refresh_summary(self) -> None:
+        raise NotImplementedError
+
 
 class Table(Control):
     """ A tabular grid/table, column-oriented, where individual items are
