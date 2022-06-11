@@ -61,7 +61,7 @@ class TableFilters:
                 return False
         return True
 
-    def add_filter(self, filter: Filter):
+    def add_filter(self, filter: Filter) -> None:
         # First we replace any existing filters referencing the same column
         filters = [f for f in self.filters if f.column != filter.column]
         filters.append(filter)

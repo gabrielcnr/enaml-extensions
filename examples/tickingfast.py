@@ -5,6 +5,9 @@ from threading import Thread
 import pandas as pd
 from atom.api import *
 
+FACTOR = 1
+
+
 class Model(Atom):
     n = Int()
     i = Int()
@@ -28,7 +31,7 @@ class Model(Atom):
 
     @observe('n')  # order book tick
     def on_n(self, change):
-        print(f'{self.i}  ->  {self.n}')
+        # print(f'{self.i}  ->  {self.n}')
         self.i += 1
 
         if self.df_2 is not None:
@@ -39,7 +42,7 @@ class Model(Atom):
 def tick(model):
     while True:
         model.n = random.randint(-100_000, 100_000)
-        time.sleep(1)
+        time.sleep(1 * FACTOR)
 
 
 def update_df(model):
@@ -53,13 +56,13 @@ def update_df(model):
         values = random.sample(range(1, 11), len(df))
         df['value'] = values
         model.df_1 = df
-        time.sleep(10)
+        time.sleep(10 * FACTOR)
 
 
 def print_df_2(model):
     while True:
-        print(f'\n\n{model.df_2 = }\n\n')
-        time.sleep(1)
+        # print(f'\n\n{model.df_2 = }\n{id(model.df_2) = }\n')
+        time.sleep(1 * FACTOR)
 
 
 def main(model=None):

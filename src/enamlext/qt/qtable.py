@@ -7,6 +7,8 @@ from enum import Enum, auto
 from typing import Optional, Any, List, Tuple, NamedTuple, Collection, Set, Iterable
 
 # Constants
+from PyQt5.QtWidgets import qApp
+
 from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
 from enamlext.qt.table.defs import CellStyle
 from enamlext.qt.table.filtering import TableFilters, Filter
@@ -228,8 +230,11 @@ class QTableModel(QAbstractTableModel):
 
     def _apply_filters(self) -> None:
         self.beginResetModel()
-        self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
+        self.refresh_filtered_items()
         self.endResetModel()
+
+    def refresh_filtered_items(self) -> None:
+        self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
 
 
 class DoubleClickContext:
@@ -409,12 +414,12 @@ class QTable(QTableView):
         finally:
             self.__updating = False
             self.model().endResetModel()
-            self.refresh()
 
     def refresh(self):
         m = self.model()
-        top_left = m.index(0, 0, QModelIndex())
-        bottom_right = m.index(len(self.items), len(self.columns), QModelIndex())
+        m.refresh_filtered_items()  # TODO: find a better way without requiring this
+        top_left = m.index(0, 0)
+        bottom_right = m.index(len(self.items), len(self.columns))
         m.dataChanged.emit(top_left, bottom_right)
 
     def set_selection_mode(self, selection_mode: SelectionMode):

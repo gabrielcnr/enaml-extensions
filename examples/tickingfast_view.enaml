@@ -14,15 +14,15 @@ enamldef Main(MainWindow):
     attr model = Model()
 
     activated ::
-        print('activated')
+        timer.start()
         start_threads(model)
 
     Container:
         DataFrame: table:
             df << model.df_2
 
-    Timer:
-        interval = 1000
-        timeout ::
-            table.proxy.widget.refresh()
+        Timer: timer:
+            interval = 1000
+            timeout ::
+                table.proxy.widget.refresh()
 

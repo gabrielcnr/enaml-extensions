@@ -1,3 +1,4 @@
+from functools import partial
 from operator import itemgetter
 from typing import List
 
@@ -19,10 +20,23 @@ def generate_columns_for_dataframe(df: pd.DataFrame) -> List[Column]:
             align = Alignment.LEFT
             style = None
 
-        key = itemgetter(i)
+        def extract_value_by_index(series, index):
+            return series.iloc[index]
+
+        key = partial(extract_value_by_index, index=i)
         column = Column(key, name, align=align, cell_style=style)
         columns.append(column)
     return columns
+
+class DataFrameProxy:
+    def __init__(self, df):
+        self.df = df
+
+    def __getitem__(self, item):
+        return self.df.iloc[item]
+
+    def __len__(self):
+        return len(self.df)
 
 
 def display_dataframe(df: pd.DataFrame):
@@ -39,7 +53,7 @@ def display_dataframe(df: pd.DataFrame):
     app = QApplication([])
 
     columns = generate_columns_for_dataframe(df)
-    items = df.to_numpy()
+    items = DataFrameProxy(df)
 
     table = QTable(columns, items)
     table.show()
