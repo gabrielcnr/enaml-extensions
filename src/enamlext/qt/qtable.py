@@ -234,6 +234,13 @@ class QTableModel(QAbstractTableModel):
         self.endResetModel()
 
     def refresh_filtered_items(self) -> None:
+        """
+        the problem here is that when we are applying the filters we are
+        creating a new list - can we do that better?
+        instead we could keep the items inside a proxy object which
+        holds an internal mapping for the indexes
+        (index in the original items -> index in the filtered items)
+        """
         self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
 
 

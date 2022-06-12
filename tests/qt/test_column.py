@@ -1,4 +1,7 @@
-from enamlext.qt.table.column import Column
+from dataclasses import dataclass
+from decimal import Decimal
+
+from enamlext.qt.table.column import Column, generate_columns
 
 
 def test_get_displayed_value():
@@ -40,3 +43,40 @@ def test_giving_fmt_as_callback():
     column = Column('obj', fmt=uppercase_mirrored, use_getitem=True)
 
     assert 'SRESUROFTXET' == column.get_displayed_value(item)
+
+
+
+def test_generate_columns_with_hints():
+    @dataclass
+    class Trade:
+        symbol: str
+        price: Decimal
+        quantity: int
+
+    items = [
+        t1 := Trade(symbol='FOO', price=15.2, quantity=500),
+        t2 := Trade(symbol='BAR', price=22.3, quantity=800),
+        t3 := Trade(symbol='FOO', price=16.1, quantity=100),
+    ]
+
+    hints = {
+        'symbol': {
+            'title': 'Ticker',
+        },
+        'price': {
+            'fmt': ',.2f',
+        }
+    }
+    generated_columns = generate_columns(items, hints=hints)
+
+    column_symbol, column_price, column_quantity = generated_columns
+
+    assert column_symbol.title == 'Ticker'
+
+    assert column_price.title == 'Price'
+    assert column_price.fmt == ',.2f'
+
+    assert column_quantity.title == 'Quantity'
+    assert column_quantity.fmt == ''
+
+    assert '22.30' == column_price.get_displayed_value(t2)

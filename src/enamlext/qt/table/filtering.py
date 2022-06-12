@@ -39,6 +39,15 @@ class Filter:
         value = self.column.get_value(item)
         return self._evaluate_filter(value)
 
+# TODO: IDEA
+#       we are using the Column's get_value to get the value
+#       that is then used to evaluate the filter expression
+#       We can have that as default behaviour, but we could also
+#       allow for the underlying model to apply their own filters
+#       This way it would make possible to use, for example,
+#       pandas DataFrame's own filtering capabilities more
+#       efficiently.
+
 
 class TableFilters:
     """ Collection of Filters.

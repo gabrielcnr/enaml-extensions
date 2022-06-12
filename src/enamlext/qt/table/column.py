@@ -2,7 +2,7 @@ import datetime
 from enum import Enum
 from numbers import Number
 from operator import itemgetter
-from typing import Union, Callable, Optional, Any, Sequence, Mapping
+from typing import Union, Callable, Optional, Any, Sequence, Mapping, List, Dict
 
 from enamlext.qt.table.defs import CellStyle
 
@@ -104,7 +104,14 @@ def is_namedtuple(obj):
     return isinstance(obj, tuple) and hasattr((T := type(obj)), '_fields') and hasattr(T, '_asdict')
 
 
-def generate_columns(items: Sequence):
+def generate_columns(items: Sequence, *, hints: Optional[Dict] = None) -> List[Column]:
+    """
+    hints: only make sense with named keys?
+           hints are a dict of column id -> kwargs dict that will
+           get passed to the Column object
+    """
+    if hints is None:
+        hints = {}
     first_row = items[0]
     columns = []
     if isinstance(first_row, tuple):
@@ -113,14 +120,16 @@ def generate_columns(items: Sequence):
         else:
             fields = None
         for i, value in enumerate(first_row):
-            kwargs = {}
-            if isinstance(value, Number):
-                kwargs['align'] = Alignment.RIGHT
             if fields is not None:
                 title = make_title(fields[i])
             else:
                 title = str(i)
-            column = Column(itemgetter(i), title, **kwargs)
+            kwargs = {'title': title}
+            if isinstance(value, Number):
+                kwargs['align'] = Alignment.RIGHT
+            hint = hints.get(i, {})
+            kwargs.update(hint)
+            column = Column(itemgetter(i), **kwargs)
             columns.append(column)
 
     elif isinstance(first_row, Mapping):
@@ -130,11 +139,13 @@ def generate_columns(items: Sequence):
             else:
                 title = str(key)
 
-            kwargs = {}
+            kwargs = {'title': title}
             if isinstance(value, Number):
                 kwargs['align'] = Alignment.RIGHT
 
-            column = Column(itemgetter(key), title, **kwargs)
+            hint = hints.get(key, {})
+            kwargs.update(hint)
+            column = Column(itemgetter(key), **kwargs)
             columns.append(column)
 
     elif hasattr(type(first_row), '__dataclass_fields__'):
@@ -142,11 +153,14 @@ def generate_columns(items: Sequence):
         for field in fields:
             value = getattr(first_row, field)
             title = make_title(field)
-            kwargs = {}
+            kwargs = {'title': title}
             if isinstance(value, Number):
                 kwargs['align'] = Alignment.RIGHT
 
-            column = Column(field, title, **kwargs)
+            hint = hints.get(field, {})
+            kwargs.update(hint)
+
+            column = Column(field, **kwargs)
             columns.append(column)
 
     return columns
