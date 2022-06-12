@@ -6,7 +6,6 @@ from enaml.layout.api import *
 from enamlext.widgets.dataframe import DataFrame
 
 
-
 enamldef Main(MainWindow):
     title = 'Main Window'
     initial_size = (700, 400)
@@ -22,7 +21,7 @@ enamldef Main(MainWindow):
             df << model.df_2
 
         Timer: timer:
-            interval = 1000
+            interval = 200
             timeout ::
                 table.proxy.widget.refresh()
 

@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from decimal import Decimal
 
-from enamlext.qt.table.column import Column, generate_columns
+import pandas as pd
+
+from enamlext.qt.qt_dataframe import DataFrameProxy
+from enamlext.qt.table.column import Column, generate_columns, Alignment
 
 
 def test_get_displayed_value():
@@ -77,3 +80,17 @@ def test_generate_columns_with_hints():
     assert column_price.fmt == ',.2f'
 
     assert '22.30' == column_price.get_displayed_value(t2)
+
+
+def test_generate_columns_with_pandas_dataframe():
+    df = pd.DataFrame()
+    df['symbol'] = ['A', 'B']
+    df['price'] = [10.25, 12.0]
+
+    generated_columns = generate_columns(DataFrameProxy(df))
+
+    column_symbol, column_price = generated_columns
+
+    assert column_symbol.title == 'symbol'
+    assert column_price.title == 'price'
+    assert column_price.align == Alignment.RIGHT

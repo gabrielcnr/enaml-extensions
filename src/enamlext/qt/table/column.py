@@ -1,10 +1,16 @@
 import datetime
 from enum import Enum
+from functools import partial
 from numbers import Number
 from operator import itemgetter
 from typing import Union, Callable, Optional, Any, Sequence, Mapping, List, Dict, Container
 
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QColor
+
+from enamlext.qt.qt_dataframe import DataFrameProxy
 from enamlext.qt.table.defs import CellStyle
+from enamlext.qt.table.table_context import TableContext
 
 
 class Alignment(str, Enum):
@@ -104,6 +110,15 @@ def is_namedtuple(obj):
     return isinstance(obj, tuple) and hasattr((T := type(obj)), '_fields') and hasattr(T, '_asdict')
 
 
+RED = QColor(Qt.red)
+NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
+
+
+def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle:
+    if table_context.raw_value < 0:
+        return NEGATIVE_NUMBER_CELL_STYLE
+
+
 def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
                      exclude: Optional[Container[str]] = None) -> List[Column]:
     """
@@ -170,6 +185,31 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             kwargs.update(hint)
 
             column = Column(field, **kwargs)
+            columns.append(column)
+
+    elif isinstance(items, DataFrameProxy):
+        import pandas as pd
+        import numpy as np
+        df = items.df
+        for i, (name, dtype) in enumerate(df.dtypes.items()):
+            if not isinstance(dtype, pd.core.dtypes.dtypes.CategoricalDtype) and np.issubdtype(dtype, np.number):
+                align = Alignment.RIGHT
+                style = get_cell_style_for_negative_numbers
+            else:
+                align = Alignment.LEFT
+                style = None
+
+            def extract_value_by_index(series: pd.Series, index: int) -> Any:
+                return series.iloc[index]
+
+            key = partial(extract_value_by_index, index=i)
+
+            kwargs = {'title': name, 'align': align, 'cell_style': style}
+
+            hint = hints.get(name, {})
+            kwargs.update(hint)
+
+            column = Column(key, **kwargs)
             columns.append(column)
 
     return columns

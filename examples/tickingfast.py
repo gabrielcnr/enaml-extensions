@@ -5,7 +5,7 @@ from threading import Thread
 import pandas as pd
 from atom.api import *
 
-FACTOR = 1
+FACTOR = .5
 
 
 class Model(Atom):
