@@ -67,16 +67,13 @@ def test_generate_columns_with_hints():
             'fmt': ',.2f',
         }
     }
-    generated_columns = generate_columns(items, hints=hints)
+    generated_columns = generate_columns(items, hints=hints, exclude=['quantity'])
 
-    column_symbol, column_price, column_quantity = generated_columns
+    column_symbol, column_price = generated_columns
 
     assert column_symbol.title == 'Ticker'
 
     assert column_price.title == 'Price'
     assert column_price.fmt == ',.2f'
-
-    assert column_quantity.title == 'Quantity'
-    assert column_quantity.fmt == ''
 
     assert '22.30' == column_price.get_displayed_value(t2)

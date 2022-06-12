@@ -2,7 +2,7 @@ import datetime
 from enum import Enum
 from numbers import Number
 from operator import itemgetter
-from typing import Union, Callable, Optional, Any, Sequence, Mapping, List, Dict
+from typing import Union, Callable, Optional, Any, Sequence, Mapping, List, Dict, Container
 
 from enamlext.qt.table.defs import CellStyle
 
@@ -104,7 +104,8 @@ def is_namedtuple(obj):
     return isinstance(obj, tuple) and hasattr((T := type(obj)), '_fields') and hasattr(T, '_asdict')
 
 
-def generate_columns(items: Sequence, *, hints: Optional[Dict] = None) -> List[Column]:
+def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
+                     exclude: Optional[Container[str]] = None) -> List[Column]:
     """
     hints: only make sense with named keys?
            hints are a dict of column id -> kwargs dict that will
@@ -112,6 +113,8 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None) -> List[C
     """
     if hints is None:
         hints = {}
+    if exclude is None:
+        exclude = set()
     first_row = items[0]
     columns = []
     if isinstance(first_row, tuple):
@@ -120,6 +123,8 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None) -> List[C
         else:
             fields = None
         for i, value in enumerate(first_row):
+            if i in exclude:
+                continue
             if fields is not None:
                 title = make_title(fields[i])
             else:
@@ -134,6 +139,8 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None) -> List[C
 
     elif isinstance(first_row, Mapping):
         for key, value in first_row.items():
+            if key in exclude:
+                continue
             if isinstance(key, str):
                 title = make_title(key)
             else:
@@ -151,6 +158,8 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None) -> List[C
     elif hasattr(type(first_row), '__dataclass_fields__'):
         fields = type(first_row).__dataclass_fields__
         for field in fields:
+            if field in exclude:
+                continue
             value = getattr(first_row, field)
             title = make_title(field)
             kwargs = {'title': title}
