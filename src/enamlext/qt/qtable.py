@@ -156,6 +156,18 @@ class QTableModel(QAbstractTableModel):
                     column=column,
                 )
                 return column.get_cell_style(context).get("color")
+        elif role == Qt.BackgroundColorRole:
+            col_index = index.column()
+            column = self.get_column_by_index(col_index)
+            if column.cell_style is not None:
+                context = TableContext(
+                    model=self,
+                    index=index,
+                    role=role,
+                    column_index=col_index,
+                    column=column,
+                )
+                return column.get_cell_style(context).get("background")
 
     def setData(self, index: QModelIndex, value: Any, role: int) -> bool:
         if index.column() == 0 and role == Qt.CheckStateRole and self.checkable:
