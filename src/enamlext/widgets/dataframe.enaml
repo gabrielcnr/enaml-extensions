@@ -16,7 +16,7 @@ enamldef DataFrame(Table):
     df ::
         if df is not None:
             self.items = DataFrameProxy(df)
-            self.columns = generate_columns(self.items)
+            self.columns = generate_columns(self.items, hints=self.hints)
         else:
             self.items = []
             self.columns = []

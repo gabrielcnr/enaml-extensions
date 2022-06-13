@@ -1,12 +1,18 @@
-from typing import Dict
+from typing import Any
 
-from atom.api import Typed, ForwardTyped, List, Bool, observe, Event, Value
+from atom.api import Typed, ForwardTyped, List, Bool, observe, Event, Value, Dict
 from atom.atom import set_default
 from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
 
 from enamlext.qt.qtable import DoubleClickContext, SelectionContext  # TODO: weak design (leaking Qt details)
 from enamlext.qt.table.summary import TableSelectionSummary
+
+
+ColumnID = str
+ColumnKwarg = str
+ColumnHint = dict[ColumnKwarg, Any]
+ColumnHints = dict[ColumnID, ColumnHint]
 
 
 class ProxyTable(ProxyControl):
@@ -33,6 +39,9 @@ class ProxyTable(ProxyControl):
     def refresh_summary(self) -> None:
         raise NotImplementedError
 
+    def set_hints(self, hints: ColumnHints) -> None:
+        raise NotImplementedError
+
 
 class Table(Control):
     """ A tabular grid/table, column-oriented, where individual items are
@@ -44,6 +53,10 @@ class Table(Control):
     #: The items to be displayed in individual rows of the table
     # items = d_(Instance((Sequence, np.ndarray), factory=list))
     items = d_(Value(factory=list))
+
+    #: Dict of column hints to get passed to Column objects
+    # in the case of they are being auto-generated
+    hints = d_(Dict())
 
     #: The items that are currently selected on the table # TODO: how to distinguish when mode=cell
     selected_items = d_(List())
@@ -82,6 +95,7 @@ class Table(Control):
              "context_menu",
              "checkable",
              "show_summary",
+             "hints",
              )
     def _update_proxy(self, change: Dict):
         """ An observer which sends state change to the proxy.

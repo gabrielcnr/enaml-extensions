@@ -73,6 +73,8 @@ class Column:
                 return str(self.tooltip(table_context))  # TODO: is it a good practice to enforce str() here?
             else:
                 return self.tooltip  # str
+        else:
+            return repr(table_context.raw_value)
 
     def get_cell_style(self, table_context: "TableContext") -> Optional[CellStyle]:
         if self.cell_style is not None:
@@ -130,6 +132,8 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
         hints = {}
     if exclude is None:
         exclude = set()
+    if not len(items):
+        return []
     first_row = items[0]
     columns = []
     if isinstance(first_row, tuple):
