@@ -254,7 +254,10 @@ class QTableModel(QAbstractTableModel):
         holds an internal mapping for the indexes
         (index in the original items -> index in the filtered items)
         """
-        self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
+        if self.filters:
+            self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
+        else:
+            self._filtered_items = self._original_items
 
 
 class DoubleClickContext:
@@ -405,6 +408,7 @@ class QTable(QTableView):
         # refresh the model
         if self.model() is not None:
             self.model().columns = columns
+            self.adjust_column_sizes()
 
     @property
     def items(self) -> List:
@@ -416,6 +420,7 @@ class QTable(QTableView):
         # refresh the model
         if self.model() is not None:
             self.model().items = items
+            self.adjust_column_sizes()
 
     @property
     def checkable(self) -> bool:
@@ -544,6 +549,29 @@ class QTable(QTableView):
             return self.model().checked_items
         else:
             return set()
+
+    # Column Sizes
+    def adjust_column_sizes(self) -> None:
+        fm = self.fontMetrics()
+        model = self.model()
+        items = model.items
+        for i, col in enumerate(self.columns):
+            if col.size == 'auto':
+                self.resizeColumnToContents(i)
+            elif col.size == 'just':
+                # Consider the font metrics of the view
+                # Here we are taking into account only the first thousand rows
+                # because otherwise this would be very slow for millions of rows
+                # It does not take into consideration the text in the header
+                get_displayed_value = col.get_displayed_value
+                size = 20
+                for row_index in range(min(model.rowCount(), 1000)):
+                    size = max(size, fm.width(get_displayed_value(items[row_index])))
+                self.horizontalHeader().resizeSection(i, size + 10)
+            elif isinstance(col.size, int):
+                self.horizontalHeader().resizeSection(i, col.size)
+            else:
+                raise ValueError(f'Invalid column size: {col.size}')
 
 
 class MenuActionContext:

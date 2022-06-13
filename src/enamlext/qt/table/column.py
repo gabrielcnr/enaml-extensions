@@ -9,7 +9,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtGui import QColor
 
 from enamlext.qt.qt_dataframe import DataFrameProxy
-from enamlext.qt.table.defs import CellStyle
+from enamlext.qt.table.defs import CellStyle, ColumnSize
 from enamlext.qt.table.table_context import TableContext
 
 
@@ -32,6 +32,7 @@ class Column:
                  cell_style: Optional[Callable] = None,
                  use_getitem: bool = False,
                  fmt: str = '',
+                 size: Union[ColumnSize, int] = ColumnSize.AUTO,
                  ):
         self.key = key
         self._link_get_value_method(key, use_getitem)
@@ -42,6 +43,7 @@ class Column:
         self.tooltip = tooltip
         self.cell_style = cell_style
         self.fmt = fmt
+        self.size = size  # TODO: should we also support callable?
 
     def _link_get_value_method(self, key, use_getitem):
         if callable(key):

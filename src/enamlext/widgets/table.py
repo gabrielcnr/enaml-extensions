@@ -1,6 +1,7 @@
-from typing import Any
+from typing import Any, Dict
 
-from atom.api import Typed, ForwardTyped, List, Bool, observe, Event, Value, Dict
+from atom.api import Typed, ForwardTyped, List, Bool, observe, Event, Value
+from atom.api import Dict as AtomDict
 from atom.atom import set_default
 from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
@@ -11,8 +12,8 @@ from enamlext.qt.table.summary import TableSelectionSummary
 
 ColumnID = str
 ColumnKwarg = str
-ColumnHint = dict[ColumnKwarg, Any]
-ColumnHints = dict[ColumnID, ColumnHint]
+ColumnHint = Dict[ColumnKwarg, Any]
+ColumnHints = Dict[ColumnID, ColumnHint]
 
 
 class ProxyTable(ProxyControl):
@@ -56,7 +57,7 @@ class Table(Control):
 
     #: Dict of column hints to get passed to Column objects
     # in the case of they are being auto-generated
-    hints = d_(Dict())
+    hints = d_(AtomDict())
 
     #: The items that are currently selected on the table # TODO: how to distinguish when mode=cell
     selected_items = d_(List())

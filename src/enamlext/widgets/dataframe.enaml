@@ -11,12 +11,16 @@ enamldef DataFrame(Table):
     attr df = d_(Value(factory=pd.DataFrame))
 
     initialized ::
-        self.df
+        if self.df is not None:
+            self._assign(self.df)
+
+    func _assign(df):
+        self.items = DataFrameProxy(df)
+        self.columns = generate_columns(self.items, hints=self.hints)
+        print('here', len(self.items), len(self.columns))
 
     df ::
         if df is not None:
-            self.items = DataFrameProxy(df)
-            self.columns = generate_columns(self.items, hints=self.hints)
+            self._assign(self.df)
         else:
-            self.items = []
-            self.columns = []
+            self._assign(pd.DataFrame())

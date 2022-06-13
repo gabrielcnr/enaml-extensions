@@ -57,6 +57,9 @@ class TableFilters:
             filters = []
         self.filters = filters
 
+    def __len__(self):
+        return len(self.filters)
+
     def filter_items(self, items: Iterable) -> Generator:
         for item in items:
             if self.filter(item):

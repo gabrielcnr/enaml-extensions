@@ -93,9 +93,10 @@ enamldef Main(MainWindow): window:
             columns = [
                 Column(itemgetter("name"), 'Name'),
                 Column(itemgetter('surname'), 'Surname'),
-                Column(itemgetter('year'), 'Year Born'),
+                Column(itemgetter('year'), 'Year Born', size=130),
                 Column(itemgetter('role'), 'Role', fmt=format_role),
                 Column(itemgetter('random_number'), 'Random Number', cell_style=get_cell_style_for_negative_numbers),
+                Column(lambda o: f'{o["name"][0]}{o["surname"][0]}', 'Initials', size='just'),
             ]
 
             items = [
