@@ -17,7 +17,6 @@ enamldef DataFrame(Table):
     func _assign(df):
         self.items = DataFrameProxy(df)
         self.columns = generate_columns(self.items, hints=self.hints)
-        print('here', len(self.items), len(self.columns))
 
     df ::
         if df is not None:
