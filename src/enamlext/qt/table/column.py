@@ -33,6 +33,7 @@ class Column:
                  use_getitem: bool = False,
                  fmt: str = '',
                  size: Union[ColumnSize, int] = ColumnSize.AUTO,
+                 image: Optional[str] = None, # TODO: support callback
                  ):
         self.key = key
         self._link_get_value_method(key, use_getitem)
@@ -44,6 +45,7 @@ class Column:
         self.cell_style = cell_style
         self.fmt = fmt
         self.size = size  # TODO: should we also support callable?
+        self.image = image
 
     def _link_get_value_method(self, key, use_getitem):
         if callable(key):
@@ -102,6 +104,10 @@ class Column:
             return Alignment.LEFT
         else:
             return Alignment.LEFT
+
+    def get_image(self, table_context: 'TableContext') -> Optional[str]:  # TODO: should return Path?
+        if self.image:
+            return str(self.image)
 
 
 # Auto-Generation of Columns

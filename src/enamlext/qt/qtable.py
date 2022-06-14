@@ -12,7 +12,7 @@ from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
 from enamlext.qt.table.defs import CellStyle
 from enamlext.qt.table.filtering import TableFilters, Filter
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
-from qtpy.QtGui import QContextMenuEvent, QFont, QColor
+from qtpy.QtGui import QContextMenuEvent, QFont, QColor, QPixmap
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
 from enamlext.qt.table.table_context import TableContext
@@ -168,6 +168,28 @@ class QTableModel(QAbstractTableModel):
                     column=column,
                 )
                 return column.get_cell_style(context).get("background")
+        elif role == Qt.DecorationRole:  # TODO: refactor (DRY)
+            col_index = index.column()
+            column = self.get_column_by_index(col_index)
+            if column.image is not None:
+                context = TableContext(
+                    model=self,
+                    index=index,
+                    role=role,
+                    column_index=col_index,
+                    column=column,
+                )
+                if (image := column.get_image(context)):
+                    img = QPixmap()
+                    img.load(image)
+
+                    # TODO: make this resizing thing better
+                    if img.height() > 24:
+                        img = img.scaledToHeight(24)
+                    if img.width() > 24:
+                        img = img.scaledToWidth(24)
+
+                    return img
 
     def setData(self, index: QModelIndex, value: Any, role: int) -> bool:
         if index.column() == 0 and role == Qt.CheckStateRole and self.checkable:

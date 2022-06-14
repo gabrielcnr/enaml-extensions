@@ -11,11 +11,12 @@ from enaml.qt.qt_factories import QT_FACTORIES
 QT_FACTORIES["Table"] = lambda: QtTable
 
 from operator import itemgetter
+from pathlib import Path
 
 
 # TODO: fix these dependencies on Qt (leaking)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QPixmap
 RED = QColor(Qt.red)
 
 from enamlext.qt.qtable import TableContext, CellStyle
@@ -91,6 +92,7 @@ enamldef Main(MainWindow): window:
             show_summary = True
 
             columns = [
+                Column(lambda o: '', 'Star', image=Path(__file__).resolve().parent / 'star.png'),
                 Column(itemgetter("name"), 'Name'),
                 Column(itemgetter('surname'), 'Surname'),
                 Column(itemgetter('year'), 'Year Born', size=130),
