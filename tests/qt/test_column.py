@@ -94,3 +94,35 @@ def test_generate_columns_with_pandas_dataframe():
     assert column_symbol.title == 'symbol'
     assert column_price.title == 'price'
     assert column_price.align == Alignment.RIGHT
+
+
+def test_generate_columns_include():
+    df = pd.DataFrame()
+    df['symbol'] = ['A', 'B']
+    df['price'] = [10.25, 12.0]
+    df['currency'] = ['EUR', 'GBP']
+
+    col_1, col_2 = generate_columns(DataFrameProxy(df), include=['currency', 'price'])
+
+    def assert_column(column, title, align):
+        assert title == column.title
+        assert align == column.align
+
+    assert_column(col_1, 'Currency', Alignment.LEFT)
+    assert_column(col_2, 'Price', Alignment.RIGHT)
+
+
+def test_generate_columns_exclude():
+    df = pd.DataFrame()
+    df['symbol'] = ['A', 'B']
+    df['price'] = [10.25, 12.0]
+    df['currency'] = ['EUR', 'GBP']
+
+    col_1, col_2 = generate_columns(DataFrameProxy(df), exclude=['price'])
+
+    def assert_column(column, title, align):
+        assert title == column.title
+        assert align == column.align
+
+    assert_column(col_1, 'Symbol', Alignment.LEFT)
+    assert_column(col_2, 'Currency', Alignment.LEFT)

@@ -130,27 +130,47 @@ def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyl
 
 
 def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
+                     include: Optional[Container[str]] = None,
                      exclude: Optional[Container[str]] = None) -> List[Column]:
     """
     hints: only make sense with named keys?
            hints are a dict of column id -> kwargs dict that will
            get passed to the Column object
+
+    Args:
+        include: list of column keys/ids that will be included. The order
+            of the generated columns will be respected according to the
+            include values. Use this to ensure the order of the columns.
+
+        exclude: list of column keys/ids to be excluded. The order
+            of the generated columns will be according to the order of
+            appearance in the first item.
+
+    Note: you cannot use include and exclude at the same time. An attempt
+        to do so will result in raising a ValueError exception.
     """
     if hints is None:
         hints = {}
-    if exclude is None:
-        exclude = set()
+    if include and exclude:
+        raise ValueError('Cannot use include and exclude simultaneously.')
+    if exclude is not None:
+        exclude_set = set(exclude)
+    if include is not None:
+        include_set = set(include)
     if not len(items):
         return []
     first_row = items[0]
-    columns = []
+    columns = {}  # column_index -> Column
     if isinstance(first_row, tuple):
         if is_namedtuple(first_row):
             fields = type(first_row)._fields
         else:
             fields = None
         for i, value in enumerate(first_row):
-            if i in exclude:
+            field_name = fields[i]
+            if exclude is not None and (set([i, field_name]) & exclude_set):
+                continue
+            if include is not None and not (set([i, field_name]) & include_set):
                 continue
             if fields is not None:
                 title = make_title(fields[i])
@@ -162,11 +182,23 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             hint = hints.get(i, {})
             kwargs.update(hint)
             column = Column(itemgetter(i), **kwargs)
-            columns.append(column)
+            if include is not None:
+                for v in (i, field_name):
+                    try:
+                        column_index = include.index(v)
+                    except IndexError:
+                        continue
+                    else:
+                        break
+            else:
+                column_index = i
+            columns[column_index] = column
 
     elif isinstance(first_row, Mapping):
         for key, value in first_row.items():
-            if key in exclude:
+            if exclude is not None and key in exclude_set:
+                continue
+            if include is not None and key not in include_set:
                 continue
             if isinstance(key, str):
                 title = make_title(key)
@@ -185,7 +217,9 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
     elif hasattr(type(first_row), '__dataclass_fields__'):
         fields = type(first_row).__dataclass_fields__
         for field in fields:
-            if field in exclude:
+            if exclude is not None and field in exclude_set:
+                continue
+            if include is not None and field not in include_set:
                 continue
             value = getattr(first_row, field)
             title = make_title(field)
@@ -204,6 +238,10 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
         import numpy as np
         df = items.df
         for i, (name, dtype) in enumerate(df.dtypes.items()):
+            if exclude is not None and name in exclude_set:
+                continue
+            if include is not None and name not in include_set:
+                continue
             if not isinstance(dtype, pd.core.dtypes.dtypes.CategoricalDtype) and np.issubdtype(dtype, np.number):
                 align = Alignment.RIGHT
                 style = get_cell_style_for_negative_numbers
@@ -216,12 +254,19 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
 
             key = partial(extract_value_by_index, index=i)
 
-            kwargs = {'title': name, 'align': align, 'cell_style': style}
+            kwargs = {'title': make_title(name), 'align': align, 'cell_style': style}
 
             hint = hints.get(name, {})
             kwargs.update(hint)
 
             column = Column(key, **kwargs)
-            columns.append(column)
 
-    return columns
+            if include is not None:
+                column_index = include.index(name)
+            else:
+                column_index = i
+
+            columns[column_index] = column
+
+    ordered_columns = [columns[c] for c in sorted(columns)]
+    return ordered_columns

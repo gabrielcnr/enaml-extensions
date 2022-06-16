@@ -3,7 +3,7 @@ from typing import Any, Dict
 from atom.api import Typed, ForwardTyped, List, Bool, observe, Event, Value
 from atom.api import Dict as AtomDict
 from atom.atom import set_default
-from enaml.core.declarative import d_
+from enaml.core.declarative import d_, d_func
 from enaml.widgets.control import Control, ProxyControl
 
 from enamlext.qt.qtable import DoubleClickContext, SelectionContext  # TODO: weak design (leaking Qt details)
@@ -103,3 +103,8 @@ class Table(Control):
         """
         # The superclass handler implementation is sufficient.
         super()._update_proxy(change)
+
+    @d_func
+    def refresh(self) -> None:
+        if self.initialized:
+            self.proxy.widget.refresh()
