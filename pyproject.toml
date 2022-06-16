@@ -15,5 +15,6 @@ deps =
     pytest
     pytest-qt
     pytest-mock
+    pandas
 commands = pytest -vv -s
 """
