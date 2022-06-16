@@ -115,23 +115,27 @@ class RecordData:
 
 records = [RecordData('A', 10.25, 'EUR'), RecordData('B', 12.0, 'GBP')]
 
+dicts = [{'symbol': 'A', 'price': 10.25, 'currency': 'EUR'},
+         {'symbol': 'B', 'price': 12.0, 'currency': 'GBP'}, ]
+
 @pytest.mark.parametrize(
-    ['items', 'include'],
+    ['items', 'include', 'hints'],
     [
-        (DataFrameProxy(df), ['currency', 'price']),
-        (named_tuples, ['currency', 1]),
-        (tuples, [2, 1]),
-        # (records, ['currency', 'price']),
+        (DataFrameProxy(df), ['currency', 'price'], {}),
+        (named_tuples, ['currency', 1], {}),
+        (tuples, [2, 1], {2: {'title': 'Currency'}, 1: {'title': 'Price'}}),
+        (records, ['currency', 'price'], {}),
+        (dicts, ['currency', 'price'], {}),
     ]
 )
-def test_generate_columns_include(items, include):
+def test_generate_columns_include(items, include, hints):
     # df = pd.DataFrame()
     # df['symbol'] = ['A', 'B']
     # df['price'] = [10.25, 12.0]
     # df['currency'] = ['EUR', 'GBP']
 
     # col_1, col_2 = generate_columns(DataFrameProxy(df), include=['currency', 'price'])
-    col_1, col_2 = generate_columns(items, include=include)
+    col_1, col_2 = generate_columns(items, include=include, hints=hints)
 
     def assert_column(column, title, align):
         assert title == column.title

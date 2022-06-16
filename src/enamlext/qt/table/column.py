@@ -197,7 +197,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             columns[column_index] = column
 
     elif isinstance(first_row, Mapping):
-        for key, value in first_row.items():
+        for i, (key, value) in enumerate(first_row.items()):
             if exclude is not None and key in exclude_set:
                 continue
             if include is not None and key not in include_set:
@@ -210,15 +210,22 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             kwargs = {'title': title}
             if isinstance(value, Number):
                 kwargs['align'] = Alignment.RIGHT
+            else:
+                kwargs['align'] = Alignment.LEFT
 
             hint = hints.get(key, {})
             kwargs.update(hint)
             column = Column(itemgetter(key), **kwargs)
-            columns.append(column)
+
+            if include is not None:
+                column_index = include.index(key)
+            else:
+                column_index = i
+            columns[column_index] = column
 
     elif hasattr(type(first_row), '__dataclass_fields__'):
         fields = type(first_row).__dataclass_fields__
-        for field in fields:
+        for i, field in enumerate(fields):
             if exclude is not None and field in exclude_set:
                 continue
             if include is not None and field not in include_set:
@@ -228,12 +235,18 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             kwargs = {'title': title}
             if isinstance(value, Number):
                 kwargs['align'] = Alignment.RIGHT
+            else:
+                kwargs['align'] = Alignment.LEFT
 
             hint = hints.get(field, {})
             kwargs.update(hint)
 
             column = Column(field, **kwargs)
-            columns.append(column)
+            if include is not None:
+                column_index = include.index(field)
+            else:
+                column_index = i
+            columns[column_index] = column
 
     elif isinstance(items, DataFrameProxy):
         import pandas as pd
