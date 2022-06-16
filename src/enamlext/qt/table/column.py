@@ -167,7 +167,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
         else:
             fields = None
         for i, value in enumerate(first_row):
-            field_name = fields[i]
+            field_name = fields[i] if fields is not None else object()
             if exclude is not None and (set([i, field_name]) & exclude_set):
                 continue
             if include is not None and not (set([i, field_name]) & include_set):
@@ -179,6 +179,8 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             kwargs = {'title': title}
             if isinstance(value, Number):
                 kwargs['align'] = Alignment.RIGHT
+            else:
+                kwargs['align'] = Alignment.LEFT
             hint = hints.get(i, {})
             kwargs.update(hint)
             column = Column(itemgetter(i), **kwargs)
@@ -186,7 +188,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
                 for v in (i, field_name):
                     try:
                         column_index = include.index(v)
-                    except IndexError:
+                    except ValueError:
                         continue
                     else:
                         break

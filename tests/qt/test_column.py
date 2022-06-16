@@ -1,7 +1,9 @@
+from collections import namedtuple
 from dataclasses import dataclass
 from decimal import Decimal
 
 import pandas as pd
+import pytest
 
 from enamlext.qt.qt_dataframe import DataFrameProxy
 from enamlext.qt.table.column import Column, generate_columns, Alignment
@@ -95,14 +97,41 @@ def test_generate_columns_with_pandas_dataframe():
     assert column_price.title == 'price'
     assert column_price.align == Alignment.RIGHT
 
+df = pd.DataFrame()
+df['symbol'] = ['A', 'B']
+df['price'] = [10.25, 12.0]
+df['currency'] = ['EUR', 'GBP']
 
-def test_generate_columns_include():
-    df = pd.DataFrame()
-    df['symbol'] = ['A', 'B']
-    df['price'] = [10.25, 12.0]
-    df['currency'] = ['EUR', 'GBP']
+Record = namedtuple('Record', 'symbol price currency')
+named_tuples = [Record('A', 10.25, 'EUR'), Record('B', 12.0, 'GBP')]
 
-    col_1, col_2 = generate_columns(DataFrameProxy(df), include=['currency', 'price'])
+tuples = [('A', 10.25, 'EUR'), ('B', 12.0, 'GBP')]
+
+@dataclass
+class RecordData:
+    symbol: str
+    price: float
+    currency: str
+
+records = [RecordData('A', 10.25, 'EUR'), RecordData('B', 12.0, 'GBP')]
+
+@pytest.mark.parametrize(
+    ['items', 'include'],
+    [
+        (DataFrameProxy(df), ['currency', 'price']),
+        (named_tuples, ['currency', 1]),
+        (tuples, [2, 1]),
+        # (records, ['currency', 'price']),
+    ]
+)
+def test_generate_columns_include(items, include):
+    # df = pd.DataFrame()
+    # df['symbol'] = ['A', 'B']
+    # df['price'] = [10.25, 12.0]
+    # df['currency'] = ['EUR', 'GBP']
+
+    # col_1, col_2 = generate_columns(DataFrameProxy(df), include=['currency', 'price'])
+    col_1, col_2 = generate_columns(items, include=include)
 
     def assert_column(column, title, align):
         assert title == column.title
