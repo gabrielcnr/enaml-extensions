@@ -93,9 +93,10 @@ def test_generate_columns_with_pandas_dataframe():
 
     column_symbol, column_price = generated_columns
 
-    assert column_symbol.title == 'symbol'
-    assert column_price.title == 'price'
+    assert column_symbol.title == 'Symbol'
+    assert column_price.title == 'Price'
     assert column_price.align == Alignment.RIGHT
+
 
 df = pd.DataFrame()
 df['symbol'] = ['A', 'B']
@@ -129,12 +130,6 @@ dicts = [{'symbol': 'A', 'price': 10.25, 'currency': 'EUR'},
     ]
 )
 def test_generate_columns_include(items, include, hints):
-    # df = pd.DataFrame()
-    # df['symbol'] = ['A', 'B']
-    # df['price'] = [10.25, 12.0]
-    # df['currency'] = ['EUR', 'GBP']
-
-    # col_1, col_2 = generate_columns(DataFrameProxy(df), include=['currency', 'price'])
     col_1, col_2 = generate_columns(items, include=include, hints=hints)
 
     def assert_column(column, title, align):
@@ -145,13 +140,18 @@ def test_generate_columns_include(items, include, hints):
     assert_column(col_2, 'Price', Alignment.RIGHT)
 
 
-def test_generate_columns_exclude():
-    df = pd.DataFrame()
-    df['symbol'] = ['A', 'B']
-    df['price'] = [10.25, 12.0]
-    df['currency'] = ['EUR', 'GBP']
-
-    col_1, col_2 = generate_columns(DataFrameProxy(df), exclude=['price'])
+@pytest.mark.parametrize(
+    ['items', 'exclude', 'hints'],
+    [
+        (DataFrameProxy(df), ['price'], {}),
+        (named_tuples, ['price'], {}),
+        (tuples, [1], {0: {'title': 'Symbol'}, 2: {'title': 'Currency'}}),
+        (records, ['price'], {}),
+        (dicts, ['price'], {}),
+    ]
+)
+def test_generate_columns_exclude(items, exclude, hints):
+    col_1, col_2 = generate_columns(items, exclude=exclude, hints=hints)
 
     def assert_column(column, title, align):
         assert title == column.title
