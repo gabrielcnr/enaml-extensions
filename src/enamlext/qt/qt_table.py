@@ -3,13 +3,21 @@ from typing import List, Any, Optional
 from atom.api import Int, Typed
 from enaml.qt.qt_control import QtControl
 
-from enamlext.qt.qtable import QTable, DoubleClickContext, SelectionContext
+from enamlext.qt.qtable import QTable, DoubleClickContext, SelectionContext, SelectionMode
 from enamlext.qt.table.column import Column
 from enamlext.qt.table.summary import TableSelectionSummary
 from enamlext.widgets.table import ProxyTable
 
 # cyclic notification guard flags
 INDEX_GUARD = 0x1
+
+
+SELECTION_MODES_MAP = {
+    'cell': SelectionMode.SINGLE_CELL,
+    'cells': SelectionMode.MULTI_CELLS,
+    'row': SelectionMode.SINGLE_ROW,
+    'rows': SelectionMode.MULTI_ROWS,
+}
 
 
 class QtTable(QtControl, ProxyTable):
@@ -39,6 +47,7 @@ class QtTable(QtControl, ProxyTable):
             self.set_selected_items(d.selected_items)
             self.set_context_menu(d.context_menu)
             self.set_checkable(d.checkable)
+            self.set_selection_mode(d.selection_mode)
 
         # double click action
         self.widget.on_double_click.connect(self._on_double_clicked)
@@ -80,6 +89,9 @@ class QtTable(QtControl, ProxyTable):
 
     def set_checkable(self, checkable: bool) -> None:
         self.widget.checkable = checkable
+
+    def set_selection_mode(self, selection_mode: str) -> None:
+        self.widget.set_selection_mode(SELECTION_MODES_MAP[selection_mode])
 
     def refresh_summary(self, context: Optional[SelectionContext] = None) -> None:
         if context is None:

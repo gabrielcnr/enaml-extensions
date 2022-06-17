@@ -23,7 +23,6 @@ DEFAULT_FONT_SIZE_PX = 13
 
 CHECKBOX_FLAG = Qt.ItemNeverHasChildren | Qt.ItemIsEditable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
 
-
 class SelectionMode(Enum):
     SINGLE_CELL = auto()
     MULTI_CELLS = auto()
@@ -481,7 +480,7 @@ class QTable(QTableView):
             self.setSelectionBehavior(self.SelectRows)
         elif selection_mode == SelectionMode.MULTI_ROWS:
             self.setSelectionMode(self.MultiSelection)
-            self.setSelectionBehaviour(self.SelectRows)
+            self.setSelectionBehavior(self.SelectRows)
 
     # Header visibility controls
 

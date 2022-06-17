@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-from atom.api import Typed, ForwardTyped, List, Bool, observe, Event, Value
+from atom.api import Typed, ForwardTyped, List, Bool, observe, Event, Value, Enum
 from atom.api import Dict as AtomDict
 from atom.atom import set_default
 from enaml.core.declarative import d_, d_func
@@ -41,6 +41,9 @@ class ProxyTable(ProxyControl):
         raise NotImplementedError
 
     def set_hints(self, hints: ColumnHints) -> None:
+        raise NotImplementedError
+
+    def set_selection_mode(self, selection_mode: str) -> None:
         raise NotImplementedError
 
 
@@ -88,6 +91,9 @@ class Table(Control):
     # Only calculate summary when show_summary is True
     summary = d_(Typed(TableSelectionSummary))
 
+    # Selection mode and behaviour
+    selection_mode = d_(Enum('cell', 'cells', 'row', 'rows'))
+
     # Observers
 
     @observe("columns",
@@ -97,6 +103,7 @@ class Table(Control):
              "checkable",
              "show_summary",
              "hints",
+             "selection_mode",
              )
     def _update_proxy(self, change: Dict):
         """ An observer which sends state change to the proxy.
