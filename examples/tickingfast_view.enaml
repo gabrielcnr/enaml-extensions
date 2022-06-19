@@ -1,0 +1,27 @@
+from tickingfast import Model
+from tickingfast import main as start_threads
+
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets.dataframe import DataFrame
+
+
+enamldef Main(MainWindow):
+    title = 'Main Window'
+    initial_size = (700, 400)
+
+    attr model = Model()
+
+    activated ::
+        timer.start()
+        start_threads(model)
+
+    Container:
+        DataFrame: table:
+            df << model.df_2
+
+        Timer: timer:
+            interval = 200
+            timeout ::
+                table.proxy.widget.refresh()
+

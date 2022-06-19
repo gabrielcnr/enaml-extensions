@@ -1,3 +1,5 @@
+import random
+
 from enaml.widgets.api import *
 from enaml.layout.api import *
 from enamlext.widgets import Table
@@ -9,6 +11,21 @@ from enaml.qt.qt_factories import QT_FACTORIES
 QT_FACTORIES["Table"] = lambda: QtTable
 
 from operator import itemgetter
+from pathlib import Path
+
+
+# TODO: fix these dependencies on Qt (leaking)
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor, QPixmap
+RED = QColor(Qt.red)
+
+from enamlext.qt.qtable import TableContext, CellStyle
+NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
+
+
+def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle:
+    if table_context.raw_value < 0:
+        return NEGATIVE_NUMBER_CELL_STYLE
 
 
 from enamlext.qt.table.summary import TableSelectionSummary
@@ -32,51 +49,103 @@ enamldef Main(MainWindow): window:
 
     initial_size = (600, 400)
 
-    GroupBox:
-        title = 'The Beatles'
+    activated ::
+        timer.start()
 
-        PushButton:
-            text = 'Click'
-            clicked ::
-                print(the_table.selected_items)
+    Container:
+        padding = 0
 
-        TableSummary:
-            table << the_table
+        GroupBox:
+            title = 'Controls'
 
-        Table: the_table:
-            show_summary = True
-
-            columns = [
-                Column(itemgetter("name"), 'Name'),
-                Column(itemgetter('surname'), 'Surname'),
-                Column(itemgetter('year'), 'Year Born'),
-                Column(itemgetter('role'), 'Role', fmt=format_role),
+            constraints << [
+                hbox(f1_config, spacer),
             ]
 
-            items = [
-                {
-                    'name': 'John',
-                    'surname': 'Lennon',
-                    'role': 'vocals, guitar',
-                    'year': 1940,
-                },
-                {
-                    'name': 'Paul',
-                    'surname': 'McCartney',
-                    'role': 'vocals, bass guitar',
-                    'year': 1942,
-                },
-                {
-                    'name': 'George',
-                    'surname': 'Harrison',
-                    'role': 'guitar, sitar',
-                    'year': 1943,
-                },
-                {
-                    'name': 'Ringo',
-                    'surname': 'Starr',
-                    'role': 'drums, percussion',
-                    'year': 1940,
-                },
+            Form: f1_config:
+                Label:
+                    text = 'selection_mode'
+                ObjectCombo:
+                    items = list(Table.selection_mode.items)
+                    selected := the_table.selection_mode
 
-            ]
+        GroupBox:
+            title = 'The Beatles'
+
+            PushButton:
+                text = 'Click'
+                clicked ::
+                    print(the_table.selected_items)
+
+            Timer: timer:
+                interval = 100
+                timeout ::
+                    for item in the_table.items:
+                        item['random_number'] = random.randint(-1000, 1000)
+
+                    # Refresh ticking columns
+                    qtable = the_table.proxy.widget
+                    table_model = qtable.model()
+                    top_left = table_model.index(0, 0)
+                    bottom_right = table_model.index(len(the_table.items), len(the_table.columns))
+                    table_model.dataChanged.emit(top_left, bottom_right)
+
+                    # Needs to refresh the table selection too
+                    the_table.proxy.refresh_summary()
+
+
+            # IDEAS
+            # We can allow the user to specify that the entire table ticks/refreshes
+            # We can allow the user to specify that only specific Columns tick/refresh
+
+            # Do we need a tick/timer interval to refresh?
+            # Or do we specify some callback that the table needs to listen
+
+
+            TableSummary:
+                table << the_table
+
+            Table: the_table:
+                show_summary = True
+
+                columns = [
+                    Column(lambda o: '', 'Star', image=Path(__file__).resolve().parent / 'star.png'),
+                    Column(itemgetter("name"), 'Name'),
+                    Column(itemgetter('surname'), 'Surname'),
+                    Column(itemgetter('year'), 'Year Born', size=130),
+                    Column(itemgetter('role'), 'Role', fmt=format_role),
+                    Column(itemgetter('random_number'), 'Random Number', cell_style=get_cell_style_for_negative_numbers),
+                    Column(lambda o: f'{o["name"][0]}{o["surname"][0]}', 'Initials', size='just'),
+                ]
+
+                items = [
+                    {
+                        'name': 'John',
+                        'surname': 'Lennon',
+                        'role': 'vocals, guitar',
+                        'year': 1940,
+                        'random_number': 0,
+                    },
+                    {
+                        'name': 'Paul',
+                        'surname': 'McCartney',
+                        'role': 'vocals, bass guitar',
+                        'year': 1942,
+                        'random_number': -8,
+                    },
+                    {
+                        'name': 'George',
+                        'surname': 'Harrison',
+                        'role': 'guitar, sitar',
+                        'year': 1943,
+                        'random_number': -1,
+                    },
+                    {
+                        'name': 'Ringo',
+                        'surname': 'Starr',
+                        'role': 'drums, percussion',
+                        'year': 1940,
+                        'random_number': 1,
+                    },
+
+                ]

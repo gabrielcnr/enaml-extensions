@@ -51,7 +51,8 @@ setup(
             "pytest",
             "pytest-mock",
             "pytest-qt",
+            "pandas",
         ]
     },    
-    tests_requires=['pytest', 'pytest-mock', 'pytest-qt'],
+    tests_requires=['pytest', 'pytest-mock', 'pytest-qt', 'pandas'],
 )

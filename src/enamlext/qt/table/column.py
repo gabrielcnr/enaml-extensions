@@ -1,10 +1,16 @@
 import datetime
 from enum import Enum
+from functools import partial
 from numbers import Number
 from operator import itemgetter
-from typing import Union, Callable, Optional, Any, Sequence, Mapping
+from typing import Union, Callable, Optional, Any, Sequence, Mapping, List, Dict, Container
 
-from enamlext.qt.table.defs import CellStyle
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QColor
+
+from enamlext.qt.qt_dataframe import DataFrameProxy
+from enamlext.qt.table.defs import CellStyle, ColumnSize
+from enamlext.qt.table.table_context import TableContext
 
 
 class Alignment(str, Enum):
@@ -26,6 +32,8 @@ class Column:
                  cell_style: Optional[Callable] = None,
                  use_getitem: bool = False,
                  fmt: str = '',
+                 size: Union[ColumnSize, int] = ColumnSize.AUTO,
+                 image: Optional[str] = None, # TODO: support callback
                  ):
         self.key = key
         self._link_get_value_method(key, use_getitem)
@@ -36,6 +44,8 @@ class Column:
         self.tooltip = tooltip
         self.cell_style = cell_style
         self.fmt = fmt
+        self.size = size  # TODO: should we also support callable?
+        self.image = image
 
     def _link_get_value_method(self, key, use_getitem):
         if callable(key):
@@ -67,6 +77,8 @@ class Column:
                 return str(self.tooltip(table_context))  # TODO: is it a good practice to enforce str() here?
             else:
                 return self.tooltip  # str
+        else:
+            return repr(table_context.raw_value)
 
     def get_cell_style(self, table_context: "TableContext") -> Optional[CellStyle]:
         if self.cell_style is not None:
@@ -93,6 +105,10 @@ class Column:
         else:
             return Alignment.LEFT
 
+    def get_image(self, table_context: 'TableContext') -> Optional[str]:  # TODO: should return Path?
+        if self.image:
+            return str(self.image)
+
 
 # Auto-Generation of Columns
 
@@ -104,49 +120,168 @@ def is_namedtuple(obj):
     return isinstance(obj, tuple) and hasattr((T := type(obj)), '_fields') and hasattr(T, '_asdict')
 
 
-def generate_columns(items: Sequence):
+RED = QColor(Qt.red)
+NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
+
+
+def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle:
+    if table_context.raw_value < 0:
+        return NEGATIVE_NUMBER_CELL_STYLE
+
+
+def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
+                     include: Optional[Container[str]] = None,
+                     exclude: Optional[Container[str]] = None) -> List[Column]:
+    """
+    hints: only make sense with named keys?
+           hints are a dict of column id -> kwargs dict that will
+           get passed to the Column object
+
+    Args:
+        include: list of column keys/ids that will be included. The order
+            of the generated columns will be respected according to the
+            include values. Use this to ensure the order of the columns.
+
+        exclude: list of column keys/ids to be excluded. The order
+            of the generated columns will be according to the order of
+            appearance in the first item.
+
+    Note: you cannot use include and exclude at the same time. An attempt
+        to do so will result in raising a ValueError exception.
+    """
+    if hints is None:
+        hints = {}
+    if include and exclude:
+        raise ValueError('Cannot use include and exclude simultaneously.')
+    if exclude is not None:
+        exclude_set = set(exclude)
+    if include is not None:
+        include_set = set(include)
+    if not len(items):
+        return []
     first_row = items[0]
-    columns = []
+    columns = {}  # column_index -> Column
     if isinstance(first_row, tuple):
         if is_namedtuple(first_row):
             fields = type(first_row)._fields
         else:
             fields = None
         for i, value in enumerate(first_row):
-            kwargs = {}
-            if isinstance(value, Number):
-                kwargs['align'] = Alignment.RIGHT
+            field_name = fields[i] if fields is not None else object()
+            if exclude is not None and (set([i, field_name]) & exclude_set):
+                continue
+            if include is not None and not (set([i, field_name]) & include_set):
+                continue
             if fields is not None:
                 title = make_title(fields[i])
             else:
                 title = str(i)
-            column = Column(itemgetter(i), title, **kwargs)
-            columns.append(column)
+            kwargs = {'title': title}
+            if isinstance(value, Number):
+                kwargs['align'] = Alignment.RIGHT
+            else:
+                kwargs['align'] = Alignment.LEFT
+            hint = hints.get(i, {})
+            kwargs.update(hint)
+            column = Column(itemgetter(i), **kwargs)
+            if include is not None:
+                for v in (i, field_name):
+                    try:
+                        column_index = include.index(v)
+                    except ValueError:
+                        continue
+                    else:
+                        break
+            else:
+                column_index = i
+            columns[column_index] = column
 
     elif isinstance(first_row, Mapping):
-        for key, value in first_row.items():
+        for i, (key, value) in enumerate(first_row.items()):
+            if exclude is not None and key in exclude_set:
+                continue
+            if include is not None and key not in include_set:
+                continue
             if isinstance(key, str):
                 title = make_title(key)
             else:
                 title = str(key)
 
-            kwargs = {}
+            kwargs = {'title': title}
             if isinstance(value, Number):
                 kwargs['align'] = Alignment.RIGHT
+            else:
+                kwargs['align'] = Alignment.LEFT
 
-            column = Column(itemgetter(key), title, **kwargs)
-            columns.append(column)
+            hint = hints.get(key, {})
+            kwargs.update(hint)
+            column = Column(itemgetter(key), **kwargs)
+
+            if include is not None:
+                column_index = include.index(key)
+            else:
+                column_index = i
+            columns[column_index] = column
 
     elif hasattr(type(first_row), '__dataclass_fields__'):
         fields = type(first_row).__dataclass_fields__
-        for field in fields:
+        for i, field in enumerate(fields):
+            if exclude is not None and field in exclude_set:
+                continue
+            if include is not None and field not in include_set:
+                continue
             value = getattr(first_row, field)
             title = make_title(field)
-            kwargs = {}
+            kwargs = {'title': title}
             if isinstance(value, Number):
                 kwargs['align'] = Alignment.RIGHT
+            else:
+                kwargs['align'] = Alignment.LEFT
 
-            column = Column(field, title, **kwargs)
-            columns.append(column)
+            hint = hints.get(field, {})
+            kwargs.update(hint)
 
-    return columns
+            column = Column(field, **kwargs)
+            if include is not None:
+                column_index = include.index(field)
+            else:
+                column_index = i
+            columns[column_index] = column
+
+    elif isinstance(items, DataFrameProxy):
+        import pandas as pd
+        import numpy as np
+        df = items.df
+        for i, (name, dtype) in enumerate(df.dtypes.items()):
+            if exclude is not None and name in exclude_set:
+                continue
+            if include is not None and name not in include_set:
+                continue
+            if not isinstance(dtype, pd.core.dtypes.dtypes.CategoricalDtype) and np.issubdtype(dtype, np.number):
+                align = Alignment.RIGHT
+                style = get_cell_style_for_negative_numbers
+            else:
+                align = Alignment.LEFT
+                style = None
+
+            def extract_value_by_index(series: pd.Series, index: int) -> Any:
+                return series.iloc[index]
+
+            key = partial(extract_value_by_index, index=i)
+
+            kwargs = {'title': make_title(name), 'align': align, 'cell_style': style}
+
+            hint = hints.get(name, {})
+            kwargs.update(hint)
+
+            column = Column(key, **kwargs)
+
+            if include is not None:
+                column_index = include.index(name)
+            else:
+                column_index = i
+
+            columns[column_index] = column
+
+    ordered_columns = [columns[c] for c in sorted(columns)]
+    return ordered_columns

@@ -2,7 +2,7 @@ from collections import namedtuple
 from dataclasses import dataclass
 
 from enamlext.qt.table.summary import TableSelectionSummary, compute_summary
-from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN, generate_columns
+from enamlext.qt.table.column import Column, Alignment, generate_columns
 from enamlext.qt.table.filtering import TableFilters, Filter
 
 
@@ -12,7 +12,7 @@ def test_generate_columns_from_list_of_tuples():
 
     assert ['0', '1'] == [col_1.title, col_2.title]
 
-    assert col_1.align == AUTO_ALIGN
+    assert col_1.align == Alignment.LEFT
     assert col_2.align == Alignment.RIGHT
 
     assert ['John', 'Paul'] == [col_1.get_value(item) for item in items]
@@ -25,7 +25,7 @@ def test_generate_columns_from_list_of_dicts():
 
     assert ['Name', 'Age'] == [col_1.title, col_2.title]
 
-    assert col_1.align == AUTO_ALIGN
+    assert col_1.align == Alignment.LEFT
     assert col_2.align == Alignment.RIGHT
 
     assert ['George', 'Ringo'] == [col_1.get_value(item) for item in items]
@@ -43,7 +43,7 @@ def test_generate_columns_from_list_of_dataclass_instances():
 
     assert ['Name', 'Age'] == [col_1.title, col_2.title]
 
-    assert col_1.align == AUTO_ALIGN
+    assert col_1.align == Alignment.LEFT
     assert col_2.align == Alignment.RIGHT
 
     assert ['Alice', 'Sophie'] == [col_1.get_value(item) for item in items]
@@ -59,7 +59,7 @@ def test_generate_columns_from_list_of_namedtuples():
     assert ['Age', 'Name'] == [col_1.title, col_2.title]
 
     assert col_1.align == Alignment.RIGHT
-    assert col_2.align == AUTO_ALIGN
+    assert col_2.align == Alignment.LEFT
 
     assert [66, 99] == [col_1.get_value(item) for item in items]
     assert ['Bob', 'Charlie'] == [col_2.get_value(item) for item in items]

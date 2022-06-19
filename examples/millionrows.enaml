@@ -1,0 +1,18 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+
+from enamlext.widgets.dataframe import DataFrame
+
+import numpy as np
+import pandas as pd
+
+the_df = pd.DataFrame(np.random.randint(0, 100, size=(1000000, 10)),
+                      columns=[f'c_{i}' for i in range(10)])
+
+
+enamldef Main(MainWindow):
+    title = 'A million cells'
+
+    Container:
+        DataFrame:
+            df = the_df

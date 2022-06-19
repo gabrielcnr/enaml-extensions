@@ -7,19 +7,21 @@ from enum import Enum, auto
 from typing import Optional, Any, List, Tuple, NamedTuple, Collection, Set, Iterable
 
 # Constants
+
 from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
 from enamlext.qt.table.defs import CellStyle
 from enamlext.qt.table.filtering import TableFilters, Filter
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
-from qtpy.QtGui import QContextMenuEvent, QFont, QColor
+from qtpy.QtGui import QContextMenuEvent, QFont, QColor, QPixmap
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
+
+from enamlext.qt.table.table_context import TableContext
 
 DEFAULT_ROW_HEIGHT = 23
 DEFAULT_FONT_NAME = "Calibri"
 DEFAULT_FONT_SIZE_PX = 13
 
 CHECKBOX_FLAG = Qt.ItemNeverHasChildren | Qt.ItemIsEditable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
-
 
 class SelectionMode(Enum):
     SINGLE_CELL = auto()
@@ -153,6 +155,40 @@ class QTableModel(QAbstractTableModel):
                     column=column,
                 )
                 return column.get_cell_style(context).get("color")
+        elif role == Qt.BackgroundColorRole:
+            col_index = index.column()
+            column = self.get_column_by_index(col_index)
+            if column.cell_style is not None:
+                context = TableContext(
+                    model=self,
+                    index=index,
+                    role=role,
+                    column_index=col_index,
+                    column=column,
+                )
+                return column.get_cell_style(context).get("background")
+        elif role == Qt.DecorationRole:  # TODO: refactor (DRY)
+            col_index = index.column()
+            column = self.get_column_by_index(col_index)
+            if column.image is not None:
+                context = TableContext(
+                    model=self,
+                    index=index,
+                    role=role,
+                    column_index=col_index,
+                    column=column,
+                )
+                if (image := column.get_image(context)):
+                    img = QPixmap()
+                    img.load(image)
+
+                    # TODO: make this resizing thing better
+                    if img.height() > 24:
+                        img = img.scaledToHeight(24)
+                    if img.width() > 24:
+                        img = img.scaledToWidth(24)
+
+                    return img
 
     def setData(self, index: QModelIndex, value: Any, role: int) -> bool:
         if index.column() == 0 and role == Qt.CheckStateRole and self.checkable:
@@ -228,8 +264,21 @@ class QTableModel(QAbstractTableModel):
 
     def _apply_filters(self) -> None:
         self.beginResetModel()
-        self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
+        self.refresh_filtered_items()
         self.endResetModel()
+
+    def refresh_filtered_items(self) -> None:
+        """
+        the problem here is that when we are applying the filters we are
+        creating a new list - can we do that better?
+        instead we could keep the items inside a proxy object which
+        holds an internal mapping for the indexes
+        (index in the original items -> index in the filtered items)
+        """
+        if self.filters:
+            self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
+        else:
+            self._filtered_items = self._original_items
 
 
 class DoubleClickContext:
@@ -273,9 +322,9 @@ class SelectionContext:
     def __init__(self,
                  table: "QTable",
                  selected_indexes: List[QModelIndex],
-                 added: List[QModelIndex],
-                 removed: List[QModelIndex],
-                 current: QModelIndex):
+                 current: QModelIndex,
+                 added: Optional[List[QModelIndex]],
+                 removed: Optional[List[QModelIndex]]):
         self.__table = weakref.ref(table)
         self.selected_model_indexes = selected_indexes
         self.added_model_indexes = added
@@ -287,12 +336,14 @@ class SelectionContext:
         return [(i.row(), i.column()) for i in self.selected_model_indexes]
 
     @property
-    def added_indexes(self) -> List[Cell]:
-        return [(i.row(), i.column()) for i in self.added_model_indexes]
+    def added_indexes(self) -> Optional[List[Cell]]:
+        if self.added_model_indexes:
+            return [(i.row(), i.column()) for i in self.added_model_indexes]
 
     @property
-    def removed_indexes(self) -> List[Cell]:
-        return [(i.row(), i.column()) for i in self.removed_model_indexes]
+    def removed_indexes(self) -> Optional[List[Cell]]:
+        if self.removed_model_indexes:
+            return [(i.row(), i.column()) for i in self.removed_model_indexes]
 
     @property
     def current_index(self) -> Cell:
@@ -378,6 +429,7 @@ class QTable(QTableView):
         # refresh the model
         if self.model() is not None:
             self.model().columns = columns
+            self.adjust_column_sizes()
 
     @property
     def items(self) -> List:
@@ -389,6 +441,7 @@ class QTable(QTableView):
         # refresh the model
         if self.model() is not None:
             self.model().items = items
+            self.adjust_column_sizes()
 
     @property
     def checkable(self) -> bool:
@@ -407,11 +460,13 @@ class QTable(QTableView):
         finally:
             self.__updating = False
             self.model().endResetModel()
-            self.refresh()
 
     def refresh(self):
-        self.model()
-        pass
+        m = self.model()
+        m.refresh_filtered_items()  # TODO: find a better way without requiring this
+        top_left = m.index(0, 0)
+        bottom_right = m.index(len(self.items), len(self.columns))
+        m.dataChanged.emit(top_left, bottom_right)
 
     def set_selection_mode(self, selection_mode: SelectionMode):
         if selection_mode == SelectionMode.SINGLE_CELL:
@@ -425,7 +480,7 @@ class QTable(QTableView):
             self.setSelectionBehavior(self.SelectRows)
         elif selection_mode == SelectionMode.MULTI_ROWS:
             self.setSelectionMode(self.MultiSelection)
-            self.setSelectionBehaviour(self.SelectRows)
+            self.setSelectionBehavior(self.SelectRows)
 
     # Header visibility controls
 
@@ -492,6 +547,16 @@ class QTable(QTableView):
         )
         self.on_selection.emit(selection_context)
 
+    def get_current_selection_context(self) -> SelectionContext:
+        selection_context = SelectionContext(
+            table=self,
+            selected_indexes=self.selectionModel().selectedIndexes(),
+            added=None,
+            removed=None,
+            current=self.currentIndex(),
+        )
+        return selection_context
+
     # Checked Items
 
     def on_model_checked_items_changed(self, checked_items: Set):
@@ -506,46 +571,28 @@ class QTable(QTableView):
         else:
             return set()
 
-
-class TableContext:
-    """
-    Lazy evaluation of properties relative to the data request context.
-    The Qt MVC calls the data() in table model, passing the roles...
-    Depending on the role, we will call callbacks in the column to retrieve things like
-    cell style, font style, tooltip, etc...
-    We pass the object of TableContext to the callback, and everything there is
-    calculated on demand... which hopefully makes it more efficient
-    """
-
-    def __init__(self,
-                 model: QTableModel,
-                 index: QModelIndex,
-                 role: int,
-                 column_index: int,
-                 column: Column,
-                 ):
-        self.__model = model
-        self.index = index
-        self.role = role
-        self.column_index = column_index
-        self.column = column
-
-    @property
-    def row_index(self) -> int:
-        return self.index.row()
-
-    @property
-    def item(self) -> Any:
-        return self.__model.get_item_by_index(self.row_index)
-
-    @property
-    def raw_value(self) -> Any:
-        return self.column.get_value(self.item)
-
-    @property
-    def value(self) -> str:
-        """ Returns the displayed value. """
-        return self.column.get_displayed_value(self.item)
+    # Column Sizes
+    def adjust_column_sizes(self) -> None:
+        fm = self.fontMetrics()
+        model = self.model()
+        items = model.items
+        for i, col in enumerate(self.columns):
+            if col.size == 'auto':
+                self.resizeColumnToContents(i)
+            elif col.size == 'just':
+                # Consider the font metrics of the view
+                # Here we are taking into account only the first thousand rows
+                # because otherwise this would be very slow for millions of rows
+                # It does not take into consideration the text in the header
+                get_displayed_value = col.get_displayed_value
+                size = 20
+                for row_index in range(min(model.rowCount(), 1000)):
+                    size = max(size, fm.width(get_displayed_value(items[row_index])))
+                self.horizontalHeader().resizeSection(i, size + 10)
+            elif isinstance(col.size, int):
+                self.horizontalHeader().resizeSection(i, col.size)
+            else:
+                raise ValueError(f'Invalid column size: {col.size}')
 
 
 class MenuActionContext:
@@ -696,16 +743,6 @@ class QFilterableHeaderView(QHeaderView):
     def filter_callback(self, column: Column, expression: str):
         # TODO: use column index?
         self.filterChanged.emit(column, expression)
-
-
-# Cell style callbacks
-RED = QColor(Qt.red)
-NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
-
-
-def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle:
-    if table_context.raw_value < 0:
-        return NEGATIVE_NUMBER_CELL_STYLE
 
 
 def debug_trace():
