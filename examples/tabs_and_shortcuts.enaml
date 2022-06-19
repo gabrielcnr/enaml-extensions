@@ -1,0 +1,36 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+
+from qtpy.QtCore import *
+from qtpy.QtWidgets import *
+from qtpy.QtGui import *
+
+from enamlext.core import get_main_window, register_shortcut, register_window_shortcut
+
+
+enamldef Main(MainWindow):
+    title = 'Tabs and Shortcuts'
+
+    Container:
+        Notebook:
+            Page:
+                title = 'ONE'
+                Container:
+                    Label:
+                        text = 'ONE'
+                        activated ::
+                            callback = lambda *a: print('ONE')
+                            register_shortcut(self, 'Ctrl+1', callback)
+
+                            callback = lambda *a: print('Zero')
+                            register_window_shortcut(self, 'Ctrl+0', callback)
+
+            Page:
+                title = 'TWO'
+                Container:
+                    Label:
+                        text = 'TWO'
+                        activated ::
+                            callback = lambda *a: print('TWO')
+                            register_shortcut(self, 'Ctrl+2', callback)
+
