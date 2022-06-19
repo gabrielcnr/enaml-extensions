@@ -12,6 +12,14 @@ enamldef DictView(Container):
     Table:
         items << list(dict_.items())
         columns << [
-            Column(0, key_title),
-            Column(1, value_title),
+            Column(0, key_title, use_getitem=True),
+            Column(1, value_title, use_getitem=True),
         ]
+
+
+from enaml.widgets.api import Window
+enamldef Main(Window):
+    Container:
+        DictView:
+            dict_ = {'name': 'John', 'last_name': 'Lennon', 'age': 40}
+
