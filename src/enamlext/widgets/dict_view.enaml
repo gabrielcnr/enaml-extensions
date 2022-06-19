@@ -1,0 +1,17 @@
+from enaml.widgets.api import Container
+from enamlext.widgets import Table
+from enamlext.qt.table.column import Column
+
+
+enamldef DictView(Container):
+    attr dict_ = {}
+
+    attr key_title = 'Key'
+    attr value_title = 'Value'
+
+    Table:
+        items << list(dict_.items())
+        columns << [
+            Column(0, key_title),
+            Column(1, value_title),
+        ]
