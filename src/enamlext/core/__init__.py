@@ -23,6 +23,13 @@ def iter_parents(obj) -> Iterator[Widget]:
         obj = parent
 
 
+def iter_children(obj, type_=None):
+    for child in getattr(obj, 'children', []):
+        if type_ is None or isinstance(child, type_):
+            yield child
+        yield from iter_children(child, type_=type_)
+
+
 def register_shortcut(obj, key_sequence: str, callback: Callable[[], None]):
     from qtpy.QtWidgets import QShortcut
     from qtpy.QtGui import QKeySequence
