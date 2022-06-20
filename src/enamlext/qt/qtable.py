@@ -473,13 +473,13 @@ class QTable(QTableView):
             self.setSelectionMode(self.SingleSelection)
             self.setSelectionBehavior(self.SelectItems)
         elif selection_mode == SelectionMode.MULTI_CELLS:
-            self.setSelectionMode(self.MultiSelection)
+            self.setSelectionMode(self.ExtendedSelection)
             self.setSelectionBehavior(self.SelectItems)
         elif selection_mode == SelectionMode.SINGLE_ROW:
             self.setSelectionMode(self.SingleSelection)
             self.setSelectionBehavior(self.SelectRows)
         elif selection_mode == SelectionMode.MULTI_ROWS:
-            self.setSelectionMode(self.MultiSelection)
+            self.setSelectionMode(self.ExtendedSelection)
             self.setSelectionBehavior(self.SelectRows)
 
     # Header visibility controls
