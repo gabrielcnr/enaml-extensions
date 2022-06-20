@@ -69,7 +69,7 @@ class Column:
         if callable(self.fmt):
             return self.fmt(value)
         else:
-            return format(value, self.fmt)
+            return format(value, self.fmt) if value is not None else ''
 
     def get_tooltip(self, table_context: "TableContext") -> str:
         if self.tooltip is not None:
