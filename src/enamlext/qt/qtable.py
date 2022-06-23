@@ -429,7 +429,6 @@ class QTable(QTableView):
         # refresh the model
         if self.model() is not None:
             self.model().columns = columns
-            self.adjust_column_sizes()
 
     @property
     def items(self) -> List:
@@ -441,7 +440,6 @@ class QTable(QTableView):
         # refresh the model
         if self.model() is not None:
             self.model().items = items
-            self.adjust_column_sizes()
 
     @property
     def checkable(self) -> bool:
@@ -460,6 +458,7 @@ class QTable(QTableView):
         finally:
             self.__updating = False
             self.model().endResetModel()
+            self.adjust_column_sizes()
 
     def refresh(self):
         m = self.model()
