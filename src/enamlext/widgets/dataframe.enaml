@@ -19,6 +19,9 @@ enamldef DataFrame(Table):
         _df = df if self.df is not None else pd.DataFrame()
         self.items = DataFrameProxy(_df)
 
+    activated ::
+        self.proxy.widget.adjust_column_sizes()  # TODO: why we need to call this here?
+
     initialized ::
         self._refresh_internals()
 
