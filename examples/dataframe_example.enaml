@@ -1,0 +1,37 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets.dataframe import DataFrame
+from enamlext.qt.table.column import generate_columns, CellStyle, Column
+import pandas as pd
+from qtpy.QtGui import QColor
+
+
+my_df = pd.DataFrame()
+my_df['color'] = ['red', 'blue', 'green']
+my_df['number'] = [10, -2.5, 1233.44]
+
+
+def get_cell_style(table_context):
+    return CellStyle(color=QColor(table_context.raw_value))
+
+
+enamldef Main(MainWindow):
+    title = 'DataFrame Example'
+
+    Container:
+        constraints << [vbox(chk, hbox(df1, df2)), df1.width == df2.width]
+        CheckBox: chk:
+            text = 'Show All Columns'
+
+        DataFrame: df1:
+            df << my_df
+            hints = {'color': {'cell_style': get_cell_style}}
+            include << ['number', 'color'] if chk.checked else ['color']
+
+        DataFrame: df2:
+            df << my_df
+            columns = [
+                Column('color', title='Color', cell_style=get_cell_style),
+                Column('number', title='NUMBER'),
+                Column('color', title='Reversed Upper Color', fmt=lambda c: c.upper()[::-1], cell_style=get_cell_style),
+            ]
