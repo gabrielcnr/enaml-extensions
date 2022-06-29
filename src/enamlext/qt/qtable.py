@@ -23,6 +23,7 @@ DEFAULT_FONT_SIZE_PX = 13
 
 CHECKBOX_FLAG = Qt.ItemNeverHasChildren | Qt.ItemIsEditable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
 
+
 class SelectionMode(Enum):
     SINGLE_CELL = auto()
     MULTI_CELLS = auto()
@@ -79,6 +80,8 @@ class QTableModel(QAbstractTableModel):
                           f"set, but got: {type(checked_items).__name__} instead - coercing to set")
             checked_items = set(checked_items)
         self.checked_items = checked_items
+
+        self._font = self._create_font()  # cache the font
 
     def __len__(self):
         return len(self.items)  # O(1)
@@ -140,9 +143,7 @@ class QTableModel(QAbstractTableModel):
             else:
                 return Qt.Unchecked
         elif role == Qt.FontRole:
-            FONT = QFont(DEFAULT_FONT_NAME)
-            FONT.setPixelSize(DEFAULT_FONT_SIZE_PX)
-            return FONT
+            return self._font
         elif role == Qt.ForegroundRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
@@ -280,6 +281,10 @@ class QTableModel(QAbstractTableModel):
         else:
             self._filtered_items = self._original_items
 
+    def _create_font(self) -> QFont:
+        font = QFont(DEFAULT_FONT_NAME)
+        font.setPixelSize(DEFAULT_FONT_SIZE_PX)
+        return font
 
 class DoubleClickContext:
     def __init__(self, index: QModelIndex, table: "QTable"):
