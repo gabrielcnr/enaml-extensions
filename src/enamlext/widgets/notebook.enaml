@@ -1,0 +1,27 @@
+from enaml.widgets.api import Notebook as _Notebook
+from enaml.qt.qt_notebook import QNotebook
+from functools import partial
+from qtpy.QtGui import QKeyEvent, QKeySequence
+from qtpy.QtCore import Qt, QEvent
+from typing import Callable
+
+
+def notebook_event_handler(original_event_handler: Callable[[QEvent], None], widget: QNotebook, event: QEvent):
+    """ Allow the users to always navigate between tabs with Ctrl+Tab. """
+    if isinstance(event, QKeyEvent):
+        if event.key() == Qt.Key_Tab and event.modifiers() & Qt.ControlModifier:
+            if not widget.hasFocus():
+                widget.setFocus(True)
+                event.accept()
+        elif event.key() == Qt.Key_Escape:
+            if widget.hasFocus():
+                parent = widget.parent()
+                if parent is not None:
+                    parent.setFocus()
+    return original_event_handler(event)
+
+
+enamldef Notebook(_Notebook):
+    activated ::
+        widget: QNotebook = self.proxy.widget
+        widget.event = partial(notebook_event_handler, widget.event, widget)
