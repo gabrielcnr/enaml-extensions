@@ -3,11 +3,31 @@ from enaml.layout.api import hbox, spacer
 from enaml.stdlib.fields import IntField
 
 
+enamldef OKCancelButtonBox(Container):
+    alias ok_text: btn_ok.text
+    alias cancel_text: btn_cancel.text
+    alias ok_enabled: btn_ok.enabled
+    alias cancel_enabled: btn_cancel.enabled
+
+    padding = 0
+    constraints << [hbox(spacer, btn_ok, btn_cancel)]
+
+    PushButton: btn_ok:
+        text = 'OK'
+        clicked ::
+            accept()
+
+    PushButton: btn_cancel:
+        text = 'Cancel'
+        clicked ::
+            reject()
+
+
 enamldef AskIntDialog(Dialog):
     alias value: field.value
     alias text: lbl_message.text
-    alias ok_text: btn_ok.text
-    alias cancel_text: btn_cancel.text
+    alias ok_text: buttons.ok_text
+    alias cancel_text: buttons.cancel_text
     attr validate_callback = None
     attr errors << validate_callback(field.value) if validate_callback is not None else []
 
@@ -26,17 +46,5 @@ enamldef AskIntDialog(Dialog):
         Separator:
             pass
 
-        Container:
-            padding = 0
-            constraints << [hbox(spacer, btn_ok, btn_cancel)]
-
-            PushButton: btn_ok:
-                text = 'OK'
-                enabled << not errors
-                clicked ::
-                    accept()
-
-            PushButton: btn_cancel:
-                text = 'Cancel'
-                clicked ::
-                    reject()
+        OKCancelButtonBox: buttons:
+            ok_enabled << not errors
