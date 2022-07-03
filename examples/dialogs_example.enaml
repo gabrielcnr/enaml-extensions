@@ -1,0 +1,27 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets.dialogs import AskIntDialog
+
+
+def is_odd(n):
+    if n % 2 == 0:
+        return [f'{n} is not odd!']
+    else:
+        return []
+
+
+enamldef Main(MainWindow): main_window:
+    title = 'Dialogs example'
+
+    initial_size = (800, 600)
+
+    Container:
+        PushButton:
+            text = 'Ask Int'
+            clicked ::
+                dlg = AskIntDialog(value=10,
+                                   text='Enter an odd number in the box below:',
+                                   validate_callback=is_odd,
+                                   parent=main_window)
+                if dlg.exec_():
+                    print(f'You have entered {dlg.value}')
