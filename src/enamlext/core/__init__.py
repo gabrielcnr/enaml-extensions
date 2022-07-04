@@ -46,6 +46,14 @@ def register_shortcut(obj, key_sequence: str, callback: Callable[[], None]):
     return shortcut
 
 
+def register_widget_shortcut(obj, key_sequence, callback):
+    from qtpy.QtCore import Qt
+
+    shortcut = register_shortcut(obj, key_sequence, callback)
+    shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+    return shortcut
+
+
 def register_window_shortcut(obj, key_sequence, callback):
     from qtpy.QtCore import Qt
 
