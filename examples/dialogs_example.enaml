@@ -1,0 +1,44 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets.dialogs import AskIntDialog, AskFloatDialog
+
+
+def is_odd(n):
+    if n % 2 == 0:
+        return [f'{n} is not odd!']
+    else:
+        return []
+
+
+def is_2point5_multiple(n):
+    if n % 2.5 != 0:
+        return ['not valid']
+    else:
+        return []
+
+
+enamldef Main(MainWindow): main_window:
+    title = 'Dialogs example'
+
+    initial_size = (800, 600)
+
+    Container:
+        PushButton:
+            text = 'Ask Int'
+            clicked ::
+                dlg = AskIntDialog(value=10,
+                                   text='Enter an odd number in the box below:',
+                                   validate_callback=is_odd,
+                                   parent=main_window)
+                if dlg.exec_():
+                    print(f'You have entered {dlg.value}')
+
+        PushButton:
+            text = 'Ask Float'
+            clicked ::
+                dlg = AskFloatDialog(value=7.5,
+                                   text='Enter a multiple of 2.5 in the box below:',
+                                   validate_callback=is_2point5_multiple,
+                                   parent=main_window)
+                if dlg.exec_():
+                    print(f'You have entered {dlg.value}')

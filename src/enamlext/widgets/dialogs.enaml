@@ -1,0 +1,77 @@
+from enaml.widgets.api import Dialog, Label, Separator, Container, PushButton
+from enaml.layout.api import hbox, spacer
+from enaml.stdlib.fields import IntField, FloatField
+
+
+enamldef OKCancelButtonBox(Container):
+    alias ok_text: btn_ok.text
+    alias cancel_text: btn_cancel.text
+    alias ok_enabled: btn_ok.enabled
+    alias cancel_enabled: btn_cancel.enabled
+
+    padding = 0
+    constraints << [hbox(spacer, btn_ok, btn_cancel)]
+
+    PushButton: btn_ok:
+        text = 'OK'
+        clicked ::
+            accept()
+
+    PushButton: btn_cancel:
+        text = 'Cancel'
+        clicked ::
+            reject()
+
+
+enamldef AskIntDialog(Dialog):
+    alias value: field.value
+    alias text: lbl_message.text
+    alias ok_text: buttons.ok_text
+    alias cancel_text: buttons.cancel_text
+    attr validate_callback = None
+    attr errors << validate_callback(field.value) if validate_callback is not None else []
+
+    Container:
+
+        Label: lbl_message:
+            text = 'Enter an integral number in the box below:'
+
+        IntField: field:
+            submit_triggers = ['auto_sync', 'return_pressed', 'lost_focus']
+
+        Label: lbl_errors:
+            foreground = 'red'
+            text << '; '.join(errors)
+
+        Separator:
+            pass
+
+        OKCancelButtonBox: buttons:
+            ok_enabled << not errors
+
+
+enamldef AskFloatDialog(Dialog):
+    alias value: field.value
+    alias text: lbl_message.text
+    alias ok_text: buttons.ok_text
+    alias cancel_text: buttons.cancel_text
+    attr validate_callback = None
+    attr errors << validate_callback(field.value) if validate_callback is not None else []
+
+    Container:
+
+        Label: lbl_message:
+            text = 'Enter a float number in the box below:'
+
+        FloatField: field:
+            submit_triggers = ['auto_sync', 'return_pressed', 'lost_focus']
+
+        Label: lbl_errors:
+            foreground = 'red'
+            text << '; '.join(errors)
+
+        Separator:
+            pass
+
+        OKCancelButtonBox: buttons:
+            ok_enabled << not errors
