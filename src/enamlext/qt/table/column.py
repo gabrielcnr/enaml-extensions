@@ -1,6 +1,5 @@
 import datetime
 from enum import Enum
-from functools import partial
 from numbers import Number
 from operator import itemgetter
 from typing import Union, Callable, Optional, Any, Sequence, Mapping, List, Dict, Container
@@ -46,6 +45,8 @@ class Column:
         self.fmt = fmt
         self.size = size  # TODO: should we also support callable?
         self.image = image
+        if cell_style is not None:
+            self.get_cell_style = cell_style
 
     def _link_get_value_method(self, key, use_getitem):
         if callable(key):
@@ -161,7 +162,39 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
         return []
     first_row = items[0]
     columns = {}  # column_index -> Column
-    if isinstance(first_row, tuple):
+
+    if isinstance(items, DataFrameProxy):
+        import pandas as pd
+        import numpy as np
+        df = items.df
+        for i, (name, dtype) in enumerate(df.dtypes.items()):
+            if exclude is not None and name in exclude_set:
+                continue
+            if include is not None and name not in include_set:
+                continue
+            if not isinstance(dtype, pd.core.dtypes.dtypes.CategoricalDtype) and np.issubdtype(dtype, np.number):
+                align = Alignment.RIGHT
+                style = get_cell_style_for_negative_numbers
+            else:
+                align = Alignment.LEFT
+                style = None
+
+            kwargs = {'title': make_title(name), 'align': align, 'cell_style': style,
+                      'use_getitem': True}
+
+            hint = hints.get(name, {})
+            kwargs.update(hint)
+
+            column = Column(name, **kwargs)
+
+            if include is not None:
+                column_index = include.index(name)
+            else:
+                column_index = i
+
+            columns[column_index] = column
+
+    elif isinstance(first_row, tuple):
         if is_namedtuple(first_row):
             fields = type(first_row)._fields
         else:
@@ -246,41 +279,6 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
                 column_index = include.index(field)
             else:
                 column_index = i
-            columns[column_index] = column
-
-    elif isinstance(items, DataFrameProxy):
-        import pandas as pd
-        import numpy as np
-        df = items.df
-        for i, (name, dtype) in enumerate(df.dtypes.items()):
-            if exclude is not None and name in exclude_set:
-                continue
-            if include is not None and name not in include_set:
-                continue
-            if not isinstance(dtype, pd.core.dtypes.dtypes.CategoricalDtype) and np.issubdtype(dtype, np.number):
-                align = Alignment.RIGHT
-                style = get_cell_style_for_negative_numbers
-            else:
-                align = Alignment.LEFT
-                style = None
-
-            def extract_value_by_index(series: pd.Series, index: int) -> Any:
-                return series.iloc[index]
-
-            key = partial(extract_value_by_index, index=i)
-
-            kwargs = {'title': make_title(name), 'align': align, 'cell_style': style}
-
-            hint = hints.get(name, {})
-            kwargs.update(hint)
-
-            column = Column(key, **kwargs)
-
-            if include is not None:
-                column_index = include.index(name)
-            else:
-                column_index = i
-
             columns[column_index] = column
 
     ordered_columns = [columns[c] for c in sorted(columns)]

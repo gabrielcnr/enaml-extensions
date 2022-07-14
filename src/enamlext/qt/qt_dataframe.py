@@ -3,14 +3,18 @@ from qtpy.QtWidgets import QApplication
 
 
 class DataFrameProxy:
-    def __init__(self, df):
+    def __init__(self, df: pd.DataFrame):
         self.df = df
+        self.__d = self.df.to_dict('records')
 
     def __getitem__(self, item):
-        return self.df.iloc[item]
+        return self.__d[item]
 
     def __len__(self):
         return len(self.df)
+
+    def update_inplace(self) -> None:
+        self.__d[:] = self.df.to_dict('records')
 
 
 def _display_dataframe(df: pd.DataFrame):

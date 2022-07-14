@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Any
 
 from qtpy.QtCore import QModelIndex
@@ -26,19 +27,19 @@ class TableContext:
         self.column_index = column_index
         self.column = column
 
-    @property
+    @cached_property
     def row_index(self) -> int:
         return self.index.row()
 
-    @property
+    @cached_property
     def item(self) -> Any:
         return self.__model.get_item_by_index(self.row_index)
 
-    @property
+    @cached_property
     def raw_value(self) -> Any:
         return self.column.get_value(self.item)
 
-    @property
+    @cached_property
     def value(self) -> str:
         """ Returns the displayed value. """
         return self.column.get_displayed_value(self.item)

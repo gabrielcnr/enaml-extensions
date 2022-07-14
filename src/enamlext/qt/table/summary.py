@@ -32,7 +32,10 @@ class TableSelectionSummary:
         """
         if self.count == self.count_numbers == 2:
             v1, v2 = self.values
-            return abs(v1 - v2)
+            try:
+                return abs(v1 - v2)
+            except Exception:
+                return None
 
     def __str__(self) -> str:
         parts = [f'Count: {self.count}']

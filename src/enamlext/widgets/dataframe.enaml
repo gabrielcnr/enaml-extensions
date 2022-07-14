@@ -19,6 +19,14 @@ enamldef DataFrame(Table):
         _df = df if self.df is not None else pd.DataFrame()
         self.items = DataFrameProxy(_df)
 
+    func update_inplace():
+#        import time
+#        t0 = time.perf_counter()
+        self.items.update_inplace()
+        self.proxy.widget.refresh()
+#        t1 = time.perf_counter()
+#        print(f'update_inplace of {name} took {t1 - t0:.2f} s')
+
     activated ::
         self.proxy.widget.adjust_column_sizes()  # TODO: why we need to call this here?
 

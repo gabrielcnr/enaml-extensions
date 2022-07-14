@@ -155,7 +155,9 @@ class QTableModel(QAbstractTableModel):
                     column_index=col_index,
                     column=column,
                 )
-                return column.get_cell_style(context).get("color")
+                style = column.get_cell_style(context)
+                if style is not None:
+                    return style.get('color')
         elif role == Qt.BackgroundColorRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
@@ -167,7 +169,9 @@ class QTableModel(QAbstractTableModel):
                     column_index=col_index,
                     column=column,
                 )
-                return column.get_cell_style(context).get("background")
+                style = column.get_cell_style(context)
+                if style is not None:
+                    return style.get('background')
         elif role == Qt.DecorationRole:  # TODO: refactor (DRY)
             col_index = index.column()
             column = self.get_column_by_index(col_index)
