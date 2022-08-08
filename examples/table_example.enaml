@@ -43,6 +43,39 @@ def format_role(role):
     return role.title()
 
 
+table_data = [
+    {
+        'name': 'John',
+        'surname': 'Lennon',
+        'role': 'vocals, guitar',
+        'year': 1940,
+        'random_number': 0,
+    },
+    {
+        'name': 'Paul',
+        'surname': 'McCartney',
+        'role': 'vocals, bass guitar',
+        'year': 1942,
+        'random_number': -8,
+    },
+    {
+        'name': 'George',
+        'surname': 'Harrison',
+        'role': 'guitar, sitar',
+        'year': 1943,
+        'random_number': -1,
+    },
+    {
+        'name': 'Ringo',
+        'surname': 'Starr',
+        'role': 'drums, percussion',
+        'year': 1940,
+        'random_number': 1,
+    },
+
+]
+
+
 enamldef Main(MainWindow): window:
 
     title = 'Table Example'
@@ -76,6 +109,11 @@ enamldef Main(MainWindow): window:
                 text = 'Click'
                 clicked ::
                     print(the_table.selected_items)
+
+            PushButton:
+                text = 'Reset model'
+                clicked ::
+                    the_table.items = table_data
 
             Timer: timer:
                 interval = 100
@@ -118,34 +156,4 @@ enamldef Main(MainWindow): window:
                     Column(lambda o: f'{o["name"][0]}{o["surname"][0]}', 'Initials', size='just'),
                 ]
 
-                items = [
-                    {
-                        'name': 'John',
-                        'surname': 'Lennon',
-                        'role': 'vocals, guitar',
-                        'year': 1940,
-                        'random_number': 0,
-                    },
-                    {
-                        'name': 'Paul',
-                        'surname': 'McCartney',
-                        'role': 'vocals, bass guitar',
-                        'year': 1942,
-                        'random_number': -8,
-                    },
-                    {
-                        'name': 'George',
-                        'surname': 'Harrison',
-                        'role': 'guitar, sitar',
-                        'year': 1943,
-                        'random_number': -1,
-                    },
-                    {
-                        'name': 'Ringo',
-                        'surname': 'Starr',
-                        'role': 'drums, percussion',
-                        'year': 1940,
-                        'random_number': 1,
-                    },
-
-                ]
+                items = table_data

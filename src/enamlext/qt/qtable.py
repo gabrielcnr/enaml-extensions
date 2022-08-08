@@ -272,6 +272,10 @@ class QTableModel(QAbstractTableModel):
         self.refresh_filtered_items()
         self.endResetModel()
 
+    def clear_filters(self):
+        self.filters.clear()
+        self._apply_filters()
+
     def refresh_filtered_items(self) -> None:
         """
         the problem here is that when we are applying the filters we are
@@ -289,6 +293,7 @@ class QTableModel(QAbstractTableModel):
         font = QFont(DEFAULT_FONT_NAME)
         font.setPixelSize(DEFAULT_FONT_SIZE_PX)
         return font
+
 
 class DoubleClickContext:
     def __init__(self, index: QModelIndex, table: "QTable"):
@@ -428,6 +433,9 @@ class QTable(QTableView):
     def on_filter_changed(self, column: Column, expression: str) -> None:
         self.model().set_filter(column, expression)
 
+    def clear_filters(self):
+        self.model().clear_filters()
+
     @property
     def columns(self) -> List[Column]:
         return self._columns
@@ -513,11 +521,11 @@ class QTable(QTableView):
     # Context Menu
 
     def contextMenuEvent(self, event: QContextMenuEvent):
-        if not self.context_menu:
-            return
+        default_actions = [ResetFiltersAction(table=self)]
+        context_menu = self.context_menu + default_actions
 
         context = MenuActionContext(pos=event.pos(), table=self)
-        enabled_actions = [a for a in self.context_menu if a.is_enabled(context)]
+        enabled_actions = [a for a in context_menu if a.is_enabled(context)]
         if enabled_actions:
             menu = QMenu(parent=self)
             for context_menu_action in enabled_actions:
@@ -666,6 +674,20 @@ class ContextMenuAction(ABC):
     @abstractmethod
     def execute(self, context: MenuActionContext):
         pass
+
+
+class ResetFiltersAction(ContextMenuAction):
+    def __init__(self, table: QTable):
+        self.table = table
+
+    def is_enabled(self, context: MenuActionContext) -> bool:
+        return bool(self.table.model().filters)
+
+    def get_caption(self, context: MenuActionContext) -> bool:
+        return 'Reset Filters'
+
+    def execute(self, context: MenuActionContext) -> None:
+        self.table.clear_filters()
 
 
 from qtpy.QtWidgets import QWidget, QHeaderView, QLineEdit, QPushButton, QGroupBox, QHBoxLayout, QVBoxLayout, QLabel

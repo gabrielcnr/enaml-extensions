@@ -83,3 +83,6 @@ class TableFilters:
         for f in self.filters:
             if f.column == column:
                 return f
+
+    def clear(self):
+        self.filters = []

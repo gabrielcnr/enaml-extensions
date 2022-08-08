@@ -6,9 +6,14 @@ import pandas as pd
 from qtpy.QtGui import QColor
 
 
-my_df = pd.DataFrame()
-my_df['color'] = ['red', 'blue', 'green']
-my_df['number'] = [10, -2.5, 1233.44]
+def get_df():
+    my_df = pd.DataFrame()
+    my_df['color'] = ['red', 'blue', 'green']
+    my_df['number'] = [10, -2.5, 1233.44]
+    return my_df
+
+
+my_df = get_df()
 
 
 def get_cell_style(table_context):
@@ -19,19 +24,27 @@ enamldef Main(MainWindow):
     title = 'DataFrame Example'
 
     Container:
-        constraints << [vbox(chk, hbox(df1, df2)), df1.width == df2.width]
+        constraints << [vbox(hbox(chk, btn, spacer), hbox(df1, df2)), df1.width == df2.width]
         CheckBox: chk:
             text = 'Show All Columns'
 
+        PushButton: btn:
+            text = 'Reset'
+            clicked ::
+                df1.df = get_df()
+                df2.df = get_df()
+
         DataFrame: df1:
+            name = 'df1'
             df << my_df
             hints = {'color': {'cell_style': get_cell_style}}
             include << ['number', 'color'] if chk.checked else ['color']
 
         DataFrame: df2:
+            name = 'df2'
             df << my_df
             columns = [
-                Column('color', title='Color', cell_style=get_cell_style),
-                Column('number', title='NUMBER'),
-                Column('color', title='Reversed Upper Color', fmt=lambda c: c.upper()[::-1], cell_style=get_cell_style),
+                Column('color', title='Color', cell_style=get_cell_style, use_getitem=True),
+                Column('number', title='NUMBER', use_getitem=True),
+                Column('color', title='Reversed Upper Color', fmt=lambda c: c.upper()[::-1], cell_style=get_cell_style, use_getitem=True),
             ]

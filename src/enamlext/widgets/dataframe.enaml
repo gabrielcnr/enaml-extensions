@@ -12,12 +12,28 @@ enamldef DataFrame(Table):
     attr df = d_(Value(factory=pd.DataFrame))
     attr include = None   # d_(Typed(list))
     attr exclude = None   # d_(Typed(list))
-
-    columns << generate_columns(self.items, hints=hints, include=include, exclude=exclude)
+    attr _auto_refresh_columns = False
 
     func _refresh_internals():
         _df = df if self.df is not None else pd.DataFrame()
         self.items = DataFrameProxy(_df)
+        if self._auto_refresh_columns:
+            proposed_new_columns = {(c.key, c.title): c
+                                    for c in generate_columns(self.items, hints=hints,
+                                                              include=self.include, exclude=self.exclude)}
+            if self.proxy.widget is not None:
+                filters = self.proxy.widget.model().filters
+                to_drop = set()
+                for filter in filters.filters:
+                    filter_key = (filter.column.key, filter.column.title)
+                    if filter_key not in proposed_new_columns:
+                        to_drop.add(filter_key)
+                    else:
+                        filter.column = proposed_new_columns[filter_key]
+                if to_drop:
+                    new_filters = [f for f in filters if (f.column.key, f.column.title) not in to_drop]
+                    self.proxy.widget.model().filters = new_filters
+            self.columns = list(proposed_new_columns.values())
 
     func update_inplace():
 #        import time
@@ -31,7 +47,17 @@ enamldef DataFrame(Table):
         self.proxy.widget.adjust_column_sizes()  # TODO: why we need to call this here?
 
     initialized ::
+        self._auto_refresh_columns = not bool(self.columns)
         self._refresh_internals()
 
     df ::
+        self._refresh_internals()
+
+    include ::
+        self._refresh_internals()
+
+    exclude ::
+        self._refresh_internals()
+
+    hints ::
         self._refresh_internals()
