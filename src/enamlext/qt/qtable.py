@@ -1,9 +1,13 @@
 import contextlib
+import csv
+import itertools
+import operator
 import warnings
 import weakref
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
+from io import StringIO
 from typing import Optional, Any, List, Tuple, NamedTuple, Collection, Set, Iterable
 
 # Constants
@@ -11,8 +15,8 @@ from typing import Optional, Any, List, Tuple, NamedTuple, Collection, Set, Iter
 from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
 from enamlext.qt.table.defs import CellStyle
 from enamlext.qt.table.filtering import TableFilters, Filter
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection
-from qtpy.QtGui import QContextMenuEvent, QFont, QColor, QPixmap
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection, QEvent
+from qtpy.QtGui import QContextMenuEvent, QFont, QColor, QPixmap, QKeySequence
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
 from enamlext.qt.table.table_context import TableContext
@@ -396,6 +400,24 @@ class QTable(QTableView):
 
     #: signal to notify whenever the checked items change
     on_checked_items: Signal = Signal(set)
+
+    def keyPressEvent(self, event: QEvent):
+        """ Supports copying when multiple cells are selected. """
+        if event.matches(QKeySequence.Copy):
+            selected_indexes = self.selectedIndexes()
+            if selected_indexes:
+                data = ((i.row(), i.column(), self.model().data(i, role=Qt.DisplayRole)) for i in selected_indexes)
+                rows = ((v for _, _, v in cells)
+                        for _, cells in itertools.groupby(sorted(data), key=operator.itemgetter(0)))
+
+                sio = StringIO()
+                writer = csv.writer(sio, delimiter='\t')
+                writer.writerows(rows)
+
+                sio.seek(0)
+                QApplication.clipboard().setText(sio.read())
+        else:
+            return super().keyPressEvent(event)
 
     def __init__(self,
                  columns: List[Column],
@@ -795,7 +817,6 @@ def debug_trace():
 
 
 if __name__ == '__main__':
-    import itertools
     import uuid
 
     # Making Ctrl+C work
