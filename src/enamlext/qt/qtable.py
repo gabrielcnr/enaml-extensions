@@ -199,6 +199,13 @@ class QTableModel(QAbstractTableModel):
 
                     return img
 
+    def sort(self, column_index, order=None) -> None:
+        if self.columns:
+            column = self.columns[column_index]
+            self.beginResetModel()
+            self._filtered_items = sorted(self._filtered_items, key=column.get_value, reverse=order)
+            self.endResetModel()
+
     def setData(self, index: QModelIndex, value: Any, role: int) -> bool:
         if index.column() == 0 and role == Qt.CheckStateRole and self.checkable:
             item = self.items[index.row()]
@@ -401,6 +408,43 @@ class QTable(QTableView):
     #: signal to notify whenever the checked items change
     on_checked_items: Signal = Signal(set)
 
+    def __init__(self,
+                 columns: List[Column],
+                 items: Optional[List[Any]] = None,
+                 *,
+                 checkable: bool = False,
+                 context_menu: List["ContextMenuAction"] = None,
+                 alternate_row_colors: bool = True,
+                 checked_items: Collection[Any] = None,
+                 sortable: bool = True,
+                 parent: QObject = None):
+        super().__init__(parent=parent)
+        self.columns = columns
+        if items is None:
+            items = []
+        self.items = items
+        self.context_menu = context_menu
+        self.setAlternatingRowColors(alternate_row_colors)
+        self.doubleClicked.connect(self.on_double_clicked)
+        model = QTableModel(self.columns, self.items, checkable=checkable, checked_items=checked_items)
+        model.on_checked_items.connect(self.on_model_checked_items_changed)
+        self.setModel(model)
+        self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
+        self.setSortingEnabled(sortable)
+        self.__updating = False  # sentinel
+        # TODO: improve the way we update the internals - maybe offering a high-level function that gets everything
+        #       that is internal and is possible of updating?
+        #       Also, need to eliminate the duplication here - we should only work in terms of what's inside the model
+        #       this will prevent from view and model getting out of sync
+
+
+        # Horizontal header with filter capabilities
+        h_header = QFilterableHeaderView(Qt.Horizontal, parent=self)
+        h_header.filterChanged.connect(self.on_filter_changed)
+        h_header.setSectionsClickable(True)
+        h_header.setSortIndicatorShown(True)
+        self.setHorizontalHeader(h_header)
+
     def keyPressEvent(self, event: QEvent):
         """ Supports copying when multiple cells are selected. """
         if event.matches(QKeySequence.Copy):
@@ -418,39 +462,6 @@ class QTable(QTableView):
                 QApplication.clipboard().setText(sio.read())
         else:
             return super().keyPressEvent(event)
-
-    def __init__(self,
-                 columns: List[Column],
-                 items: Optional[List[Any]] = None,
-                 *,
-                 checkable: bool = False,
-                 context_menu: List["ContextMenuAction"] = None,
-                 alternate_row_colors: bool = True,
-                 checked_items: Collection[Any] = None,
-                 parent: QObject = None):
-        super().__init__(parent=parent)
-        self.columns = columns
-        if items is None:
-            items = []
-        self.items = items
-        self.context_menu = context_menu
-        self.setAlternatingRowColors(alternate_row_colors)
-        self.doubleClicked.connect(self.on_double_clicked)
-        model = QTableModel(self.columns, self.items, checkable=checkable, checked_items=checked_items)
-        model.on_checked_items.connect(self.on_model_checked_items_changed)
-        self.setModel(model)
-        self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
-        self.__updating = False  # sentinel
-        # TODO: improve the way we update the internals - maybe offering a high-level function that gets everything
-        #       that is internal and is possible of updating?
-        #       Also, need to eliminate the duplication here - we should only work in terms of what's inside the model
-        #       this will prevent from view and model getting out of sync
-
-
-        # Horizontal header with filter capabilities
-        h_header = QFilterableHeaderView(Qt.Horizontal, parent=self)
-        h_header.filterChanged.connect(self.on_filter_changed)
-        self.setHorizontalHeader(h_header)
 
     def on_filter_changed(self, column: Column, expression: str) -> None:
         self.model().set_filter(column, expression)
