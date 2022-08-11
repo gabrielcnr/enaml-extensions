@@ -27,7 +27,10 @@ class Filter:
         if self._expression_startswith_operator(self.expression):
             def callback(x):
                 ns = {'x': x}
-                return eval(f'x {self.expression}', ns)
+                try:
+                    return eval(f'x {self.expression}', ns)
+                except (NameError, SyntaxError):
+                    return False
 
         else:
             def callback(x):
@@ -54,11 +57,14 @@ class TableFilters:
     """
     def __init__(self, filters: List[Filter] = None):
         if filters is None:
-            filters = []
-        self.filters = filters
+            filters = {}
+        self.filters = {f.column: f for f in filters}
 
     def __len__(self):
         return len(self.filters)
+
+    def __contains__(self, column):
+        return column in self.filters
 
     def filter_items(self, items: Iterable) -> Generator:
         for item in items:
@@ -68,21 +74,19 @@ class TableFilters:
     def filter(self, item: Any) -> bool:
         """ Returns True if the given item is included after evaluating all the filters.
         """
-        for filter in self.filters:
+        for filter in self.filters.values():
             if not filter(item):
                 return False
         return True
 
     def add_filter(self, filter: Filter) -> None:
-        # First we replace any existing filters referencing the same column
-        filters = [f for f in self.filters if f.column != filter.column]
-        filters.append(filter)
-        self.filters = filters
+        if filter.expression:
+            self.filters[filter.column] = filter
+        else:
+            self.filters.pop(filter.column, None)
 
     def get(self, column: Column) -> Optional[Filter]:
-        for f in self.filters:
-            if f.column == column:
-                return f
+        return self.filters.get(column)
 
     def clear(self):
-        self.filters = []
+        self.filters = {}

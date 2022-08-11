@@ -28,6 +28,9 @@ DEFAULT_FONT_SIZE_PX = 13
 CHECKBOX_FLAG = Qt.ItemNeverHasChildren | Qt.ItemIsEditable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
 
 
+RED = QColor(Qt.red)
+
+
 class SelectionMode(Enum):
     SINGLE_CELL = auto()
     MULTI_CELLS = auto()
@@ -86,6 +89,7 @@ class QTableModel(QAbstractTableModel):
         self.checked_items = checked_items
 
         self._font = self._create_font()  # cache the font
+        self._font_bold = self._create_font(bold=True)
 
     def __len__(self):
         return len(self.items)  # O(1)
@@ -245,6 +249,15 @@ class QTableModel(QAbstractTableModel):
                     if (align := column.align) is AUTO_ALIGN:
                         align = Alignment.LEFT
                 return to_qt_alignment(align)
+            elif role == Qt.ForegroundRole:
+                column = self.columns[section - offset]  # O(1)
+                if column in self.filters:
+                    return RED
+
+            elif role == Qt.FontRole:
+                column = self.columns[section - offset]  # O(1)
+                if column in self.filters:
+                    return self._font_bold
 
         return super().headerData(section, orientation, role)
 
@@ -300,9 +313,11 @@ class QTableModel(QAbstractTableModel):
         else:
             self._filtered_items = self._original_items
 
-    def _create_font(self) -> QFont:
+    def _create_font(self, bold: bool = False) -> QFont:
         font = QFont(DEFAULT_FONT_NAME)
         font.setPixelSize(DEFAULT_FONT_SIZE_PX)
+        if bold:
+            font.setBold(True)
         return font
 
 
@@ -445,6 +460,8 @@ class QTable(QTableView):
         h_header.setSortIndicatorShown(True)
         self.setHorizontalHeader(h_header)
 
+        self.__selection_mode_override = None
+
     def keyPressEvent(self, event: QEvent):
         """ Supports copying when multiple cells are selected. """
         if event.matches(QKeySequence.Copy):
@@ -460,8 +477,20 @@ class QTable(QTableView):
 
                 sio.seek(0)
                 QApplication.clipboard().setText(sio.read())
+        elif (event.modifiers() & Qt.ControlModifier) and (event.modifiers() & Qt.AltModifier):
+            if self.__selection_mode_override is None:
+                self.__selection_mode_override = self.__selection_mode
+                self.set_selection_mode(SelectionMode.MULTI_CELLS)
+                self.clearSelection()
         else:
             return super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event: QEvent) -> None:
+        if not ((event.modifiers() & Qt.ControlModifier) and (event.modifiers() & Qt.AltModifier)):
+            if self.__selection_mode_override is not None:
+                self.set_selection_mode(self.__selection_mode_override)
+                self.__selection_mode_override = None
+        return super().keyPressEvent(event)
 
     def on_filter_changed(self, column: Column, expression: str) -> None:
         self.model().set_filter(column, expression)
@@ -530,6 +559,7 @@ class QTable(QTableView):
         elif selection_mode == SelectionMode.MULTI_ROWS:
             self.setSelectionMode(self.ExtendedSelection)
             self.setSelectionBehavior(self.SelectRows)
+        self.__selection_mode = selection_mode
 
     # Header visibility controls
 
