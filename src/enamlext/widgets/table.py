@@ -89,7 +89,7 @@ class Table(Control):
     checkable = d_(Bool())
 
     # Flag controlling if the user can sort items by clicking on a column header on the table
-    sortable = d_(Bool())
+    sortable = d_(Bool(default=True))
 
     # Flag controlling if the table will have a summary label displayed at the bottom/footer
     show_summary = d_(Bool())
