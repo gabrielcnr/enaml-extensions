@@ -454,7 +454,7 @@ class QTable(QTableView):
         model.on_checked_items.connect(self.on_model_checked_items_changed)
         self.setModel(model)
         self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
-        self.setSortingEnabled(sortable)
+        self.sortable = sortable
         self.__updating = False  # sentinel
         # TODO: improve the way we update the internals - maybe offering a high-level function that gets everything
         #       that is internal and is possible of updating?
@@ -536,6 +536,14 @@ class QTable(QTableView):
     @checkable.setter
     def checkable(self, checkable: bool):
         self.model().checkable = checkable
+
+    @property
+    def sortable(self) -> bool:
+        return self.isSortingEnabled()
+
+    @sortable.setter
+    def sortable(self, sortable: bool) -> None:
+        self.setSortingEnabled(sortable)
 
     @contextlib.contextmanager
     def updating_internals(self):

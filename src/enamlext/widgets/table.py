@@ -37,6 +37,9 @@ class ProxyTable(ProxyControl):
     def set_checkable(self, checkable: bool) -> None:
         raise NotImplementedError
 
+    def set_sortable(self, sortable: bool) -> None:
+        raise NotImplementedError
+
     def refresh_summary(self) -> None:
         raise NotImplementedError
 
@@ -85,6 +88,9 @@ class Table(Control):
     # Flag controlling if the user can check/tick items on the table
     checkable = d_(Bool())
 
+    # Flag controlling if the user can sort items by clicking on a column header on the table
+    sortable = d_(Bool())
+
     # Flag controlling if the table will have a summary label displayed at the bottom/footer
     show_summary = d_(Bool())
 
@@ -101,6 +107,7 @@ class Table(Control):
              "selected_items",
              "context_menu",
              "checkable",
+             "sortable",
              "show_summary",
              "hints",
              "selection_mode",

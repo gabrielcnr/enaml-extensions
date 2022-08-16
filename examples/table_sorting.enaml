@@ -23,16 +23,25 @@ enamldef Main(MainWindow):
     title = 'Table Sorting'
 
     Container:
-        PushButton:
-            text = 'Set Data'
-            clicked ::
-                tab.items = next(infinite_items)
+        Container:
+            padding = 0
 
-        PushButton:
-            text = 'Debug'
-            clicked ::
-                import pdb; pdb.set_trace()
-                print('...')
+            constraints = [hbox(btn_set, chk_sort, spacer, btn_debug)]
+
+            PushButton: btn_set:
+                text = 'Set Data'
+                clicked ::
+                    tab.items = next(infinite_items)
+
+            CheckBox: chk_sort:
+                text = 'Sorting Enabled'
+                checked := tab.sortable
+
+            PushButton: btn_debug:
+                text = 'Debug'
+                clicked ::
+                    import pdb; pdb.set_trace()
+                    print('...')
 
         Table: tab:
             columns = [

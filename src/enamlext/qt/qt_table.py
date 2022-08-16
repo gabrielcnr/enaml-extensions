@@ -47,6 +47,7 @@ class QtTable(QtControl, ProxyTable):
             self.set_selected_items(d.selected_items)
             self.set_context_menu(d.context_menu)
             self.set_checkable(d.checkable)
+            self.set_sortable(d.sortable)
             self.set_selection_mode(d.selection_mode)
 
         # double click action
@@ -89,6 +90,9 @@ class QtTable(QtControl, ProxyTable):
 
     def set_checkable(self, checkable: bool) -> None:
         self.widget.checkable = checkable
+
+    def set_sortable(self, sortable: bool) -> None:
+        self.widget.sortable = sortable
 
     def set_selection_mode(self, selection_mode: str) -> None:
         self.widget.set_selection_mode(SELECTION_MODES_MAP[selection_mode])
