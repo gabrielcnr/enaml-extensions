@@ -91,6 +91,8 @@ class QTableModel(QAbstractTableModel):
         self._font = self._create_font()  # cache the font
         self._font_bold = self._create_font(bold=True)
 
+        self._last_sorting_column = None
+
     def __len__(self):
         return len(self.items)  # O(1)
 
@@ -205,6 +207,12 @@ class QTableModel(QAbstractTableModel):
 
     def sort(self, column_index, order=None) -> None:
         if self.columns:
+            self._last_sorting_column = column_index, order
+            self._apply_sorting()
+
+    def _apply_sorting(self):
+        if self._last_sorting_column is not None:
+            column_index, order = self._last_sorting_column
             column = self.columns[column_index]
             self.beginResetModel()
             self._filtered_items = sorted(self._filtered_items, key=column.get_value, reverse=order)
@@ -285,6 +293,7 @@ class QTableModel(QAbstractTableModel):
         """ write to the original items (not filtered) """
         self._original_items = items
         self._apply_filters()
+        self._apply_sorting()
 
     def set_filter(self, column: Column, expression: str) -> None:
         filter = Filter(column, expression)

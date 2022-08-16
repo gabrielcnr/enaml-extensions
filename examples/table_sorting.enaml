@@ -1,0 +1,41 @@
+import random
+
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets import Table
+from enamlext.qt.table.column import Column
+
+from enamlext.qt.qt_table import QtTable
+from enaml.qt.qt_factories import QT_FACTORIES
+QT_FACTORIES["Table"] = lambda: QtTable
+
+from itertools import cycle
+
+items = [
+    [{'word': 'bb'}, {'word': 'aaaaa'}, {'word': 'ccccccccc'}, {'word': 'd'}, {'word': 'e'}],
+    [{'word': 'mmmmmmm'}, {'word': 'nn'}, {'word': 'o'}, {'word': 'pppppppppp'}, {'word': 'qq'}],
+]
+
+infinite_items = cycle(items)
+
+
+enamldef Main(MainWindow):
+    title = 'Table Sorting'
+
+    Container:
+        PushButton:
+            text = 'Set Data'
+            clicked ::
+                tab.items = next(infinite_items)
+
+        PushButton:
+            text = 'Debug'
+            clicked ::
+                import pdb; pdb.set_trace()
+                print('...')
+
+        Table: tab:
+            columns = [
+                Column('word', 'Word', use_getitem=True),
+                Column(lambda x: len(x['word']), 'Length'),
+            ]
