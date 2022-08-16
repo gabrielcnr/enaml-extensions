@@ -499,7 +499,7 @@ class QTable(QTableView):
             if self.__selection_mode_override is not None:
                 self.set_selection_mode(self.__selection_mode_override)
                 self.__selection_mode_override = None
-        return super().keyPressEvent(event)
+        return super().keyReleaseEvent(event)
 
     def on_filter_changed(self, column: Column, expression: str) -> None:
         self.model().set_filter(column, expression)
