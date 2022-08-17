@@ -9,7 +9,7 @@ import pandas as pd
 
 
 enamldef DataFrame(Table):
-    attr df = d_(Value(factory=pd.DataFrame))
+    attr df = None  # d_(Value(factory=pd.DataFrame))
     attr include = None   # d_(Typed(list))
     attr exclude = None   # d_(Typed(list))
     attr _auto_refresh_columns = False
@@ -23,16 +23,14 @@ enamldef DataFrame(Table):
                                                               include=self.include, exclude=self.exclude)}
             if self.proxy.widget is not None:
                 filters = self.proxy.widget.model().filters
-                to_drop = set()
-                for filter in filters.filters:
-                    filter_key = (filter.column.key, filter.column.title)
-                    if filter_key not in proposed_new_columns:
-                        to_drop.add(filter_key)
-                    else:
+                for column in filters.filters.copy():
+                    filter_key = (column.key, column.title)
+                    filter = filters.filters.pop(column)
+
+                    if filter_key in proposed_new_columns:
                         filter.column = proposed_new_columns[filter_key]
-                if to_drop:
-                    new_filters = [f for f in filters if (f.column.key, f.column.title) not in to_drop]
-                    self.proxy.widget.model().filters = new_filters
+                        filters.filters[filter.column] = filter
+
             self.columns = list(proposed_new_columns.values())
 
     func update_inplace():
