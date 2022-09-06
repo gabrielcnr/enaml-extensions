@@ -11,9 +11,11 @@ QT_FACTORIES["Table"] = lambda: QtTable
 
 from itertools import cycle
 
+import numpy as np
+
 items = [
-    [{'word': 'bb'}, {'word': 'aaaaa'}, {'word': 'ccccccccc'}, {'word': 'd'}, {'word': 'e'}],
-    [{'word': 'mmmmmmm'}, {'word': 'nn'}, {'word': 'o'}, {'word': 'pppppppppp'}, {'word': 'qq'}],
+    [{'word': 'bb', 'num': 1.0}, {'word': 'aaaaa', 'num': 8.0}, {'word': 'ccccccccc', 'num': np.nan}, {'word': 'd', 'num': np.nan}, {'word': 'e', 'num': 0.5}],
+    [{'word': 'mmmmmmm', 'num': np.nan}, {'word': 'nn', 'num': np.nan}, {'word': 'o', 'num': np.nan}, {'word': 'pppppppppp', 'num': 10.0}, {'word': 'qq', 'num': np.nan}],
 ]
 
 infinite_items = cycle(items)
@@ -47,4 +49,5 @@ enamldef Main(MainWindow):
             columns = [
                 Column('word', 'Word', use_getitem=True),
                 Column(lambda x: len(x['word']), 'Length'),
+                Column('num', 'Num', use_getitem=True),
             ]

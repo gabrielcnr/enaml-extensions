@@ -1,6 +1,7 @@
 import contextlib
 import csv
 import itertools
+import math
 import operator
 import warnings
 import weakref
@@ -215,7 +216,13 @@ class QTableModel(QAbstractTableModel):
             column_index, order = self._last_sorting_column
             column = self.columns[column_index]
             self.beginResetModel()
-            self._filtered_items = sorted(self._filtered_items, key=column.get_value, reverse=order)
+            def sort_key(item):
+                value = column.get_value(item)
+                if isinstance(value, float):
+                    if math.isnan(value):
+                        return float('-inf')
+                return value
+            self._filtered_items = sorted(self._filtered_items, key=sort_key, reverse=order)
             self.endResetModel()
 
     def setData(self, index: QModelIndex, value: Any, role: int) -> bool:
