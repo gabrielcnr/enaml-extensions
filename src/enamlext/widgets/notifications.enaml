@@ -1,0 +1,84 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+
+
+YELLOW = 'rgba(255, 197, 0, 0.98)'
+DARKGREEN = 'rgba(48, 136, 0, 0.98)'
+DARKRED = 'rgba(216, 26, 26, 0.98)'
+WHITE = 'white'
+DARKGREY = 'rgba(63, 63, 63, 1.0)'
+GREY = 'rgba(30, 30, 30, 0.85)'
+LIGHTGREY = 'rgba(233, 233, 233, 0.98)'
+ROYALBLUE = 'rgba(65, 105, 225, 0.98)'
+
+
+COLOR_SCHEMES = {
+    'WARNING': {'bg': YELLOW, 'fg': DARKGREY},
+    'SUCCESS': {'bg': DARKGREEN, 'fg': WHITE},
+    'CRITICAL': {'bg': DARKRED, 'fg': WHITE},
+    'NEUTRAL': {'bg': LIGHTGREY, 'fg': DARKGREY},
+    'INFO': {'bg': ROYALBLUE, 'fg': WHITE},
+    'DEBUG': {'bg': DARKGREY, 'fg': WHITE},
+}
+
+popups = []
+
+enamldef NotificationPopup(PopupView): _popup_view:
+    foreground = 'white'
+    background = 'rgba(30, 30, 30, 0.85)'
+    window_type = 'tool_tip'
+    parent_anchor = (1.0, 1.0)
+    anchor = (1.0, 1.0)
+    offset = (-10, -10)
+    timeout = 5
+    fade_in_duration = 500
+    fade_out_duration = 500
+
+    alias header: lbl_header.text
+    alias title: lbl_title.text
+    alias text: lbl_text.text
+
+    activated ::
+        global popups
+        accum_height = -10
+        for p in popups:
+            accum_height -= (p.proxy.widget.size().height() + 5)
+        self.offset = (-10, accum_height)
+        popups.append(self)
+
+    closed ::
+        global popups
+        popups = [p for p in popups if p is not self]
+
+    Container:
+        constraints = [vbox(lbl_header, vbox(lbl_title, lbl_text, spacing=5), spacing=20), width <= 600]
+
+        Label: lbl_header:
+            foreground << _popup_view.foreground
+            font = 'bold 13pt SegoeUI'
+
+        Label: lbl_title:
+            foreground << _popup_view.foreground
+            align = 'left'
+            font = 'bold 12pt SegoeUI'
+
+        Label: lbl_text:
+            foreground << _popup_view.foreground
+            align = 'left'
+            font = '12pt SegoeUI'
+
+
+enamldef Main(MainWindow):
+    Container:
+        PushButton:
+            text = 'Toast'
+            clicked ::
+                from ark.live.components.ui.views.toast import Notifications
+                func = getattr(Notifications, cbo_type.selected.lower())
+                func(header='Application Title Here!!', title='What Happened Here', message='Lorem \n\n\nipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt.' * 3)
+
+        ObjectCombo: cbo_type:
+            items = list(COLOR_SCHEMES)
+
+        Field:
+            submit_triggers = ['return_pressed', 'lost_focus', 'auto_sync']
