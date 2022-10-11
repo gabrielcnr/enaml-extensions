@@ -8,6 +8,7 @@ import weakref
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum, auto
+from functools import lru_cache
 from io import StringIO
 from typing import Optional, Any, List, Tuple, NamedTuple, Collection, Set, Iterable
 
@@ -50,6 +51,41 @@ QtAlignment = int
 
 def to_qt_alignment(align: Alignment) -> QtAlignment:
     return QT_ALIGNMENT_MAP[align]
+
+
+@lru_cache(maxsize=256)
+def make_custom_font(font_spec: str) -> QFont:
+    font = QFont()
+    tokens = font_spec.split()
+
+    if 'bold' in tokens:
+        font.setBold(True)
+        tokens.remove('bold')
+
+    if 'italic' in tokens:
+        font.setItalic(True)
+        tokens.remove('italic')
+
+    if 'underline' in tokens:
+        font.setItalic(True)
+        tokens.remove('underline')
+
+    for token in tokens[:]:
+        if token.endswith('px'):
+            font.setPixelSize(int(token[:-2]))
+            tokens.remove(token)
+            break
+        elif token.endswith('pt'):
+            font.setPointSize(int(token[:-2]))
+            tokens.remove(token)
+            break
+
+    # everything else must be the font family
+    if tokens:
+        family = ' '.join(tokens)
+        font.setFamily(family)
+
+    return font
 
 
 class Cell(NamedTuple):
@@ -154,7 +190,22 @@ class QTableModel(QAbstractTableModel):
             else:
                 return Qt.Unchecked
         elif role == Qt.FontRole:
+            col_index = index.column()
+            column = self.get_column_by_index(col_index)
+            if column.cell_style is not None:
+                context = TableContext(
+                    model=self,
+                    index=index,
+                    role=role,
+                    column_index=col_index,
+                    column=column,
+                )
+                style = column.get_cell_style(context)
+                if style is not None and (font_spec := style.get('font')) is not None:
+                    return make_custom_font(font_spec)
+
             return self._font
+
         elif role == Qt.ForegroundRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)

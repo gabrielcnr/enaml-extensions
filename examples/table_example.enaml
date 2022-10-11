@@ -28,6 +28,11 @@ def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyl
         return NEGATIVE_NUMBER_CELL_STYLE
 
 
+def get_cell_style_for_surname(tc: TableContext) -> CellStyle:
+    if len(tc.value) > 6:
+        return CellStyle(font='Arial 14pt bold italic')
+
+
 from enamlext.qt.table.summary import TableSelectionSummary
 
 enamldef TableSummary(Container):
@@ -149,7 +154,7 @@ enamldef Main(MainWindow): window:
                 columns = [
                     Column(lambda o: '', 'Star', image=Path(__file__).resolve().parent / 'star.png'),
                     Column(itemgetter("name"), 'Name'),
-                    Column(itemgetter('surname'), 'Surname'),
+                    Column(itemgetter('surname'), 'Surname', cell_style=get_cell_style_for_surname),
                     Column(itemgetter('year'), 'Year Born', size=130),
                     Column(itemgetter('role'), 'Role', fmt=format_role),
                     Column(itemgetter('random_number'), 'Random Number', cell_style=get_cell_style_for_negative_numbers),
