@@ -97,6 +97,9 @@ class QtTable(QtControl, ProxyTable):
     def set_selection_mode(self, selection_mode: str) -> None:
         self.widget.set_selection_mode(SELECTION_MODES_MAP[selection_mode])
 
+    def set_hints(self, hints: dict) -> None:
+        ...  # do nothing because underlying widget does not know about hints
+
     def refresh_summary(self, context: Optional[SelectionContext] = None) -> None:
         if context is None:
             context = self.widget.get_current_selection_context()
