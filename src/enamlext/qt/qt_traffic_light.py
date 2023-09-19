@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QApplication, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QApplication, QHBoxLayout, QLayout
 from PyQt5.QtGui import QPixmap, QColor, QPainter, QBrush, QPen
 from PyQt5.QtCore import Qt
 from atom.api import Typed
@@ -50,6 +50,20 @@ class TrafficLightWidget(QWidget):
 
         # Turn off all lights initially
         self.set_light(None)
+
+    def set_radius(self, new_radius: int) -> None:
+        """
+        Dynamically set the radius of the lights and redraw the widget.
+
+        :param new_radius: The new radius for the lights.
+        """
+        self.radius = new_radius
+        if isinstance(self.layout(), QVBoxLayout):
+            self.setFixedSize(self.radius * 2 + 20, self.radius * 6 + 20)
+        else:
+            self.setFixedSize(self.radius * 6 + 20, self.radius * 2 + 20)
+        self.set_light(None)  # Force a redraw with the new radius
+        self.update()  # Force a repaint of the widget
 
     def set_light(self, color: str) -> None:
         """
@@ -106,7 +120,8 @@ class QtTrafficLight(QtControl, ProxyTrafficLight):
     def create_widget(self):
         """ Create the underlying TrafficLightWidget object.
         """
-        self.widget = TrafficLightWidget(parent=self.parent_widget())
+        d = self.declaration
+        self.widget = TrafficLightWidget(radius=d.radius, parent=self.parent_widget())
 
     def init_widget(self):
         """ Initialize the underlying widget.
@@ -120,6 +135,9 @@ class QtTrafficLight(QtControl, ProxyTrafficLight):
     # --------------------------------------------------------------------------
     def set_color(self, color: str | None) -> None:
         self.widget.set_light(color)
+
+    def set_radius(self, radius: int) -> None:
+        self.widget.set_radius(radius)
 
 
 if __name__ == "__main__":

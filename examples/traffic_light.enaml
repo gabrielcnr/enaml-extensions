@@ -9,7 +9,7 @@ enamldef Main(Window):
     Container:
 
         TrafficLight: tl:
-            pass
+            radius := spin_radius.value
 
         RadioButton:
             text = 'Red'
@@ -27,3 +27,10 @@ enamldef Main(Window):
             text = 'Off'
             checked ::
                 tl.color = None
+
+        Form:
+            Label:
+                text = 'Radius'
+            SpinBox: spin_radius:
+                value = 15
+

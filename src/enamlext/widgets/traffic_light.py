@@ -18,16 +18,21 @@ class ProxyTrafficLight(ProxyControl):
     def set_color(self, color: str) -> None:
         raise NotImplementedError
 
+    def set_radius(self, radius: int) -> None:
+        raise NotImplementedError
+
 
 class TrafficLight(Control):
     """ Enaml declarative control for giving a TrafficLight widget.
     """
     color = d_(Typed(str))
 
+    radius = d_(Int(default=20))
+
     #: A reference to the TrafficLight object.
     proxy = Typed(ProxyTrafficLight)
 
-    @observe('color')
+    @observe('color', 'radius')
     def _update_proxy(self, change: ChangeDict) -> None:
         super(TrafficLight, self)._update_proxy(change)
 
