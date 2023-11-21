@@ -6,7 +6,6 @@ with open('README.md', encoding='utf-8') as fp:
 
 setup(
     name='enaml-extensions',
-    version='0.2.0',
     author='Gabriel Reis',
     author_email='gabrielcnr@gmail.com',
     description='Extra widgets and extensions for building UIs with Enaml',
