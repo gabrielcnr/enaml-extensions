@@ -259,13 +259,25 @@ class QTableModel(QAbstractTableModel):
 
     def sort(self, column_index, order=None) -> None:
         if self.columns:
-            self._last_sorting_column = column_index, order
+            # TODO: instead of relying on column (positional) index we should
+            #       be keeping a referencing to the column and improve 
+            #       Column identity and equality comparison to restore sorting
+            column = self.columns[column_index]
+            self._last_sorting_column = column, column_index, order
             self._apply_sorting()
 
     def _apply_sorting(self):
         if self._last_sorting_column is not None:
-            column_index, order = self._last_sorting_column
-            column = self.columns[column_index]
+            previous_column, column_index, order = self._last_sorting_column
+            try:
+                column = self.columns[column_index]
+            except IndexError:
+                # TODO: we should still try to find if the column is there in another index
+                return
+            else:
+                if column.title != previous_column.title:
+                    # not very likely to be the same column - avoid sorting incorrectly
+                    return
             self.beginResetModel()
             def sort_key(item):
                 value = column.get_value(item)
@@ -351,7 +363,10 @@ class QTableModel(QAbstractTableModel):
         """ write to the original items (not filtered) """
         self._original_items = items
         self._apply_filters()
-        self._apply_sorting()
+        try:
+            self._apply_sorting()
+        except (IndexError, KeyError) as ex:
+            print('it was not possible to re-apply sorting configuration: {ex}')
 
     def set_filter(self, column: Column, expression: str) -> None:
         filter = Filter(column, expression)
