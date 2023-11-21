@@ -14,7 +14,10 @@ class DataFrameProxy:
         return len(self.df)
 
     def update_inplace(self) -> None:
-        self.__d[:] = self.df.to_dict('records')
+        try:
+            self.__d[:] = self.df.to_dict('records')
+        except AssertionError as ex:
+            print('could not update dataframe proxy in place', str(ex))
 
 
 def _display_dataframe(df: pd.DataFrame):
