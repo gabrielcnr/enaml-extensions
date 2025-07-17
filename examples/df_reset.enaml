@@ -15,6 +15,7 @@ def generate_random_df():
     m = 50
 
     df = pd.DataFrame(np.random.randint(1, 100, size=(n, m)))
+    df.columns = [f'Col_{i}' for i in range(m)]
     return df
 
 
@@ -24,6 +25,8 @@ def update_df_loop(df_view):
         df = generate_random_df()
         deferred_call(setattr, df_view, 'df', df)
 
+def cell_style_callback(tc):
+    print('here')
 
 enamldef Main(MainWindow):
     title = 'DataFrame Reset Example'
@@ -34,7 +37,9 @@ enamldef Main(MainWindow):
             pass
 
         DataFrame: df_view:
-            pass
+            hints = {
+                'Col_1': {'cell_style': cell_style_callback},
+            }
 
     activated ::
         t = threading.Thread(target=update_df_loop, args=(df_view,), daemon=True)

@@ -1,6 +1,7 @@
 import contextlib
 import csv
 import itertools
+import logging
 import math
 import operator
 import warnings
@@ -22,6 +23,9 @@ from qtpy.QtGui import QContextMenuEvent, QFont, QColor, QPixmap, QKeySequence
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
 from enamlext.qt.table.table_context import TableContext
+
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_ROW_HEIGHT = 23
 DEFAULT_FONT_NAME = "Calibri"
@@ -105,11 +109,13 @@ class QTableModel(QAbstractTableModel):
                  checkable: bool = False,
                  checked_items: Optional[Collection[Any]] = None,
                  parent: Optional[QObject] = None,
+                 error_handling: str = 'graceful',  # TODO: other modes
                  ):
         super().__init__(parent)
         self.columns = columns
         self._original_items = items
         self.checkable = checkable
+        self.error_handling = error_handling
 
         # Filtering
         self._filtered_items = None
@@ -167,7 +173,14 @@ class QTableModel(QAbstractTableModel):
             if (col_index := index.column()) or not self.checkable:
                 column = self.columns[col_index - offset]  # O(1)
                 item = self.items[index.row()]  # O(1)
-                return to_qt_alignment(column.get_align(item))
+                try:
+                    return to_qt_alignment(column.get_align(item))
+                except Exception as exc:
+                    if self.error_handling == 'graceful':
+                        logger.warning(f'Error when resolving alignment for column: {col_index = }, '
+                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                    else:
+                        raise
         elif role == Qt.ToolTipRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
@@ -200,9 +213,16 @@ class QTableModel(QAbstractTableModel):
                     column_index=col_index,
                     column=column,
                 )
-                style = column.get_cell_style(context)
-                if style is not None and (font_spec := style.get('font')) is not None:
-                    return make_custom_font(font_spec)
+                try:
+                    style = column.get_cell_style(context)
+                    if style is not None and (font_spec := style.get('font')) is not None:
+                        return make_custom_font(font_spec)
+                except Exception as exc:
+                    if self.error_handling == 'graceful':
+                        logger.warning(f'Error when resolving font for column: {col_index = }, '
+                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                    else:
+                        raise
 
             return self._font
 
@@ -217,9 +237,17 @@ class QTableModel(QAbstractTableModel):
                     column_index=col_index,
                     column=column,
                 )
-                style = column.get_cell_style(context)
-                if style is not None:
-                    return style.get('color')
+                try:
+                    style = column.get_cell_style(context)
+                    if style is not None:
+                        return style.get('color')
+                except Exception as exc:
+                    if self.error_handling == 'graceful':
+                        logger.warning(f'Error when resolving foreground colour style for column: {col_index = }, '
+                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                    else:
+                        raise
+
         elif role == Qt.BackgroundColorRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
@@ -231,9 +259,17 @@ class QTableModel(QAbstractTableModel):
                     column_index=col_index,
                     column=column,
                 )
-                style = column.get_cell_style(context)
-                if style is not None:
-                    return style.get('background')
+                try:
+                    style = column.get_cell_style(context)
+                    if style is not None:
+                        return style.get('background')
+                except Exception as exc:
+                    if self.error_handling == 'graceful':
+                        logger.warning(f'Error when resolving background colour style for column: {col_index = }, '
+                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                    else:
+                        raise
+
         elif role == Qt.DecorationRole:  # TODO: refactor (DRY)
             col_index = index.column()
             column = self.get_column_by_index(col_index)

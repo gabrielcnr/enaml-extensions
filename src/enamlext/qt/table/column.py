@@ -64,6 +64,7 @@ class Column:
 
     def get_value_by_getitem_lookup(self, item: Any) -> Any:
         return item[self.key]
+        # TODO: dataframe will always need to be by index (not by name)
 
     def get_displayed_value(self, item: Any) -> str:
         value = self.get_value(item)
