@@ -14,12 +14,6 @@ class DataFrameProxy:
     def __len__(self):
         return len(self.values)
 
-    # def update_inplace(self) -> None:
-    #     try:
-    #         self.__d[:] = self.df.to_dict('records')
-    #     except AssertionError as ex:
-    #         print('could not update dataframe proxy in place', str(ex))
-
 
 def _display_dataframe(df: pd.DataFrame):
     from enamlext.qt.qtable import QTable
