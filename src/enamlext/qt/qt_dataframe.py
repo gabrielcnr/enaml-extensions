@@ -6,7 +6,6 @@ class DataFrameProxy:
     def __init__(self, df: pd.DataFrame):
         self.values = df.values
         self.df = df
-        # self.__d = self.df.to_dict('records')
 
     def __getitem__(self, item):
         return self.values[item]
