@@ -621,13 +621,17 @@ class QTable(QTableView):
     @contextlib.contextmanager
     def updating_internals(self):
         self.__updating = True
+
         try:
             self.model().beginResetModel()
             yield
         finally:
             self.__updating = False
             self.model().endResetModel()
-            self.adjust_column_sizes()
+            if not hasattr(self, '_adjusted_columns_size') and self.columns and self.items:
+                print('adjusting column sizes for the first and only time')
+                self.adjust_column_sizes()
+                self._adjusted_columns_size = True
 
     def refresh(self):
         m = self.model()
@@ -756,6 +760,7 @@ class QTable(QTableView):
         items = model.items
         for i, col in enumerate(self.columns):
             if col.size == 'auto':
+                # THIS IS SUPER SLOW!
                 self.resizeColumnToContents(i)
             elif col.size == 'just':
                 # Consider the font metrics of the view

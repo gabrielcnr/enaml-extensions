@@ -42,7 +42,8 @@ enamldef DataFrame(Table):
     func _refresh_internals():
         _df = df if self.df is not None else pd.DataFrame()
         self.items = DataFrameProxy(_df)
-        if self._auto_refresh_columns:
+        if not self.columns and self._auto_refresh_columns:
+            print('generating columns')
             proposed_new_columns = {(c.key, c.title): c
                                     for c in generate_columns(self.items, hints=hints,
                                                               include=self.include, exclude=self.exclude)}
