@@ -114,7 +114,7 @@ class Column:
 # Auto-Generation of Columns
 
 def make_title(title: str):
-    return title.replace('_', ' ').title()
+    return str(title).replace('_', ' ').title()
 
 
 def is_namedtuple(obj):

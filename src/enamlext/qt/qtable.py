@@ -636,6 +636,15 @@ class QTable(QTableView):
         bottom_right = m.index(len(self.items), len(self.columns))
         m.dataChanged.emit(top_left, bottom_right)
 
+    def refresh_one_cell(self, row: int, col: int) -> None:
+        # how about filtering and sorting here?
+        # perhaps we can say that ticking tables cannot be filtered or sorted?
+        m = self.model()
+        index = m.index(row, col)
+        index2 = m.index(row, col+1)
+        m.dataChanged.emit(index, index2)
+        #print('refreshed')
+
     def set_selection_mode(self, selection_mode: SelectionMode):
         if selection_mode == SelectionMode.SINGLE_CELL:
             self.setSelectionMode(self.SingleSelection)

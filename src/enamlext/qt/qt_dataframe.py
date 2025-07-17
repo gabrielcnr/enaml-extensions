@@ -4,20 +4,21 @@ from qtpy.QtWidgets import QApplication
 
 class DataFrameProxy:
     def __init__(self, df: pd.DataFrame):
+        self.values = df.values
         self.df = df
-        self.__d = self.df.to_dict('records')
+        # self.__d = self.df.to_dict('records')
 
     def __getitem__(self, item):
-        return self.__d[item]
+        return self.values[item]
 
     def __len__(self):
-        return len(self.df)
+        return len(self.values)
 
-    def update_inplace(self) -> None:
-        try:
-            self.__d[:] = self.df.to_dict('records')
-        except AssertionError as ex:
-            print('could not update dataframe proxy in place', str(ex))
+    # def update_inplace(self) -> None:
+    #     try:
+    #         self.__d[:] = self.df.to_dict('records')
+    #     except AssertionError as ex:
+    #         print('could not update dataframe proxy in place', str(ex))
 
 
 def _display_dataframe(df: pd.DataFrame):
