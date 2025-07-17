@@ -6,6 +6,7 @@ from enamlext.qt.qt_dataframe import DataFrameProxy
 from enamlext.qt.table.column import generate_columns
 
 import pandas as pd
+import time
 
 
 enamldef DataFrame(Table):
@@ -13,6 +14,30 @@ enamldef DataFrame(Table):
     attr include = None   # d_(Typed(list))
     attr exclude = None   # d_(Typed(list))
     attr _auto_refresh_columns = False
+
+    # instead of is_ticking which is going to refresh all the columns
+    # it should allow to pass a list of columns that are going to be ticking
+    # this will improve performance for dataframes which only a subset of
+    # columns will be expected to tick/refresh
+    # TODO: should this member be set only once during initialization?
+    attr is_ticking = False
+    attr tick_interval_ms = 100
+
+    func _monitor_df_changes():
+        import numpy as np
+        from enaml.application import deferred_call
+
+        values = self.df.values.copy()
+        interval = tick_interval_ms / 1_000
+
+        while True:
+            time.sleep(interval)
+            row_indexes, col_indexes = np.where(values != self.df.values)
+            values = self.df.values.copy()
+            #print('modified', row_indexes, col_indexes)
+            for row, col in zip(row_indexes, col_indexes):
+                #self.proxy.widget.refresh_one_cell(row, col)
+                deferred_call(self.proxy.widget.refresh_one_cell, row, col)
 
     func _refresh_internals():
         _df = df if self.df is not None else pd.DataFrame()
@@ -43,6 +68,10 @@ enamldef DataFrame(Table):
 
     activated ::
         self.proxy.widget.adjust_column_sizes()  # TODO: why we need to call this here?
+        if self.is_ticking:
+            import threading
+            t = threading.Thread(target=self._monitor_df_changes, daemon=True)
+            t.start()
 
     initialized ::
         self._auto_refresh_columns = not bool(self.columns)

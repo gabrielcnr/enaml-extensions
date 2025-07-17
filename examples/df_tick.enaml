@@ -1,0 +1,40 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets.dataframe import DataFrame
+import threading
+
+
+def modify_df_inplace(df, interval=0.3):
+    import itertools
+    import random
+    import time
+
+    n_rows, n_cols = df.shape
+    cells = list(itertools.product(range(n_rows), range(n_cols)))
+
+    while True:
+        affected_cells = random.sample(cells, 1000)
+        for row, col in affected_cells:
+            df.iat[row, col] += 1
+        time.sleep(interval)
+
+
+def create_df():
+    import pandas as pd
+    import numpy as np
+    df = pd.DataFrame(np.random.randint(1, 100, size=(100, 100)))
+    return df
+
+
+enamldef Main(MainWindow):
+    title = 'Main Window'
+    initial_size = (700, 400)
+
+    Container:
+        DataFrame: table:
+            is_ticking = True
+            df = create_df()
+
+            activated ::
+                t = threading.Thread(target=modify_df_inplace, args=(self.df,), daemon=True)
+                t.start()
