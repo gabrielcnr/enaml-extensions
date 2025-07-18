@@ -97,6 +97,10 @@ class Cell(NamedTuple):
     column: int
 
 
+def default_convert_item(item):
+    return item
+
+
 class QTableModel(QAbstractTableModel):
 
     #: signal used to notify the view whenever checked_items changes
@@ -110,12 +114,14 @@ class QTableModel(QAbstractTableModel):
                  checked_items: Optional[Collection[Any]] = None,
                  parent: Optional[QObject] = None,
                  error_handling: str = 'graceful',  # TODO: other modes
+                 convert_item = default_convert_item,
                  ):
         super().__init__(parent)
         self.columns = columns
         self._original_items = items
         self.checkable = checkable
         self.error_handling = error_handling
+        self.convert_item = convert_item
 
         # Filtering
         self._filtered_items = None
@@ -172,7 +178,7 @@ class QTableModel(QAbstractTableModel):
             # Only the first column is checkable (index = 0) - so we need to account for that offset
             if (col_index := index.column()) or not self.checkable:
                 column = self.columns[col_index - offset]  # O(1)
-                item = self.items[index.row()]  # O(1)
+                item = self.convert_item(self.items[index.row()])  # O(1)
                 try:
                     return to_qt_alignment(column.get_align(item))
                 except Exception as exc:
@@ -190,6 +196,7 @@ class QTableModel(QAbstractTableModel):
                 role=role,
                 column_index=col_index,
                 column=column,
+                convert=self.convert_item,
             )  # TODO: should we check if the column has a tooltip callback before creating this?
             return column.get_tooltip(context)
         elif role == Qt.CheckStateRole and self.checkable and index.column() == 0:
@@ -212,6 +219,7 @@ class QTableModel(QAbstractTableModel):
                     role=role,
                     column_index=col_index,
                     column=column,
+                    convert=self.convert_item,
                 )
                 try:
                     style = column.get_cell_style(context)
@@ -236,6 +244,7 @@ class QTableModel(QAbstractTableModel):
                     role=role,
                     column_index=col_index,
                     column=column,
+                    convert=self.convert_item,
                 )
                 try:
                     style = column.get_cell_style(context)
@@ -258,6 +267,7 @@ class QTableModel(QAbstractTableModel):
                     role=role,
                     column_index=col_index,
                     column=column,
+                    convert=self.convert_item,
                 )
                 try:
                     style = column.get_cell_style(context)
@@ -280,6 +290,7 @@ class QTableModel(QAbstractTableModel):
                     role=role,
                     column_index=col_index,
                     column=column,
+                    convert=self.convert_item,
                 )
                 if (image := column.get_image(context)):
                     img = QPixmap()
@@ -526,7 +537,6 @@ class SelectionContext:
                 yield((row_index, column_index), get_cell_value(row_index, column_index))
 
 
-
 class QTable(QTableView):
     """
     A table has basically columns and a collection of items.
@@ -550,7 +560,9 @@ class QTable(QTableView):
                  alternate_row_colors: bool = True,
                  checked_items: Collection[Any] = None,
                  sortable: bool = True,
-                 parent: QObject = None):
+                 parent: QObject = None,
+                 convert_item = None,
+                 ):
         super().__init__(parent=parent)
         self.columns = columns
         if items is None:
@@ -559,7 +571,8 @@ class QTable(QTableView):
         self.context_menu = context_menu
         self.setAlternatingRowColors(alternate_row_colors)
         self.doubleClicked.connect(self.on_double_clicked)
-        model = QTableModel(self.columns, self.items, checkable=checkable, checked_items=checked_items)
+        model = QTableModel(self.columns, self.items, checkable=checkable, checked_items=checked_items,
+                            convert_item=convert_item)
         model.on_checked_items.connect(self.on_model_checked_items_changed)
         self.setModel(model)
         self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)

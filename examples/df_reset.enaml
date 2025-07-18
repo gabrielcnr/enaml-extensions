@@ -12,6 +12,14 @@ from qtpy.QtGui import QColor
 orange = QColor('orange')
 orange_style = {'background': orange}
 
+olive = QColor('lightgreen')
+green_style = {'background': olive}
+
+import logging
+logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
 
 def generate_random_df():
     n = np.random.randint(100, 200)
