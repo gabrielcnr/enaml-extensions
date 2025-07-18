@@ -121,6 +121,8 @@ class QTableModel(QAbstractTableModel):
         self._original_items = items
         self.checkable = checkable
         self.error_handling = error_handling
+        if convert_item is None:
+            convert_item = default_convert_item
         self.convert_item = convert_item
 
         # Filtering
