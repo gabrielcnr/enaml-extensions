@@ -186,7 +186,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             hint = hints.get(name, {})
             kwargs.update(hint)
 
-            column = Column(name, **kwargs)
+            column = Column(itemgetter(i), **kwargs)
 
             if include is not None:
                 column_index = include.index(name)

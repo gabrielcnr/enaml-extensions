@@ -6,6 +6,11 @@ import threading
 import time
 import pandas as pd
 import numpy as np
+from qtpy.QtGui import QColor
+
+
+orange = QColor('orange')
+orange_style = {'background': orange}
 
 
 def generate_random_df():
@@ -25,8 +30,11 @@ def update_df_loop(df_view):
         df = generate_random_df()
         deferred_call(setattr, df_view, 'df', df)
 
+
 def cell_style_callback(tc):
-    print('here')
+    if tc.raw_value % 2:
+        return orange_style
+
 
 enamldef Main(MainWindow):
     title = 'DataFrame Reset Example'

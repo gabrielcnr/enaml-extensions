@@ -1,4 +1,3 @@
-import time
 from typing import List, Any, Optional
 
 from atom.api import Int, Typed
@@ -75,11 +74,11 @@ class QtTable(QtControl, ProxyTable):
     def set_items(self, items: List[Any]):
         """ Set the items (rows) of the QTable.
         """
-        t0 = time.perf_counter()
+        # t0 = time.perf_counter()
         with self.widget.updating_internals():
             self.widget.items = items
-        t1 = time.perf_counter()
-        print(f'{t1 - t0:.4f} seconds - set_items()')
+        # t1 = time.perf_counter()
+        # print(f'{t1 - t0:.4f} seconds - set_items()')
 
     def set_columns(self, columns: List[Column]):
         """ Set the columns of the QTable.
