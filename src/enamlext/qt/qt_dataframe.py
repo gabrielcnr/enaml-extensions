@@ -1,11 +1,49 @@
+import weakref
+from typing import Callable
+
 import pandas as pd
 from qtpy.QtWidgets import QApplication
 
 
+def _monitor_df_changes(df_proxy, tick_interval_ms, refresh_cells_callback):
+    values = df_proxy.df.values.copy()
+    interval = tick_interval_ms / 1_000
+
+    import numpy as np
+    from enaml.application import deferred_call
+    import time
+
+    print('starting monitor thread')
+    while df_proxy.is_active():
+        time.sleep(interval)
+        new_values = df_proxy.df.values.copy()
+        row_indexes, col_indexes = np.where(values != new_values)
+        deferred_call(refresh_cells_callback, row_indexes, col_indexes)
+        values = new_values
+    print('thread died')
+
+
 class DataFrameProxy:
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self, df: pd.DataFrame, is_ticking: bool,
+                 tick_interval_ms: int,
+                 refresh_cells_callback: Callable[[list, list], None]):
         self.values = df.values
         self.df = df
+        self.is_ticking = is_ticking
+        self.tick_interval_ms = tick_interval_ms
+        self._is_active = True
+        if is_ticking:
+            import threading
+            t = threading.Thread(target=_monitor_df_changes,
+                                 args=(self, tick_interval_ms, refresh_cells_callback),
+                                 daemon=True)
+            t.start()
+
+    def deactivate(self):
+        self._is_active = False
+
+    def is_active(self):
+        return self._is_active
 
     def __getitem__(self, item):
         return self.values[item]
