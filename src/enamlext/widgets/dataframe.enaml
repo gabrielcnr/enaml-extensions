@@ -23,6 +23,11 @@ enamldef DataFrame(Table):
     attr is_ticking = False
     attr tick_interval_ms = 100
 
+    func convert_selected_items(selected_items):
+        # TODO: should we return the Series? using .iloc[0] ?
+        #       we could do that if we pass the whole selection context here instead
+        return [dict(zip(df.columns.values, item)) for item in selected_items]
+
     func _monitor_df_changes():
         import numpy as np
         from enaml.application import deferred_call
