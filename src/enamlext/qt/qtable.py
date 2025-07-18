@@ -741,7 +741,8 @@ class QTable(QTableView):
         default_actions = [ResetFiltersAction(table=self)]
         context_menu = self.context_menu + default_actions
 
-        context = MenuActionContext(pos=event.pos(), table=self)
+        convert_item = self.model().convert_item
+        context = MenuActionContext(pos=event.pos(), table=self, convert_item=convert_item)
         enabled_actions = [a for a in context_menu if a.is_enabled(context)]
         if enabled_actions:
             menu = QMenu(parent=self)
@@ -838,9 +839,13 @@ class MenuActionContext:
     def __init__(self,
                  pos: QPoint,
                  table: QTable,
+                 convert_item = default_convert_item,
                  ):
         self.__table = table
         self.pos = pos
+        if convert_item is None:
+            convert_item = default_convert_item
+        self.convert_item = convert_item
 
     @property
     def model(self) -> QTableModel:
@@ -860,6 +865,11 @@ class MenuActionContext:
 
     @property
     def item(self) -> Any:
+        if (row_index := self.row_index) != -1:
+            return self.convert_item(self.raw_item)
+
+    @property
+    def raw_item(self) -> Any:
         if (row_index := self.row_index) != -1:
             return self.model.get_item_by_index(row_index)
 
