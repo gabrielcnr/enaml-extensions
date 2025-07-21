@@ -64,6 +64,7 @@ class Column:
 
     def get_value_by_getitem_lookup(self, item: Any) -> Any:
         return item[self.key]
+        # TODO: dataframe will always need to be by index (not by name)
 
     def get_displayed_value(self, item: Any) -> str:
         value = self.get_value(item)
@@ -114,7 +115,7 @@ class Column:
 # Auto-Generation of Columns
 
 def make_title(title: str):
-    return title.replace('_', ' ').title()
+    return str(title).replace('_', ' ').title()
 
 
 def is_namedtuple(obj):
@@ -185,7 +186,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             hint = hints.get(name, {})
             kwargs.update(hint)
 
-            column = Column(name, **kwargs)
+            column = Column(itemgetter(i), **kwargs)
 
             if include is not None:
                 column_index = include.index(name)

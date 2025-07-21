@@ -1,6 +1,7 @@
 import contextlib
 import csv
 import itertools
+import logging
 import math
 import operator
 import warnings
@@ -22,6 +23,9 @@ from qtpy.QtGui import QContextMenuEvent, QFont, QColor, QPixmap, QKeySequence
 from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
 
 from enamlext.qt.table.table_context import TableContext
+
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_ROW_HEIGHT = 23
 DEFAULT_FONT_NAME = "Calibri"
@@ -93,6 +97,10 @@ class Cell(NamedTuple):
     column: int
 
 
+def default_convert_item(item):
+    return item
+
+
 class QTableModel(QAbstractTableModel):
 
     #: signal used to notify the view whenever checked_items changes
@@ -105,11 +113,17 @@ class QTableModel(QAbstractTableModel):
                  checkable: bool = False,
                  checked_items: Optional[Collection[Any]] = None,
                  parent: Optional[QObject] = None,
+                 error_handling: str = 'graceful',  # TODO: other modes
+                 convert_item = default_convert_item,
                  ):
         super().__init__(parent)
         self.columns = columns
         self._original_items = items
         self.checkable = checkable
+        self.error_handling = error_handling
+        if convert_item is None:
+            convert_item = default_convert_item
+        self.convert_item = convert_item
 
         # Filtering
         self._filtered_items = None
@@ -166,8 +180,15 @@ class QTableModel(QAbstractTableModel):
             # Only the first column is checkable (index = 0) - so we need to account for that offset
             if (col_index := index.column()) or not self.checkable:
                 column = self.columns[col_index - offset]  # O(1)
-                item = self.items[index.row()]  # O(1)
-                return to_qt_alignment(column.get_align(item))
+                item = self.convert_item(self.items[index.row()])  # O(1)
+                try:
+                    return to_qt_alignment(column.get_align(item))
+                except Exception as exc:
+                    if self.error_handling == 'graceful':
+                        logger.warning(f'Error when resolving alignment for column: {col_index = }, '
+                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                    else:
+                        raise
         elif role == Qt.ToolTipRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
@@ -177,6 +198,7 @@ class QTableModel(QAbstractTableModel):
                 role=role,
                 column_index=col_index,
                 column=column,
+                convert=self.convert_item,
             )  # TODO: should we check if the column has a tooltip callback before creating this?
             return column.get_tooltip(context)
         elif role == Qt.CheckStateRole and self.checkable and index.column() == 0:
@@ -199,10 +221,18 @@ class QTableModel(QAbstractTableModel):
                     role=role,
                     column_index=col_index,
                     column=column,
+                    convert=self.convert_item,
                 )
-                style = column.get_cell_style(context)
-                if style is not None and (font_spec := style.get('font')) is not None:
-                    return make_custom_font(font_spec)
+                try:
+                    style = column.get_cell_style(context)
+                    if style is not None and (font_spec := style.get('font')) is not None:
+                        return make_custom_font(font_spec)
+                except Exception as exc:
+                    if self.error_handling == 'graceful':
+                        logger.warning(f'Error when resolving font for column: {col_index = }, '
+                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                    else:
+                        raise
 
             return self._font
 
@@ -216,10 +246,19 @@ class QTableModel(QAbstractTableModel):
                     role=role,
                     column_index=col_index,
                     column=column,
+                    convert=self.convert_item,
                 )
-                style = column.get_cell_style(context)
-                if style is not None:
-                    return style.get('color')
+                try:
+                    style = column.get_cell_style(context)
+                    if style is not None:
+                        return style.get('color')
+                except Exception as exc:
+                    if self.error_handling == 'graceful':
+                        logger.warning(f'Error when resolving foreground colour style for column: {col_index = }, '
+                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                    else:
+                        raise
+
         elif role == Qt.BackgroundColorRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
@@ -230,10 +269,19 @@ class QTableModel(QAbstractTableModel):
                     role=role,
                     column_index=col_index,
                     column=column,
+                    convert=self.convert_item,
                 )
-                style = column.get_cell_style(context)
-                if style is not None:
-                    return style.get('background')
+                try:
+                    style = column.get_cell_style(context)
+                    if style is not None:
+                        return style.get('background')
+                except Exception as exc:
+                    if self.error_handling == 'graceful':
+                        logger.warning(f'Error when resolving background colour style for column: {col_index = }, '
+                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                    else:
+                        raise
+
         elif role == Qt.DecorationRole:  # TODO: refactor (DRY)
             col_index = index.column()
             column = self.get_column_by_index(col_index)
@@ -244,6 +292,7 @@ class QTableModel(QAbstractTableModel):
                     role=role,
                     column_index=col_index,
                     column=column,
+                    convert=self.convert_item,
                 )
                 if (image := column.get_image(context)):
                     img = QPixmap()
@@ -490,7 +539,6 @@ class SelectionContext:
                 yield((row_index, column_index), get_cell_value(row_index, column_index))
 
 
-
 class QTable(QTableView):
     """
     A table has basically columns and a collection of items.
@@ -514,7 +562,9 @@ class QTable(QTableView):
                  alternate_row_colors: bool = True,
                  checked_items: Collection[Any] = None,
                  sortable: bool = True,
-                 parent: QObject = None):
+                 parent: QObject = None,
+                 convert_item = None,
+                 ):
         super().__init__(parent=parent)
         self.columns = columns
         if items is None:
@@ -523,7 +573,8 @@ class QTable(QTableView):
         self.context_menu = context_menu
         self.setAlternatingRowColors(alternate_row_colors)
         self.doubleClicked.connect(self.on_double_clicked)
-        model = QTableModel(self.columns, self.items, checkable=checkable, checked_items=checked_items)
+        model = QTableModel(self.columns, self.items, checkable=checkable, checked_items=checked_items,
+                            convert_item=convert_item)
         model.on_checked_items.connect(self.on_model_checked_items_changed)
         self.setModel(model)
         self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
@@ -621,13 +672,17 @@ class QTable(QTableView):
     @contextlib.contextmanager
     def updating_internals(self):
         self.__updating = True
+
         try:
             self.model().beginResetModel()
             yield
         finally:
             self.__updating = False
             self.model().endResetModel()
-            self.adjust_column_sizes()
+            if not hasattr(self, '_adjusted_columns_size') and self.columns and self.items:
+                # print('adjusting column sizes for the first and only time')
+                self.adjust_column_sizes()
+                self._adjusted_columns_size = True
 
     def refresh(self):
         m = self.model()
@@ -635,6 +690,14 @@ class QTable(QTableView):
         top_left = m.index(0, 0)
         bottom_right = m.index(len(self.items), len(self.columns))
         m.dataChanged.emit(top_left, bottom_right)
+
+    def refresh_one_cell(self, row: int, col: int) -> None:
+        # how about filtering and sorting here?
+        # perhaps we can say that ticking tables cannot be filtered or sorted?
+        m = self.model()
+        index = m.index(row, col)
+        index2 = m.index(row, col+1)
+        m.dataChanged.emit(index, index2)
 
     def set_selection_mode(self, selection_mode: SelectionMode):
         if selection_mode == SelectionMode.SINGLE_CELL:
@@ -677,7 +740,8 @@ class QTable(QTableView):
         default_actions = [ResetFiltersAction(table=self)]
         context_menu = self.context_menu + default_actions
 
-        context = MenuActionContext(pos=event.pos(), table=self)
+        convert_item = self.model().convert_item
+        context = MenuActionContext(pos=event.pos(), table=self, convert_item=convert_item)
         enabled_actions = [a for a in context_menu if a.is_enabled(context)]
         if enabled_actions:
             menu = QMenu(parent=self)
@@ -747,6 +811,7 @@ class QTable(QTableView):
         items = model.items
         for i, col in enumerate(self.columns):
             if col.size == 'auto':
+                # THIS IS SUPER SLOW!
                 self.resizeColumnToContents(i)
             elif col.size == 'just':
                 # Consider the font metrics of the view
@@ -760,6 +825,8 @@ class QTable(QTableView):
                 self.horizontalHeader().resizeSection(i, size + 10)
             elif isinstance(col.size, int):
                 self.horizontalHeader().resizeSection(i, col.size)
+            elif col.size == 'ignore':
+                continue
             else:
                 raise ValueError(f'Invalid column size: {col.size}')
 
@@ -773,9 +840,13 @@ class MenuActionContext:
     def __init__(self,
                  pos: QPoint,
                  table: QTable,
+                 convert_item = default_convert_item,
                  ):
         self.__table = table
         self.pos = pos
+        if convert_item is None:
+            convert_item = default_convert_item
+        self.convert_item = convert_item
 
     @property
     def model(self) -> QTableModel:
@@ -795,6 +866,10 @@ class MenuActionContext:
 
     @property
     def item(self) -> Any:
+        return self.convert_item(self.raw_item)
+
+    @property
+    def raw_item(self) -> Any:
         if (row_index := self.row_index) != -1:
             return self.model.get_item_by_index(row_index)
 

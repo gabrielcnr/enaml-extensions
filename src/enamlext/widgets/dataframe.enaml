@@ -14,10 +14,34 @@ enamldef DataFrame(Table):
     attr exclude = None   # d_(Typed(list))
     attr _auto_refresh_columns = False
 
+    attr tick_interval_ms = 100
+
+    func _refresh_cells(row_indexes, col_indexes):
+        if self.proxy is None:
+            return
+
+        for row, col in zip(row_indexes, col_indexes):
+            self.proxy.widget.refresh_one_cell(row, col)
+
+
+    func convert_item(item):
+        # TODO: should we return a pandas Series instead of a dict?
+        return dict(zip(df.columns.values, item))
+
+
     func _refresh_internals():
         _df = df if self.df is not None else pd.DataFrame()
-        self.items = DataFrameProxy(_df)
-        if self._auto_refresh_columns:
+
+        if isinstance(self.items, DataFrameProxy):
+            self.items.deactivate()
+
+        self.items = DataFrameProxy(
+            df=_df,
+            tick_interval_ms=self.tick_interval_ms,
+            refresh_cells_callback=self._refresh_cells,
+        )
+
+        if self.items.is_ticking or not self.columns and self._auto_refresh_columns:
             proposed_new_columns = {(c.key, c.title): c
                                     for c in generate_columns(self.items, hints=hints,
                                                               include=self.include, exclude=self.exclude)}
@@ -32,14 +56,6 @@ enamldef DataFrame(Table):
                         filters.filters[filter.column] = filter
 
             self.columns = list(proposed_new_columns.values())
-
-    func update_inplace():
-#        import time
-#        t0 = time.perf_counter()
-        self.items.update_inplace()
-        self.proxy.widget.refresh()
-#        t1 = time.perf_counter()
-#        print(f'update_inplace of {name} took {t1 - t0:.2f} s')
 
     activated ::
         self.proxy.widget.adjust_column_sizes()  # TODO: why we need to call this here?

@@ -1,0 +1,62 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets.dataframe import DataFrame
+from enaml.application import deferred_call
+import threading
+import time
+import pandas as pd
+import numpy as np
+from qtpy.QtGui import QColor
+
+
+orange = QColor('orange')
+orange_style = {'background': orange}
+
+olive = QColor('lightgreen')
+green_style = {'background': olive}
+
+import logging
+logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
+
+def generate_random_df():
+    n = np.random.randint(100, 200)
+    # TODO: make it work if the list (number) of columns change
+    #m = np.random.randint(30, 50)
+    m = 50
+
+    df = pd.DataFrame(np.random.randint(1, 100, size=(n, m)))
+    df.columns = [f'Col_{i}' for i in range(m)]
+    return df
+
+
+def update_df_loop(df_view):
+    while True:
+        time.sleep(0.3)
+        df = generate_random_df()
+        deferred_call(setattr, df_view, 'df', df)
+
+
+def cell_style_callback(tc):
+    if tc.raw_value % 2:
+        return orange_style
+
+
+enamldef Main(MainWindow):
+    title = 'DataFrame Reset Example'
+
+    Container:
+
+        Field:
+            pass
+
+        DataFrame: df_view:
+            hints = {
+                'Col_1': {'cell_style': cell_style_callback},
+            }
+
+    activated ::
+        t = threading.Thread(target=update_df_loop, args=(df_view,), daemon=True)
+        t.start()

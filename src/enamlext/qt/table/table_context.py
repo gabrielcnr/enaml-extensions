@@ -3,6 +3,8 @@ from typing import Any
 
 from qtpy.QtCore import QModelIndex
 
+def default_convert(item):
+    return item
 
 class TableContext:
     """
@@ -20,12 +22,14 @@ class TableContext:
                  role: int,
                  column_index: int,
                  column: "Column",
+                 convert = default_convert,
                  ):
         self.__model = model
         self.index = index
         self.role = role
         self.column_index = column_index
         self.column = column
+        self.convert = convert
 
     @cached_property
     def row_index(self) -> int:
@@ -33,13 +37,17 @@ class TableContext:
 
     @cached_property
     def item(self) -> Any:
+        return self.convert(self._raw_item)
+
+    @cached_property
+    def _raw_item(self) -> Any:
         return self.__model.get_item_by_index(self.row_index)
 
     @cached_property
     def raw_value(self) -> Any:
-        return self.column.get_value(self.item)
+        return self.column.get_value(self._raw_item)
 
     @cached_property
     def value(self) -> str:
         """ Returns the displayed value. """
-        return self.column.get_displayed_value(self.item)
+        return self.column.get_displayed_value(self._raw_item)

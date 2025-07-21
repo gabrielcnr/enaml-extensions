@@ -33,7 +33,13 @@ class QtTable(QtControl, ProxyTable):
     def create_widget(self):
         """ Create the QTable widget.
         """
-        self.widget = QTable([], parent=self.parent_widget())
+        if hasattr(self.declaration, 'convert_item'):
+            convert_item = self.declaration.convert_item
+        else:
+            convert_item = None
+
+        self.widget = QTable([], parent=self.parent_widget(),
+                             convert_item=convert_item)
 
     def init_widget(self):
         """ Create and initialize the underlying widget.
@@ -63,7 +69,12 @@ class QtTable(QtControl, ProxyTable):
         self.declaration.double_clicked(context)
 
     def _on_selection_changed(self, context: SelectionContext):
-        self.declaration.selected_items = context.selected_items
+        # TODO: think better if this convertion for selected_items should be implemented
+        #       inside the QTable (qtable.py)
+        selected_items = context.selected_items
+        if hasattr(self.declaration, 'convert_item'):
+            selected_items = [self.declaration.convert_item(item) for item in selected_items]
+        self.declaration.selected_items = selected_items
         self.declaration.selection_changed(context)
 
         if self.declaration.show_summary:
