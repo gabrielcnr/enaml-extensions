@@ -44,9 +44,12 @@ enamldef DataFrame(Table):
         if isinstance(self.items, DataFrameProxy):
             self.items.deactivate()
 
-        self.items = DataFrameProxy(_df, is_ticking=self.is_ticking,
-                                    tick_interval_ms=self.tick_interval_ms,
-                                    refresh_cells_callback=self._refresh_cells)
+        self.items = DataFrameProxy(
+            df=_df,
+            tick_interval_ms=self.tick_interval_ms,
+            refresh_cells_callback=self._refresh_cells,
+        )
+
         if self.is_ticking or not self.columns and self._auto_refresh_columns:
 #            print('generating columns')
             proposed_new_columns = {(c.key, c.title): c

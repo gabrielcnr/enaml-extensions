@@ -1,18 +1,24 @@
+import logging
+import threading
 from typing import Callable
 
 import pandas as pd
-from qtpy.QtWidgets import QApplication
+
+
+logger = logging.getLogger(__name__)
 
 
 def _monitor_df_changes(df_proxy):
-    current_values = df_proxy.values
-    interval = df_proxy.tick_interval_ms / 1_000
+    logger.debug('Starting DataFrameProxy thread for monitoring changes and refreshing ticking cells '
+                 f'{threading.current_thread()}')
 
     import time
     import numpy as np
     from enaml.application import deferred_call
 
-    # print('starting monitor thread')
+    current_values = df_proxy.values
+    interval = df_proxy.tick_interval_ms / 1_000
+
     while df_proxy.is_active():
         time.sleep(interval)
         new_values = df_proxy.df.values.copy()
@@ -20,7 +26,8 @@ def _monitor_df_changes(df_proxy):
         if len(row_indexes):
             deferred_call(df_proxy.update_values_and_refresh_cells, new_values, row_indexes, col_indexes)
         current_values = new_values
-    # print('thread died')
+
+    logger.debug(f'Thread died: DataFrameProxy ticking monitor {threading.current_thread()}')
 
 
 class DataFrameProxy:
@@ -40,7 +47,7 @@ class DataFrameProxy:
         self.tick_interval_ms = tick_interval_ms
         self.refresh_cells_callback = refresh_cells_callback
         self._is_active = True
-        if tick_interval_ms > 0:
+        if self.is_ticking:
             import threading
             t = threading.Thread(target=_monitor_df_changes,
                                  args=(self,),
@@ -51,6 +58,10 @@ class DataFrameProxy:
         # must be called in the main thread!
         self.values = new_values
         self.refresh_cells_callback(row_indexes, col_indexes)
+
+    @property
+    def is_ticking(self):
+        return self.tick_interval_ms > 0
 
     def deactivate(self):
         self._is_active = False
@@ -63,39 +74,3 @@ class DataFrameProxy:
 
     def __len__(self):
         return len(self.values)
-
-
-def _display_dataframe(df: pd.DataFrame):
-    from enamlext.qt.qtable import QTable
-    from enamlext.qt.table.column import generate_columns
-
-    # Making Ctrl+C work
-    import signal
-
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-
-    # Fixing PyQt issue on MacOS BigSur
-    import os
-
-    os.environ["QT_MAC_WANTS_LAYER"] = "1"
-
-    app = QApplication([])
-
-    items = DataFrameProxy(df)
-    columns = generate_columns(items)
-
-    table = QTable(columns, items)
-    table.show()
-
-    app.exec_()
-
-
-if __name__ == '__main__':
-    df = pd.DataFrame()
-
-    df["name"] = ["John", "Pam", "Jess"]
-    df["age"] = [23, 34, 45]
-    df["enabled"] = [True, False, True]
-    df["balance"] = [1000, -250.2, 223.45]
-
-    _display_dataframe(df)
