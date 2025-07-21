@@ -680,7 +680,7 @@ class QTable(QTableView):
             self.__updating = False
             self.model().endResetModel()
             if not hasattr(self, '_adjusted_columns_size') and self.columns and self.items:
-                print('adjusting column sizes for the first and only time')
+                # print('adjusting column sizes for the first and only time')
                 self.adjust_column_sizes()
                 self._adjusted_columns_size = True
 
@@ -698,7 +698,6 @@ class QTable(QTableView):
         index = m.index(row, col)
         index2 = m.index(row, col+1)
         m.dataChanged.emit(index, index2)
-        #print('refreshed')
 
     def set_selection_mode(self, selection_mode: SelectionMode):
         if selection_mode == SelectionMode.SINGLE_CELL:

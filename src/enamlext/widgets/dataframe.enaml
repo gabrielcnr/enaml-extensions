@@ -48,7 +48,7 @@ enamldef DataFrame(Table):
                                     tick_interval_ms=self.tick_interval_ms,
                                     refresh_cells_callback=self._refresh_cells)
         if self.is_ticking or not self.columns and self._auto_refresh_columns:
-            print('generating columns')
+#            print('generating columns')
             proposed_new_columns = {(c.key, c.title): c
                                     for c in generate_columns(self.items, hints=hints,
                                                               include=self.include, exclude=self.exclude)}

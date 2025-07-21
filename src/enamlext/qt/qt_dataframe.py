@@ -8,11 +8,11 @@ def _monitor_df_changes(df_proxy):
     current_values = df_proxy.values
     interval = df_proxy.tick_interval_ms / 1_000
 
+    import time
     import numpy as np
     from enaml.application import deferred_call
-    import time
 
-    print('starting monitor thread')
+    # print('starting monitor thread')
     while df_proxy.is_active():
         time.sleep(interval)
         new_values = df_proxy.df.values.copy()
@@ -20,7 +20,7 @@ def _monitor_df_changes(df_proxy):
         if len(row_indexes):
             deferred_call(df_proxy.update_values_and_refresh_cells, new_values, row_indexes, col_indexes)
         current_values = new_values
-    print('thread died')
+    # print('thread died')
 
 
 class DataFrameProxy:

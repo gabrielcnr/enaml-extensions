@@ -45,7 +45,6 @@ class QtTable(QtControl, ProxyTable):
         """ Create and initialize the underlying widget.
 
         """
-        print('widget init')
         super().init_widget()
         d = self.declaration
         with self.widget.updating_internals():
