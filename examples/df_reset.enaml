@@ -34,7 +34,7 @@ def generate_random_df():
 
 def update_df_loop(df_view):
     while True:
-        time.sleep(1)
+        time.sleep(0.3)
         df = generate_random_df()
         deferred_call(setattr, df_view, 'df', df)
 

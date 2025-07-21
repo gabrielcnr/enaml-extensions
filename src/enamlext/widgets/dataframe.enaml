@@ -6,8 +6,6 @@ from enamlext.qt.qt_dataframe import DataFrameProxy
 from enamlext.qt.table.column import generate_columns
 
 import pandas as pd
-#import time
-#import threading
 
 
 enamldef DataFrame(Table):
@@ -16,31 +14,24 @@ enamldef DataFrame(Table):
     attr exclude = None   # d_(Typed(list))
     attr _auto_refresh_columns = False
 
-    # instead of is_ticking which is going to refresh all the columns
-    # it should allow to pass a list of columns that are going to be ticking
-    # this will improve performance for dataframes which only a subset of
-    # columns will be expected to tick/refresh
-    # TODO: should this member be set only once during initialization?
-    attr is_ticking = False
     attr tick_interval_ms = 100
 
     func _refresh_cells(row_indexes, col_indexes):
-        # t0 = time.perf_counter()
         if self.proxy is None:
             return
 
         for row, col in zip(row_indexes, col_indexes):
             self.proxy.widget.refresh_one_cell(row, col)
-        # t1 = time.perf_counter()
-        # print(f'It took {t1 - t0:.3f} s to refresh {len(row_indexes)} cells - {threading.current_thread()}')
+
 
     func convert_item(item):
-        # TODO: should we return the Series? using .iloc[0] ?
-        #       we could do that if we pass the whole selection context here instead
+        # TODO: should we return a pandas Series instead of a dict?
         return dict(zip(df.columns.values, item))
+
 
     func _refresh_internals():
         _df = df if self.df is not None else pd.DataFrame()
+
         if isinstance(self.items, DataFrameProxy):
             self.items.deactivate()
 
@@ -50,8 +41,7 @@ enamldef DataFrame(Table):
             refresh_cells_callback=self._refresh_cells,
         )
 
-        if self.is_ticking or not self.columns and self._auto_refresh_columns:
-#            print('generating columns')
+        if self.items.is_ticking or not self.columns and self._auto_refresh_columns:
             proposed_new_columns = {(c.key, c.title): c
                                     for c in generate_columns(self.items, hints=hints,
                                                               include=self.include, exclude=self.exclude)}

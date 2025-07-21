@@ -825,6 +825,8 @@ class QTable(QTableView):
                 self.horizontalHeader().resizeSection(i, size + 10)
             elif isinstance(col.size, int):
                 self.horizontalHeader().resizeSection(i, col.size)
+            elif col.size == 'ignore':
+                continue
             else:
                 raise ValueError(f'Invalid column size: {col.size}')
 
@@ -864,8 +866,7 @@ class MenuActionContext:
 
     @property
     def item(self) -> Any:
-        if (row_index := self.row_index) != -1:
-            return self.convert_item(self.raw_item)
+        return self.convert_item(self.raw_item)
 
     @property
     def raw_item(self) -> Any:
