@@ -8,7 +8,7 @@ write_to="src/enamlext/_version.py"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py{38,39,310}
+envlist = py{310,311,312}
 
 [testenv]
 deps =
