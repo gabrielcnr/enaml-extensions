@@ -24,16 +24,23 @@ def _monitor_df_changes(df_proxy):
 
 
 class DataFrameProxy:
-    def __init__(self, df: pd.DataFrame, is_ticking: bool,
-                 tick_interval_ms: int,
-                 refresh_cells_callback: Callable[[list, list], None]):
+    def __init__(self,
+                 df: pd.DataFrame,
+                 *,
+                 tick_interval_ms: int = 0,
+                 refresh_cells_callback: Callable[[list, list], None] | None = None):
+        if tick_interval_ms > 0 and refresh_cells_callback is None:
+            raise ValueError('You must pass a callback to handle refreshing cells when you pass '
+                             'a tick_interval_ms > 0.')
+        if tick_interval_ms <= 0 and refresh_cells_callback is not None:
+            raise ValueError('You should specify a tick_interval_ms refresh interval in miliseconds when you '
+                             'pass a refresh_cells_callback.')
         self.values = df.values
         self.df = df
-        self.is_ticking = is_ticking
         self.tick_interval_ms = tick_interval_ms
         self.refresh_cells_callback = refresh_cells_callback
         self._is_active = True
-        if is_ticking:
+        if tick_interval_ms > 0:
             import threading
             t = threading.Thread(target=_monitor_df_changes,
                                  args=(self,),
