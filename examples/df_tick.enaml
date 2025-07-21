@@ -36,6 +36,9 @@ enamldef Main(MainWindow):
     initial_size = (700, 400)
 
     Container:
+        Field:
+            pass
+            
         PushButton:
             text = 'Generate a new DF'
             clicked ::

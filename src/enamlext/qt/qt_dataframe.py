@@ -1,13 +1,12 @@
-import weakref
 from typing import Callable
 
 import pandas as pd
 from qtpy.QtWidgets import QApplication
 
 
-def _monitor_df_changes(df_proxy, tick_interval_ms, refresh_cells_callback):
-    values = df_proxy.df.values.copy()
-    interval = tick_interval_ms / 1_000
+def _monitor_df_changes(df_proxy):
+    current_values = df_proxy.values
+    interval = df_proxy.tick_interval_ms / 1_000
 
     import numpy as np
     from enaml.application import deferred_call
@@ -17,9 +16,10 @@ def _monitor_df_changes(df_proxy, tick_interval_ms, refresh_cells_callback):
     while df_proxy.is_active():
         time.sleep(interval)
         new_values = df_proxy.df.values.copy()
-        row_indexes, col_indexes = np.where(values != new_values)
-        deferred_call(refresh_cells_callback, row_indexes, col_indexes)
-        values = new_values
+        row_indexes, col_indexes = np.where(current_values != new_values)
+        if len(row_indexes):
+            deferred_call(df_proxy.update_values_and_refresh_cells, new_values, row_indexes, col_indexes)
+        current_values = new_values
     print('thread died')
 
 
@@ -31,13 +31,19 @@ class DataFrameProxy:
         self.df = df
         self.is_ticking = is_ticking
         self.tick_interval_ms = tick_interval_ms
+        self.refresh_cells_callback = refresh_cells_callback
         self._is_active = True
         if is_ticking:
             import threading
             t = threading.Thread(target=_monitor_df_changes,
-                                 args=(self, tick_interval_ms, refresh_cells_callback),
+                                 args=(self,),
                                  daemon=True)
             t.start()
+
+    def update_values_and_refresh_cells(self, new_values, row_indexes, col_indexes):
+        # must be called in the main thread!
+        self.values = new_values
+        self.refresh_cells_callback(row_indexes, col_indexes)
 
     def deactivate(self):
         self._is_active = False

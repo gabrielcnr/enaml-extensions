@@ -6,7 +6,8 @@ from enamlext.qt.qt_dataframe import DataFrameProxy
 from enamlext.qt.table.column import generate_columns
 
 import pandas as pd
-import time
+#import time
+#import threading
 
 
 enamldef DataFrame(Table):
@@ -25,11 +26,13 @@ enamldef DataFrame(Table):
 
     func _refresh_cells(row_indexes, col_indexes):
         # t0 = time.perf_counter()
-        #print('modified', row_indexes, col_indexes)
+        if self.proxy is None:
+            return
+
         for row, col in zip(row_indexes, col_indexes):
             self.proxy.widget.refresh_one_cell(row, col)
         # t1 = time.perf_counter()
-        # print(f'It took {t1 - t0:.3f} s to refresh {len(row_indexes)} cells')
+        # print(f'It took {t1 - t0:.3f} s to refresh {len(row_indexes)} cells - {threading.current_thread()}')
 
     func convert_item(item):
         # TODO: should we return the Series? using .iloc[0] ?
