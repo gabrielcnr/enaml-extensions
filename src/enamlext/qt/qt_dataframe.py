@@ -24,8 +24,6 @@ def _monitor_df_changes(df_proxy):
         t0 = time.perf_counter()
         new_values = df_proxy.df.values.copy()
 
-        # row_indexes, col_indexes = np.where(current_values != new_values)
-        # ~
         row_indexes, col_indexes = np.where(~((current_values == new_values) | (pd.isna(current_values) & pd.isna(new_values))))
 
         if len(row_indexes):
