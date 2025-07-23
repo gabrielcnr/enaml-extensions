@@ -1,0 +1,60 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from enamlext.widgets.dataframe import DataFrame
+import threading
+
+
+def modify_df_inplace(df_view, columns=None, interval=0.3):
+    import itertools
+    import random
+    import time
+
+    n_rows, n_cols = df_view.df.shape
+
+    if columns is None:
+        columns = range(n_cols)
+
+    cells = list(itertools.product(range(n_rows), columns))
+
+    while True:
+        affected_cells = random.sample(cells, int(len(cells) / 2))
+        df = df_view.df
+        for row, col in affected_cells:
+            df.at[row, col] += 1
+        #print('modified')
+        time.sleep(interval)
+
+
+def create_df():
+    import pandas as pd
+    import numpy as np
+    df = pd.DataFrame(np.random.randint(1, 100, size=(100, 100)))
+    df.columns = [f'COL_{i}' for i in range(len(df.columns))]
+    return df
+
+import pandas as pd
+
+
+enamldef Main(MainWindow):
+    title = 'Main Window'
+    initial_size = (700, 400)
+
+    Container:
+        Field:
+            pass
+            
+        PushButton:
+            text = 'Generate a new DF'
+            clicked ::
+                table.df = create_df()
+
+        # TODO: change the number of columns and should also work
+
+        DataFrame: table:
+            tick_interval_ms = 300
+            df = create_df()
+            exclude = ['COL_3']
+
+            activated ::
+                t = threading.Thread(target=modify_df_inplace, args=(self, ['COL_2', 'COL_5']), daemon=True)
+                t.start()
