@@ -163,6 +163,17 @@ class QTableModel(QAbstractTableModel):
             return super().flags(index)
 
     def data(self, index: QModelIndex, role: int) -> Any:
+        column = self.get_column_by_index(index.column())
+        if column.collect_stats:
+            t0 = time.perf_counter()
+            result = self._data(index, role)
+            t1 = time.perf_counter()
+            column.record_stats(role=role, elapsed=t1 - t0)
+            return result
+        else:
+            return self._data(index, role)
+
+    def _data(self, index, role):
         if role == Qt.DisplayRole:
             if self.checkable:
                 offset = 1

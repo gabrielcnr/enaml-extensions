@@ -33,6 +33,7 @@ class Column:
                  fmt: str = '',
                  size: Union[ColumnSize, int] = ColumnSize.AUTO,
                  image: Optional[str] = None, # TODO: support callback
+                 collect_stats: bool = False,
                  ):
         self.key = key
         self._link_get_value_method(key, use_getitem)
@@ -47,6 +48,23 @@ class Column:
         self.image = image
         if cell_style is not None:
             self.get_cell_style = cell_style
+        self.collect_stats = collect_stats
+        self.stats = {}
+
+    def record_stats(self, role: int, elapsed: float):
+        if role not in self.stats:
+            self.stats[role] = {'n_calls': 0, 'cum_time': 0, 'avg_time': 0}
+
+        stats_for_role = self.stats[role]
+        stats_for_role['n_calls'] += 1
+        stats_for_role['cum_time'] += elapsed
+        stats_for_role['avg_time'] = stats_for_role['cum_time'] / stats_for_role['n_calls']
+
+    def total_cost(self):
+        if not self.stats:
+            return 0
+
+        return sum((stats['cum_time'] for stats in self.stats))
 
     def _link_get_value_method(self, key, use_getitem):
         if callable(key):

@@ -47,7 +47,7 @@ enamldef Main(MainWindow):
         # TODO: change the number of columns and should also work
 
         DataFrame: table:
-            is_ticking = True
+            tick_interval_ms = 300
             df = create_df()
 
             activated ::

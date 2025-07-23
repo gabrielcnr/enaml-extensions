@@ -21,13 +21,20 @@ def _monitor_df_changes(df_proxy):
 
     while df_proxy.is_active():
         time.sleep(interval)
+        t0 = time.perf_counter()
         new_values = df_proxy.df.values.copy()
-        row_indexes, col_indexes = np.where(current_values != new_values)
+
+        # row_indexes, col_indexes = np.where(current_values != new_values)
+        # ~
+        row_indexes, col_indexes = np.where(~((current_values == new_values) | (pd.isna(current_values) & pd.isna(new_values))))
+
         if len(row_indexes):
             deferred_call(df_proxy.update_values_and_refresh_cells, new_values, row_indexes, col_indexes)
         current_values = new_values
+        t1 = time.perf_counter()
+        logger.info(f'It took {t1 -t0:.3f} s inside the thread')
 
-    logger.debug(f'Thread died: DataFrameProxy ticking monitor {threading.current_thread()}')
+    logger.info(f'Thread died: DataFrameProxy ticking monitor {threading.current_thread()}')
 
 
 class DataFrameProxy:
@@ -56,8 +63,11 @@ class DataFrameProxy:
 
     def update_values_and_refresh_cells(self, new_values, row_indexes, col_indexes):
         # must be called in the main thread!
+        t0 = time.perf_counter()
         self.values = new_values
         self.refresh_cells_callback(row_indexes, col_indexes)
+        changed_col_names = {i: self.df.columns[i] for i in set(col_indexes)}
+        logger.info(f'It took {time.perf_counter() - t0:.3f} s inside the main thread refreshing {len(row_indexes)} cells - modified cols: {changed_col_names}')
 
     @property
     def is_ticking(self):
