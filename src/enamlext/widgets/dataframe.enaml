@@ -12,16 +12,21 @@ enamldef DataFrame(Table):
     attr df = None  # d_(Value(factory=pd.DataFrame))
     attr include = None   # d_(Typed(list))
     attr exclude = None   # d_(Typed(list))
+    attr instrumentation_enabled = False
     attr _auto_refresh_columns = False
 
-    attr tick_interval_ms = 100
+    attr tick_interval_ms = 0  # by default it is not ticking
+
+    attr _df_index_to_view_index = {}
 
     func _refresh_cells(row_indexes, col_indexes):
         if self.proxy is None:
             return
+            
 
         for row, col in zip(row_indexes, col_indexes):
-            self.proxy.widget.refresh_one_cell(row, col)
+            col_view_index = self._df_index_to_view_index.get(col, col)
+            self.proxy.widget.refresh_one_cell(row, col_view_index)
 
 
     func convert_item(item):
@@ -35,11 +40,14 @@ enamldef DataFrame(Table):
         if isinstance(self.items, DataFrameProxy):
             self.items.deactivate()
 
-        self.items = DataFrameProxy(
-            df=_df,
-            tick_interval_ms=self.tick_interval_ms,
-            refresh_cells_callback=self._refresh_cells,
-        )
+        kwargs = {}
+        if self.tick_interval_ms:
+            kwargs.update(
+                tick_interval_ms=self.tick_interval_ms,
+                refresh_cells_callback=self._refresh_cells,
+            )
+
+        self.items = DataFrameProxy(df=_df, instrumentation_enabled=self.instrumentation_enabled, **kwargs)
 
         if self.items.is_ticking or not self.columns and self._auto_refresh_columns:
             proposed_new_columns = {(c.key, c.title): c
@@ -56,6 +64,9 @@ enamldef DataFrame(Table):
                         filters.filters[filter.column] = filter
 
             self.columns = list(proposed_new_columns.values())
+
+            for view_index, column in enumerate(self.columns):
+                self._df_index_to_view_index[column.df_index] = view_index
 
     activated ::
         self.proxy.widget.adjust_column_sizes()  # TODO: why we need to call this here?
