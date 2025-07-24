@@ -211,6 +211,8 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             else:
                 column_index = i
 
+            column.df_index = i
+
             columns[column_index] = column
 
     elif isinstance(first_row, tuple):
