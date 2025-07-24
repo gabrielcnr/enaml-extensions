@@ -7,16 +7,12 @@ from enamlext.qt.table.column import generate_columns
 
 import pandas as pd
 
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
-
 
 enamldef DataFrame(Table):
     attr df = None  # d_(Value(factory=pd.DataFrame))
     attr include = None   # d_(Typed(list))
     attr exclude = None   # d_(Typed(list))
+    attr instrumentation_enabled = False
     attr _auto_refresh_columns = False
 
     attr tick_interval_ms = 0  # by default it is not ticking
@@ -26,6 +22,7 @@ enamldef DataFrame(Table):
     func _refresh_cells(row_indexes, col_indexes):
         if self.proxy is None:
             return
+            
 
         for row, col in zip(row_indexes, col_indexes):
             col_view_index = self._df_index_to_view_index.get(col, col)
@@ -50,7 +47,7 @@ enamldef DataFrame(Table):
                 refresh_cells_callback=self._refresh_cells,
             )
 
-        self.items = DataFrameProxy(df=_df, **kwargs)
+        self.items = DataFrameProxy(df=_df, instrumentation_enabled=self.instrumentation_enabled, **kwargs)
 
         if self.items.is_ticking or not self.columns and self._auto_refresh_columns:
             proposed_new_columns = {(c.key, c.title): c

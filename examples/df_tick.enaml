@@ -3,6 +3,10 @@ from enaml.layout.api import *
 from enamlext.widgets.dataframe import DataFrame
 import threading
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 
 def modify_df_inplace(df_view, interval=0.3):
     import itertools
