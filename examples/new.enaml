@@ -25,7 +25,10 @@ def modify_df_inplace(df_view, columns=None, interval=0.3):
         affected_cells = random.sample(cells, int(len(cells) / 2))
         df = df_view.df
         for row, col in affected_cells:
-            df.at[row, col] += 1
+            try:
+                df.at[row, col] += 1
+            except KeyError:
+                break
         #print('modified')
         time.sleep(interval)
 
