@@ -37,7 +37,7 @@ def _monitor_df_changes(df_proxy):
 
         if df_proxy.instrumentation_enabled:
             elapsed = time.perf_counter() - t0
-            logger.info(f'It took {t1 -t0:.3f} s inside the monitoring thread')
+            logger.info(f'It took {elapsed:.3f} s inside the monitoring thread')
 
     if df_proxy.instrumentation_enabled:
         logger.info(f'Thread died: DataFrameProxy ticking monitor {threading.current_thread()}')
