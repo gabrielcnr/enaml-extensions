@@ -690,10 +690,18 @@ class QTable(QTableView):
         finally:
             self.__updating = False
             self.model().endResetModel()
+            # TODO: it should be a controllable behaviour whether to always resize or
+            #       resize only once - the problem is if the columns change
             if not hasattr(self, '_adjusted_columns_size') and self.columns and self.items:
                 # print('adjusting column sizes for the first and only time')
+                get_size = self.horizontalHeader().sectionSize
                 self.adjust_column_sizes()
                 self._adjusted_columns_size = True
+                self._previous_colsizes = {c.title: get_size(i) for i, c in enumerate(self.columns)}
+            elif hasattr(self, '_previous_colsizes'):
+                resize = self.horizontalHeader().resizeSection
+                for i, c in enumerate(self.columns):
+                    resize(i, self._previous_colsizes.get(c.title, 100))
 
     def refresh(self):
         m = self.model()
