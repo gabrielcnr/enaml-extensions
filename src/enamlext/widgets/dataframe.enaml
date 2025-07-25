@@ -17,12 +17,14 @@ enamldef DataFrame(Table):
 
     attr tick_interval_ms = 0  # by default it is not ticking
 
+    # TODO: FIX! for now, it cannot sort on ticking frames
+    sortable << tick_interval_ms == 0
+
     attr _df_index_to_view_index = {}
 
     func _refresh_cells(row_indexes, col_indexes):
         if self.proxy is None:
             return
-            
 
         for row, col in zip(row_indexes, col_indexes):
             col_view_index = self._df_index_to_view_index.get(col, col)
