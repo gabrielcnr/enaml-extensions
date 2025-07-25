@@ -21,6 +21,7 @@ def modify_df_inplace(df_view, interval=0.3):
         affected_cells = random.sample(cells, 1000)
         df = df_view.df
         for row, col in affected_cells:
+            if col == 100: continue  # taco!
             df.iat[row, col] += 1
         #print('modified')
         time.sleep(interval)
