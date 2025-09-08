@@ -14,6 +14,7 @@ enamldef DataFrame(Table):
     attr exclude = None   # d_(Typed(list))
     attr instrumentation_enabled = False
     attr _auto_refresh_columns = False
+    attr always_recompute_columns = False
 
     attr tick_interval_ms = 0  # by default it is not ticking
 
@@ -36,7 +37,7 @@ enamldef DataFrame(Table):
         return dict(zip(df.columns.values, item))
 
 
-    func _refresh_internals():
+    func _refresh_internals(force=False):
         _df = df if self.df is not None else pd.DataFrame()
 
         if isinstance(self.items, DataFrameProxy):
@@ -49,11 +50,17 @@ enamldef DataFrame(Table):
                 refresh_cells_callback=self._refresh_cells,
             )
 
-        self.items = DataFrameProxy(df=_df, instrumentation_enabled=self.instrumentation_enabled, **kwargs)
+        new_items = DataFrameProxy(df=_df, instrumentation_enabled=self.instrumentation_enabled, **kwargs)
 
-        if self.items.is_ticking or not self.columns and self._auto_refresh_columns:
+        if force or (new_items.is_ticking or not self.columns and self._auto_refresh_columns):
+            if force:
+                self.items = []
+                self.columns = []
+                
+            #if force:
+            #    breakpoint()
             proposed_new_columns = {(c.key, c.title): c
-                                    for c in generate_columns(self.items, hints=hints,
+                                    for c in generate_columns(new_items, hints=hints,
                                                               include=self.include, exclude=self.exclude)}
             if self.proxy.widget is not None:
                 filters = self.proxy.widget.model().filters
@@ -65,10 +72,19 @@ enamldef DataFrame(Table):
                         filter.column = proposed_new_columns[filter_key]
                         filters.filters[filter.column] = filter
 
-            self.columns = list(proposed_new_columns.values())
+            new_columns = list(proposed_new_columns.values())
 
             for view_index, column in enumerate(self.columns):
                 self._df_index_to_view_index[column.df_index] = view_index
+        else:
+            new_columns = self.columns
+
+        with self.suppress_notifications():
+            self.items = new_items
+            self.columns = new_columns
+
+        if self.proxy.widget is not None:
+            self.proxy.atomic_set_items_and_columns(self.items, self.columns)
 
     activated ::
         self.proxy.widget.adjust_column_sizes()  # TODO: why we need to call this here?
@@ -78,7 +94,10 @@ enamldef DataFrame(Table):
         self._refresh_internals()
 
     df ::
-        self._refresh_internals()
+        self._refresh_internals(force=self.always_recompute_columns)
+        #if self.always_recompute_columns:
+        #    breakpoint()
+        #print('aqui')
 
     include ::
         self._refresh_internals()
