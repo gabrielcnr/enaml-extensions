@@ -1,12 +1,13 @@
 from typing import List, Any, Optional
 
-from atom.api import Int, Typed
+from atom.api import Int, Typed, Value
 from enaml.qt.qt_control import QtControl
 
 from enamlext.qt.qtable import QTable, DoubleClickContext, SelectionContext, SelectionMode
 from enamlext.qt.table.column import Column
 from enamlext.qt.table.summary import TableSelectionSummary
 from enamlext.widgets.table import ProxyTable
+from enaml.qt.QtCore import QTimer
 
 # cyclic notification guard flags
 INDEX_GUARD = 0x1
@@ -29,6 +30,9 @@ class QtTable(QtControl, ProxyTable):
     #: Cyclic notification guard. This a bitfield of multiple guards.
     _guard = Int(0)
 
+    temp_selection_context = Value()
+    timer = Value()
+
     # Initialization API
     def create_widget(self):
         """ Create the QTable widget.
@@ -41,10 +45,20 @@ class QtTable(QtControl, ProxyTable):
         self.widget = QTable([], parent=self.parent_widget(),
                              convert_item=convert_item)
 
+    def _on_timer(self):
+        print('on timer!', flush=True)
+        self._actually_refresh_selection()
+
     def init_widget(self):
         """ Create and initialize the underlying widget.
 
         """
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.setInterval(300)
+        timer.timeout.connect(self._on_timer)
+        self.timer = timer
+
         super().init_widget()
         d = self.declaration
         with self.widget.updating_internals():
@@ -71,6 +85,12 @@ class QtTable(QtControl, ProxyTable):
     def _on_selection_changed(self, context: SelectionContext):
         # TODO: think better if this convertion for selected_items should be implemented
         #       inside the QTable (qtable.py)
+        self.temp_selection_context = context
+        self.timer.start()
+
+
+    def _actually_refresh_selection(self):
+        context = self.temp_selection_context
         selected_items = context.selected_items
         if hasattr(self.declaration, 'convert_item'):
             selected_items = [self.declaration.convert_item(item) for item in selected_items]
