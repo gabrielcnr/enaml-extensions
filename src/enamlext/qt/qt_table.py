@@ -93,6 +93,11 @@ class QtTable(QtControl, ProxyTable):
         with self.widget.updating_internals():
             self.widget.columns = columns
 
+    def set_items_and_columns(self, items: list[Any], columns: list[Column]):
+        with self.widget.updating_internals():
+            self.widget.columns = columns
+            self.widget.items = items
+
     def set_selected_items(self, selected_items: List[Any]):
         pass
 

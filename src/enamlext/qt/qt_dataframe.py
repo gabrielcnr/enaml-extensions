@@ -97,3 +97,7 @@ class DataFrameProxy:
 
     def __len__(self):
         return len(self.values)
+
+    @property
+    def columns(self):
+        return self.df.columns
