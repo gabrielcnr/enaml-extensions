@@ -30,8 +30,8 @@ class QtTable(QtControl, ProxyTable):
     #: Cyclic notification guard. This a bitfield of multiple guards.
     _guard = Int(0)
 
-    temp_selection_context = Value()
-    timer = Value()
+    _temp_selection_context = Value()
+    _selection_timer = Value()
 
     # Initialization API
     def create_widget(self):
@@ -45,19 +45,14 @@ class QtTable(QtControl, ProxyTable):
         self.widget = QTable([], parent=self.parent_widget(),
                              convert_item=convert_item)
 
-    def _on_timer(self):
-        print('on timer!', flush=True)
-        self._actually_refresh_selection()
-
     def init_widget(self):
         """ Create and initialize the underlying widget.
-
         """
         timer = QTimer()
         timer.setSingleShot(True)
-        timer.setInterval(300)
-        timer.timeout.connect(self._on_timer)
-        self.timer = timer
+        timer.setInterval(300)  # TODO: should we make this configurable?
+        timer.timeout.connect(self._do_refresh_selection)
+        self._selection_timer = timer
 
         super().init_widget()
         d = self.declaration
@@ -82,15 +77,14 @@ class QtTable(QtControl, ProxyTable):
         # TODO: DoubleClickContext has a lot of knowledge of Qt details - we don't want this to leak!
         self.declaration.double_clicked(context)
 
-    def _on_selection_changed(self, context: SelectionContext):
+    def _on_selection_changed(self, context: SelectionContext) -> None:
         # TODO: think better if this convertion for selected_items should be implemented
         #       inside the QTable (qtable.py)
-        self.temp_selection_context = context
-        self.timer.start()
+        self._temp_selection_context = context
+        self._selection_timer.start()
 
-
-    def _actually_refresh_selection(self):
-        context = self.temp_selection_context
+    def _do_refresh_selection(self) -> None:
+        context = self._temp_selection_context
         selected_items = context.selected_items
         if hasattr(self.declaration, 'convert_item'):
             selected_items = [self.declaration.convert_item(item) for item in selected_items]

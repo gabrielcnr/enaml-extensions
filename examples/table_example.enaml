@@ -78,7 +78,7 @@ table_data = [
         'random_number': 1,
     },
 
-]
+] * 30
 
 
 enamldef Main(MainWindow): window:
