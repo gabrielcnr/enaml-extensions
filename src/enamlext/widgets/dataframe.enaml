@@ -6,6 +6,7 @@ from enamlext.qt.qt_dataframe import DataFrameProxy
 from enamlext.qt.table.column import generate_columns
 
 import pandas as pd
+import time
 
 
 enamldef DataFrame(Table):
@@ -51,7 +52,7 @@ enamldef DataFrame(Table):
 
         self.items = DataFrameProxy(df=_df, instrumentation_enabled=self.instrumentation_enabled, **kwargs)
 
-        if self.items.is_ticking or not self.columns and self._auto_refresh_columns:
+        if True:#self.items.is_ticking or not self.columns and self._auto_refresh_columns:
             proposed_new_columns = {(c.key, c.title): c
                                     for c in generate_columns(self.items, hints=hints,
                                                               include=self.include, exclude=self.exclude)}
@@ -78,7 +79,10 @@ enamldef DataFrame(Table):
         self._refresh_internals()
 
     df ::
+        t0 = time.perf_counter()
         self._refresh_internals()
+        t1 = time.perf_counter()
+        print(f'Elapsed: {t1 - t0:.5f} s')
 
     include ::
         self._refresh_internals()
