@@ -78,7 +78,7 @@ table_data = [
         'random_number': 1,
     },
 
-]
+] * 30
 
 
 enamldef Main(MainWindow): window:
@@ -162,3 +162,6 @@ enamldef Main(MainWindow): window:
                 ]
 
                 items = table_data
+
+                selected_items ::
+                    print('\n', selected_items, '\n')
