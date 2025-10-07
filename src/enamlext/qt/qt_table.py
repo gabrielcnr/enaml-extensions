@@ -1,12 +1,13 @@
 from typing import List, Any, Optional
 
-from atom.api import Int, Typed
+from atom.api import Int, Typed, Value
 from enaml.qt.qt_control import QtControl
 
 from enamlext.qt.qtable import QTable, DoubleClickContext, SelectionContext, SelectionMode
 from enamlext.qt.table.column import Column
 from enamlext.qt.table.summary import TableSelectionSummary
 from enamlext.widgets.table import ProxyTable
+from enaml.qt.QtCore import QTimer
 
 # cyclic notification guard flags
 INDEX_GUARD = 0x1
@@ -29,6 +30,9 @@ class QtTable(QtControl, ProxyTable):
     #: Cyclic notification guard. This a bitfield of multiple guards.
     _guard = Int(0)
 
+    _temp_selection_context = Value()
+    _selection_timer = Value()
+
     # Initialization API
     def create_widget(self):
         """ Create the QTable widget.
@@ -43,8 +47,13 @@ class QtTable(QtControl, ProxyTable):
 
     def init_widget(self):
         """ Create and initialize the underlying widget.
-
         """
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.setInterval(300)  # TODO: should we make this configurable?
+        timer.timeout.connect(self._do_refresh_selection)
+        self._selection_timer = timer
+
         super().init_widget()
         d = self.declaration
         with self.widget.updating_internals():
@@ -68,9 +77,14 @@ class QtTable(QtControl, ProxyTable):
         # TODO: DoubleClickContext has a lot of knowledge of Qt details - we don't want this to leak!
         self.declaration.double_clicked(context)
 
-    def _on_selection_changed(self, context: SelectionContext):
+    def _on_selection_changed(self, context: SelectionContext) -> None:
         # TODO: think better if this convertion for selected_items should be implemented
         #       inside the QTable (qtable.py)
+        self._temp_selection_context = context
+        self._selection_timer.start()
+
+    def _do_refresh_selection(self) -> None:
+        context = self._temp_selection_context
         selected_items = context.selected_items
         if hasattr(self.declaration, 'convert_item'):
             selected_items = [self.declaration.convert_item(item) for item in selected_items]
