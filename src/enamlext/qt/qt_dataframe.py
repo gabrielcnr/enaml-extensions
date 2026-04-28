@@ -14,7 +14,7 @@ def _monitor_df_changes(df_proxy):
     if df_proxy.instrumentation_enabled:
         logger.info('Starting DataFrameProxy thread for monitoring changes and refreshing ticking cells '
                     f'{threading.current_thread()}')
-    
+
     from enaml.application import deferred_call
 
     current_values = df_proxy.values
@@ -26,7 +26,13 @@ def _monitor_df_changes(df_proxy):
         if df_proxy.instrumentation_enabled:
             t0 = time.perf_counter()
 
-        new_values = df_proxy.df.values.copy()
+        # Snapshot under the lock — on object-dtype frames, building `.values`
+        # iterates pandas blocks and copies PyObject* pointers; if the caller
+        # mutates the same frame from another thread mid-read, we can deref a
+        # freed pointer and segfault. Diff/notify happens outside the lock so
+        # callers aren't blocked on the comparison work.
+        with df_proxy._lock:
+            new_values = df_proxy.df.values.copy()
 
         row_indexes, col_indexes = np.where(~((current_values == new_values) | (pd.isna(current_values) & pd.isna(new_values))))
 
@@ -56,6 +62,7 @@ class DataFrameProxy:
         if tick_interval_ms <= 0 and refresh_cells_callback is not None:
             raise ValueError('You should specify a tick_interval_ms refresh interval in miliseconds when you '
                              'pass a refresh_cells_callback.')
+        self._lock = threading.RLock()
         self.values = df.values
         self.df = df
         self.tick_interval_ms = tick_interval_ms
@@ -63,11 +70,24 @@ class DataFrameProxy:
         self.instrumentation_enabled = instrumentation_enabled
         self._is_active = True
         if self.is_ticking:
-            import threading
             t = threading.Thread(target=_monitor_df_changes,
                                  args=(self,),
                                  daemon=True)
             t.start()
+
+    def write(self, fn: Callable[[pd.DataFrame], None]) -> None:
+        """Run ``fn(self.df)`` under the proxy's lock.
+
+        Use this to coordinate in-place mutations of the wrapped DataFrame
+        with the background change-monitor on ticking proxies::
+
+            proxy.write(lambda df: df.update(other_df[ticking_columns]))
+
+        On non-ticking proxies the lock is uncontended so this is a cheap
+        no-op around ``fn`` and callers can use it unconditionally.
+        """
+        with self._lock:
+            fn(self.df)
 
     def update_values_and_refresh_cells(self, new_values, row_indexes, col_indexes):
         # must be called in the main thread!
