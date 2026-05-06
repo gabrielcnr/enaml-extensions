@@ -714,9 +714,10 @@ class QTable(QTableView):
         # how about filtering and sorting here?
         # perhaps we can say that ticking tables cannot be filtered or sorted?
         m = self.model()
+        # dataChanged's bottomRight is inclusive — both indices must be the
+        # same to invalidate exactly one cell.
         index = m.index(row, col)
-        index2 = m.index(row, col+1)
-        m.dataChanged.emit(index, index2)
+        m.dataChanged.emit(index, index)
 
     def set_selection_mode(self, selection_mode: SelectionMode):
         if selection_mode == SelectionMode.SINGLE_CELL:
