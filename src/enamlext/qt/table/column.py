@@ -191,7 +191,10 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
                 continue
             if include is not None and name not in include_set:
                 continue
-            if not isinstance(dtype, pd.core.dtypes.dtypes.CategoricalDtype) and np.issubdtype(dtype, np.number):
+            # pd.api.types.is_numeric_dtype handles pandas extension dtypes (StringDtype,
+            # CategoricalDtype, Int64Dtype, ...) that np.issubdtype cannot interpret as
+            # data types and would raise TypeError on.
+            if pd.api.types.is_numeric_dtype(dtype):
                 align = Alignment.RIGHT
                 style = get_cell_style_for_negative_numbers
             else:
