@@ -26,9 +26,8 @@ enamldef DataFrame(Table):
         if self.proxy is None:
             return
 
-        for row, col in zip(row_indexes, col_indexes):
-            col_view_index = self._df_index_to_view_index.get(col, col)
-            self.proxy.widget.refresh_one_cell(row, col_view_index)
+        view_cols = [self._df_index_to_view_index.get(c, c) for c in col_indexes]
+        self.proxy.widget.refresh_cells(row_indexes, view_cols)
 
 
     func convert_item(item):
