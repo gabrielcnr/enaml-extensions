@@ -57,6 +57,20 @@ def to_qt_alignment(align: Alignment) -> QtAlignment:
     return QT_ALIGNMENT_MAP[align]
 
 
+@lru_cache(maxsize=128)
+def _load_scaled_pixmap(image_path: str, max_size: int = 24) -> QPixmap:
+    # Cached so DecorationRole doesn't read the file from disk and rescale on
+    # every repaint. Must only be called from the GUI thread (QPixmap requires
+    # it), which is fine because QAbstractItemModel.data() always runs there.
+    img = QPixmap()
+    img.load(image_path)
+    if img.height() > max_size:
+        img = img.scaledToHeight(max_size)
+    if img.width() > max_size:
+        img = img.scaledToWidth(max_size)
+    return img
+
+
 @lru_cache(maxsize=256)
 def make_custom_font(font_spec: str) -> QFont:
     font = QFont()
@@ -191,6 +205,10 @@ class QTableModel(QAbstractTableModel):
             # Only the first column is checkable (index = 0) - so we need to account for that offset
             if (col_index := index.column()) or not self.checkable:
                 column = self.columns[col_index - offset]  # O(1)
+                # Fast path: fixed-align (or already-resolved AUTO_ALIGN) columns
+                # don't need the row item — skip fetching/converting it on every cell.
+                if (align := column.get_align_quick()) is not None:
+                    return to_qt_alignment(align)
                 item = self.convert_item(self.items[index.row()])  # O(1)
                 try:
                     return to_qt_alignment(column.get_align(item))
@@ -306,16 +324,7 @@ class QTableModel(QAbstractTableModel):
                     convert=self.convert_item,
                 )
                 if (image := column.get_image(context)):
-                    img = QPixmap()
-                    img.load(image)
-
-                    # TODO: make this resizing thing better
-                    if img.height() > 24:
-                        img = img.scaledToHeight(24)
-                    if img.width() > 24:
-                        img = img.scaledToWidth(24)
-
-                    return img
+                    return _load_scaled_pixmap(image)
 
     def sort(self, column_index, order=None) -> None:
         if self.columns:
@@ -718,6 +727,23 @@ class QTable(QTableView):
         # same to invalidate exactly one cell.
         index = m.index(row, col)
         m.dataChanged.emit(index, index)
+
+    def refresh_cells(self, rows, cols) -> None:
+        # Group consecutive same-row updates into a single dataChanged emit so
+        # we make N→k Python→Qt signal hops where k is the number of unique
+        # rows. Range-emit invalidates every column in [min,max] of each row;
+        # unchanged columns get re-fetched but paint identically — net win
+        # whenever the changed columns of a row are reasonably clustered.
+        m = self.model()
+        if len(rows) == 0:
+            return
+        by_row: dict[int, list[int]] = {}
+        for r, c in zip(rows, cols):
+            by_row.setdefault(int(r), []).append(int(c))
+        for row, row_cols in by_row.items():
+            cmin = min(row_cols)
+            cmax = max(row_cols)
+            m.dataChanged.emit(m.index(row, cmin), m.index(row, cmax))
 
     def set_selection_mode(self, selection_mode: SelectionMode):
         if selection_mode == SelectionMode.SINGLE_CELL:

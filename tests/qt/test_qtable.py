@@ -2,7 +2,7 @@ from collections import namedtuple
 from dataclasses import dataclass
 
 from enamlext.qt.table.summary import TableSelectionSummary, compute_summary
-from enamlext.qt.table.column import Column, Alignment, generate_columns
+from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN, generate_columns
 from enamlext.qt.table.filtering import TableFilters, Filter
 
 
@@ -168,3 +168,97 @@ def test_summary_string_text():
 def test_summary_string_text_with_diff():
     summary = TableSelectionSummary(sum=4, values=[1, 3], min=1, max=3, count_numbers=2)
     assert 'Count: 2   Average: 2.0   Sum: 4   CountNumbers: 2   Min: 1   Max: 3   Diff: 2' == str(summary)
+
+
+###################################
+# Alignment fast-path + memoisation
+###################################
+
+
+def test_get_align_quick_returns_fixed_alignment_without_an_item():
+    column = Column('age', use_getitem=True, align=Alignment.RIGHT)
+    assert Alignment.RIGHT == column.get_align_quick()
+
+
+def test_get_align_quick_returns_none_for_unresolved_auto_align():
+    column = Column('age', use_getitem=True)
+    assert column.align is AUTO_ALIGN
+    assert column.get_align_quick() is None
+
+
+def test_get_align_resolves_auto_align_on_first_non_none_value_and_memoises():
+    column = Column('age', use_getitem=True)
+    assert Alignment.RIGHT == column.get_align({'age': 30})
+    assert Alignment.RIGHT == column.get_align_quick()
+    # Subsequent rows reuse the cached resolution even when their type would
+    # have resolved differently in isolation.
+    assert Alignment.RIGHT == column.get_align({'age': 'forty'})
+
+
+def test_get_align_does_not_memoise_a_none_value():
+    column = Column('age', use_getitem=True)
+    assert Alignment.LEFT == column.get_align({'age': None})
+    # Cache was not populated by the None row.
+    assert column.get_align_quick() is None
+    # Next non-None row resolves and caches.
+    assert Alignment.RIGHT == column.get_align({'age': 30})
+    assert Alignment.RIGHT == column.get_align_quick()
+
+
+###################################
+# Batched cell refresh
+###################################
+
+
+def test_refresh_cells_groups_by_row_and_emits_one_range_per_row():
+    # Simulate enough of QTable.refresh_cells to exercise the grouping
+    # logic without requiring a live Qt event loop.
+    from enamlext.qt.qtable import QTable
+
+    emits = []
+
+    class FakeIndex:
+        def __init__(self, row, col): self.row, self.col = row, col
+        def __repr__(self): return f'({self.row},{self.col})'
+
+    class FakeModel:
+        def index(self, row, col): return FakeIndex(row, col)
+        class _Sig:
+            def __init__(self, sink): self.sink = sink
+            def emit(self, top_left, bottom_right):
+                self.sink.append(((top_left.row, top_left.col),
+                                  (bottom_right.row, bottom_right.col)))
+        def __init__(self, sink): self.dataChanged = self._Sig(sink)
+
+    fake_model = FakeModel(emits)
+
+    class _T:
+        def model(self): return fake_model
+
+    # Same-row clustered: cols 1, 3, 5 in row 7 collapse to one range (7,1)→(7,5)
+    QTable.refresh_cells(_T(), [7, 7, 7], [1, 3, 5])
+    # Two rows: emits one range each
+    QTable.refresh_cells(_T(), [2, 2, 9], [4, 6, 1])
+
+    assert emits == [
+        ((7, 1), (7, 5)),
+        ((2, 4), (2, 6)),
+        ((9, 1), (9, 1)),
+    ]
+
+
+def test_refresh_cells_no_op_on_empty_input():
+    from enamlext.qt.qtable import QTable
+
+    emits = []
+
+    class _T:
+        def model(self):
+            class M:
+                class S:
+                    def emit(self, *a): emits.append(a)
+                dataChanged = S()
+            return M()
+
+    QTable.refresh_cells(_T(), [], [])
+    assert emits == []

@@ -50,6 +50,10 @@ class Column:
             self.get_cell_style = cell_style
         self.collect_stats = collect_stats
         self.stats = {}
+        # Cached AUTO_ALIGN resolution: filled in on the first non-None value
+        # encountered, then reused for the column's lifetime so we stop running
+        # an isinstance chain per cell per repaint.
+        self._resolved_auto_align: Optional[Alignment] = None
 
     def record_stats(self, role: int, elapsed: float):
         if role not in self.stats:
@@ -105,15 +109,27 @@ class Column:
             return self.cell_style(table_context) or CellStyle()
 
     def get_align(self, item: Any) -> Alignment:
-        if self.align is AUTO_ALIGN:
-            # TODO: consider shortcircuiting this - maybe
-            #       maybe this should only be done once, for the first time - then shortcircuit
-            #       or maybe the user wants to have mixed alignments on the same column, so it can provide a callback
-            value = self.get_value(item)
-            align = self.resolve_column_alignment_based_on_value(value)
-            return align
-        else:
+        if self.align is not AUTO_ALIGN:
             return self.align
+        if (cached := self._resolved_auto_align) is not None:
+            return cached
+        value = self.get_value(item)
+        if value is None:
+            # Don't cache off a None — wait for the first row that has a real
+            # type so we can resolve the column's alignment correctly.
+            return Alignment.LEFT
+        align = self.resolve_column_alignment_based_on_value(value)
+        self._resolved_auto_align = align
+        return align
+
+    def get_align_quick(self) -> Optional[Alignment]:
+        """Return the column's alignment without needing an item, or None when
+        the column is AUTO_ALIGN and hasn't been resolved yet. Lets callers
+        skip fetching/converting the row item on every TextAlignmentRole call.
+        """
+        if self.align is not AUTO_ALIGN:
+            return self.align
+        return self._resolved_auto_align
 
     def resolve_column_alignment_based_on_value(self, value: Any) -> Alignment:
         if isinstance(value, Number):
