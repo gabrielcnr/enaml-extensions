@@ -1,0 +1,35 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+import itertools
+import pandas as pd
+from enamlext.widgets.dataframe import DataFrame
+
+df_1 = pd.DataFrame(
+    {
+        'a': [1, 2, 3],
+        'b': [4, 5, 6],
+        'c': [7, 8, 9],
+    }
+)
+
+df_2 = pd.DataFrame(
+    {
+        'e': ['a', 'b', 'c', 'd'],
+        'f': [10.0, 20.0, 30.0, 40.0],
+    }
+)
+
+df_cycle = itertools.cycle([df_1, df_2])
+
+enamldef Main(Window):
+    title = 'Different Columns'
+
+    Container:
+        PushButton:
+            text = 'Change'
+            clicked ::
+                df = next(df_cycle)
+                df_widget.df = df
+
+        DataFrame: df_widget:
+            pass
