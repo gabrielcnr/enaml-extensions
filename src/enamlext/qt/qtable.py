@@ -158,6 +158,8 @@ class QTableModel(QAbstractTableModel):
 
         self._last_sorting_column = None
 
+        self._cell_style_cache: Optional[dict] = None
+
     def __len__(self):
         return len(self.items)  # O(1)
 
@@ -244,16 +246,8 @@ class QTableModel(QAbstractTableModel):
             col_index = index.column()
             column = self.get_column_by_index(col_index)
             if column.cell_style is not None:
-                context = TableContext(
-                    model=self,
-                    index=index,
-                    role=role,
-                    column_index=col_index,
-                    column=column,
-                    convert=self.convert_item,
-                )
                 try:
-                    style = column.get_cell_style(context)
+                    style = self._get_cell_style(index, role, col_index, column)
                     if style is not None and (font_spec := style.get('font')) is not None:
                         return make_custom_font(font_spec)
                 except Exception as exc:
@@ -269,16 +263,8 @@ class QTableModel(QAbstractTableModel):
             col_index = index.column()
             column = self.get_column_by_index(col_index)
             if column.cell_style is not None:
-                context = TableContext(
-                    model=self,
-                    index=index,
-                    role=role,
-                    column_index=col_index,
-                    column=column,
-                    convert=self.convert_item,
-                )
                 try:
-                    style = column.get_cell_style(context)
+                    style = self._get_cell_style(index, role, col_index, column)
                     if style is not None:
                         return style.get('color')
                 except Exception as exc:
@@ -292,16 +278,8 @@ class QTableModel(QAbstractTableModel):
             col_index = index.column()
             column = self.get_column_by_index(col_index)
             if column.cell_style is not None:
-                context = TableContext(
-                    model=self,
-                    index=index,
-                    role=role,
-                    column_index=col_index,
-                    column=column,
-                    convert=self.convert_item,
-                )
                 try:
-                    style = column.get_cell_style(context)
+                    style = self._get_cell_style(index, role, col_index, column)
                     if style is not None:
                         return style.get('background')
                 except Exception as exc:
@@ -325,6 +303,32 @@ class QTableModel(QAbstractTableModel):
                 )
                 if (image := column.get_image(context)):
                     return _load_scaled_pixmap(image)
+
+    def _get_cell_style(self, index: QModelIndex, role: int, col_index: int, column: Column) -> Optional[CellStyle]:
+        key = (index.row(), col_index)
+        cache = self._cell_style_cache
+        if cache is not None and key in cache:
+            return cache[key]
+        context = TableContext(
+            model=self,
+            index=index,
+            role=role,
+            column_index=col_index,
+            column=column,
+            convert=self.convert_item,
+        )
+        style = column.get_cell_style(context)
+        if cache is not None:
+            cache[key] = style
+        return style
+
+    @contextlib.contextmanager
+    def caching_cell_styles(self):
+        self._cell_style_cache = {}
+        try:
+            yield
+        finally:
+            self._cell_style_cache = None
 
     def sort(self, column_index, order=None) -> None:
         if self.columns:
@@ -614,6 +618,12 @@ class QTable(QTableView):
         self.setHorizontalHeader(h_header)
 
         self.__selection_mode_override = None
+
+    def paintEvent(self, event):
+        # Font, Foreground and Background share one CellStyle per cell; scoping the
+        # cache to a single paint means it can never serve a stale style.
+        with self.model().caching_cell_styles():
+            super().paintEvent(event)
 
     def keyPressEvent(self, event: QEvent):
         """ Supports copying when multiple cells are selected. """
