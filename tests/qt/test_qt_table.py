@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from qtpy.QtGui import QColor
+from qtpy.QtGui import QColor, QPalette
+from qtpy.QtWidgets import QStyledItemDelegate
 
 from enamlext.qt.qtable import QTable, Qt, QModelIndex
 from enamlext.qt.table.column import Column, Alignment
@@ -115,3 +116,46 @@ def test_cell_style_reflects_current_item_after_a_repaint(table):
     person.age = 22
 
     assert table.data(0, 0, Qt.FontRole).bold()
+
+
+class StyleRecordingDelegate(QStyledItemDelegate):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.painted = {}
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        self.painted[index.row(), index.column()] = (
+            option.backgroundBrush.color().name(),
+            option.palette.color(QPalette.Text).name(),
+            option.font.bold(),
+            option.font.italic(),
+        )
+
+
+def test_each_cell_is_painted_with_its_own_cell_style(table):
+    styles = {
+        (0, 0): CellStyle(color=QColor('#ff0000'), background=QColor('#ffff00'), font='bold'),
+        (0, 1): CellStyle(color=QColor('#0000ff'), background=QColor('#00ff00'), font='italic'),
+        (1, 0): CellStyle(color=QColor('#800080'), background=QColor('#00ffff'), font='bold italic'),
+        (1, 1): CellStyle(color=QColor('#008000'), background=QColor('#ffc0cb')),
+    }
+
+    def cell_style(context):
+        return styles[context.row_index, context.column_index]
+
+    with table.updating_internals():
+        table.columns = [Column('name', cell_style=cell_style), Column('age', cell_style=cell_style)]
+        table.items = [Person(name='John', age=33), Person(name='Pam', age=22)]
+    table.resize(400, 300)
+    delegate = StyleRecordingDelegate(parent=table)
+    table.setItemDelegate(delegate)
+
+    table.viewport().grab()
+
+    assert delegate.painted == {
+        (0, 0): ('#ffff00', '#ff0000', True, False),
+        (0, 1): ('#00ff00', '#0000ff', False, True),
+        (1, 0): ('#00ffff', '#800080', True, True),
+        (1, 1): ('#ffc0cb', '#008000', False, False),
+    }
