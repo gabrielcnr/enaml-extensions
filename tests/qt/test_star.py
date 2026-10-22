@@ -52,9 +52,11 @@ def test_clicking_the_current_rating_clears_it(widget):
 
 
 def test_hover_previews_without_changing_the_rating(widget, qtbot):
-    # QTest.mouseMove moves the simulated cursor, which only reaches visible widgets.
+    # QTest.mouseMove moves the simulated cursor, which only reaches visible widgets, and Qt sends
+    # nothing if the cursor (left over from an earlier test) is already there, so start elsewhere.
     widget.show()
     qtbot.waitExposed(widget)
+    QTest.mouseMove(widget, star_centre(0))
     QTest.mouseMove(widget, star_centre(4))
     assert widget.hoverRating() == 5
     assert widget.rating() == 2
