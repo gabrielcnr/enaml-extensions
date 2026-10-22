@@ -1,13 +1,10 @@
-#!/usr/bin/env python
-
-
 #############################################################################
 ##
 ## Copyright (C) 2010 Hans-Peter Jansen <hpj@urpla.net>.
 ## Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
 ## All rights reserved.
 ##
-## This file is part of the examples of PyQt.
+## This file is derived from the Star Delegate example of PyQt.
 ##
 ## $QT_BEGIN_LICENSE:BSD$
 ## You may use this file under the terms of the BSD license as follows:
@@ -40,225 +37,181 @@
 ## $QT_END_LICENSE$
 ##
 #############################################################################
-
-
-# These are only needed for Python v2 but are harmless for Python v3.
-import sip
-
-sip.setapi('QString', 2)
-sip.setapi('QVariant', 2)
-
 import math
 
-from PyQt4 import QtCore, QtGui
-from PyQt4.QtGui import *
-
 from atom.api import Typed
-from enamlext.widgets.star import ProxyStarRating
 from enaml.qt.qt_control import QtControl
+from qtpy.QtCore import QPointF, QSize, Qt, Signal
+from qtpy.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPolygonF
+from qtpy.QtWidgets import QSizePolicy, QWidget
+
+from enamlext.widgets.star import ProxyStarRating
+
+STAR_SIZE = 20
+DEFAULT_COLOR = QColor('#daa520')
+DEFAULT_EMPTY_COLOR = QColor('#d0d0d0')
 
 
-class StarRating(object):
-    # enum EditMode
-    Editable, ReadOnly = range(2)
-
-    PaintingScaleFactor = 20
-
-    def __init__(self, starCount=1, maxStarCount=5):
-        self._starCount = starCount
-        self._maxStarCount = maxStarCount
-
-        self.starPolygon = QtGui.QPolygonF([QtCore.QPointF(1.0, 0.5)])
-        for i in range(5):
-            self.starPolygon << QtCore.QPointF(
-                0.5 + 0.5 * math.cos(0.8 * i * math.pi),
-                0.5 + 0.5 * math.sin(0.8 * i * math.pi))
-
-        self.diamondPolygon = QtGui.QPolygonF()
-        self.diamondPolygon << QtCore.QPointF(0.4, 0.5) \
-        << QtCore.QPointF(0.5, 0.4) \
-        << QtCore.QPointF(0.6, 0.5) \
-        << QtCore.QPointF(0.5, 0.6) \
-        << QtCore.QPointF(0.4, 0.5)
-
-    def starCount(self):
-        return self._starCount
-
-    def maxStarCount(self):
-        return self._maxStarCount
-
-    def setStarCount(self, starCount):
-        print 'setStarCount', starCount
-        self._starCount = starCount
-
-    def setMaxStarCount(self, maxStarCount):
-        self._maxStarCount = maxStarCount
-
-    def sizeHint(self):
-        return self.PaintingScaleFactor * QtCore.QSize(self._maxStarCount, 1)
-
-    def paint(self, painter, rect, palette, editMode):
-        painter.save()
-
-        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
-        painter.setPen(QColor('#DAA520'))
-
-        painter.setBrush(QColor('#DAA520'))
-        # if editMode == StarRating.Editable:
-        #     painter.setBrush(palette.background())
-        # else:
-        #     painter.setBrush(palette.foreground())
-
-        yOffset = (rect.height() - self.PaintingScaleFactor) / 2
-        painter.translate(rect.x(), rect.y() + yOffset)
-        painter.scale(self.PaintingScaleFactor, self.PaintingScaleFactor)
-
-        for i in range(self._maxStarCount):
-            if i < self._starCount:
-                painter.drawPolygon(self.starPolygon, QtCore.Qt.WindingFill)
-            elif editMode == StarRating.Editable:
-                painter.drawPolygon(self.diamondPolygon, QtCore.Qt.WindingFill)
-
-            painter.translate(1.0, 0.0)
-
-        painter.restore()
+def _make_star_polygon() -> QPolygonF:
+    # A unit-square five-pointed star: each step jumps 144 degrees (0.8 * pi)
+    # so the outline crosses itself, and WindingFill paints the centre solid.
+    points = [QPointF(0.5 + 0.5 * math.cos(0.8 * i * math.pi), 0.5 + 0.5 * math.sin(0.8 * i * math.pi))
+              for i in range(5)]
+    return QPolygonF(points)
 
 
-class StarEditor(QtGui.QWidget):
-    editingFinished = QtCore.pyqtSignal()
-    ratingChanged = QtCore.pyqtSignal()
+STAR_POLYGON = _make_star_polygon()
 
-    def __init__(self, parent=None):
-        super(StarEditor, self).__init__(parent)
 
-        self._starRating = StarRating()
+class StarRatingWidget(QWidget):
+    ratingChanged = Signal(int)
 
+    def __init__(self, stars: int = 5, rating: int = 0, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._stars = max(stars, 0)
+        self._rating = 0
+        self._hover_rating: int | None = None
+        self._read_only = False
+        self._color = QColor(DEFAULT_COLOR)
+        self._empty_color = QColor(DEFAULT_EMPTY_COLOR)
+        self.setRating(rating)
         self.setMouseTracking(True)
-        self.setAutoFillBackground(True)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-    def setStarRating(self, starRating):
-        self._starRating = starRating
+    def stars(self) -> int:
+        return self._stars
 
-    def starRating(self):
-        return self._starRating
+    def setStars(self, stars: int) -> None:
+        self._stars = max(stars, 0)
+        self.updateGeometry()
+        self.setRating(self._rating)
+        self.update()
 
-    def sizeHint(self):
-        return self._starRating.sizeHint()
+    def rating(self) -> int:
+        return self._rating
 
-    def paintEvent(self, event):
-        painter = QtGui.QPainter(self)
-        self._starRating.paint(painter, self.rect(), self.palette(),
-                               StarRating.Editable)
-
-    def mouseReleaseEvent(self, event):
-        star = self.starAtPosition(event.x())
-
-        if star != self._starRating.starCount() and star != -1:
-            self._starRating.setStarCount(star)
+    def setRating(self, rating: int) -> None:
+        rating = min(max(rating, 0), self._stars)
+        if rating != self._rating:
+            self._rating = rating
             self.update()
-        self.ratingChanged.emit()
-        self.editingFinished.emit()
+            self.ratingChanged.emit(rating)
 
-    def starAtPosition(self, x):
-        # Enable a star, if pointer crosses the center horizontally.
-        starwidth = self._starRating.sizeHint().width() // self._starRating.maxStarCount()
-        star = (x + starwidth / 2) // starwidth
-        if 0 <= star <= self._starRating.maxStarCount():
-            return star
+    def hoverRating(self) -> int | None:
+        return self._hover_rating
 
-        return -1
+    def isReadOnly(self) -> bool:
+        return self._read_only
 
+    def setReadOnly(self, read_only: bool) -> None:
+        self._read_only = read_only
+        self.setFocusPolicy(Qt.NoFocus if read_only else Qt.StrongFocus)
+        self._set_hover_rating(None)
 
-class StarDelegate(QtGui.QStyledItemDelegate):
-    def paint(self, painter, option, index):
-        starRating = index.data()
-        if isinstance(starRating, StarRating):
-            if option.state & QtGui.QStyle.State_Selected:
-                painter.fillRect(option.rect, option.palette.highlight())
+    def color(self) -> QColor:
+        return QColor(self._color)
 
-            starRating.paint(painter, option.rect, option.palette,
-                             StarRating.ReadOnly)
+    def setColor(self, color: QColor) -> None:
+        self._color = QColor(color)
+        self.update()
+
+    def emptyColor(self) -> QColor:
+        return QColor(self._empty_color)
+
+    def setEmptyColor(self, color: QColor) -> None:
+        self._empty_color = QColor(color)
+        self.update()
+
+    def sizeHint(self) -> QSize:
+        return QSize(self._stars * STAR_SIZE, STAR_SIZE)
+
+    def minimumSizeHint(self) -> QSize:
+        return self.sizeHint()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        shown = self._rating if self._hover_rating is None else self._hover_rating
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(Qt.NoPen)
+        painter.translate(self._x_offset(), (self.height() - STAR_SIZE) / 2)
+        painter.scale(STAR_SIZE, STAR_SIZE)
+        for i in range(self._stars):
+            painter.setBrush(self._color if i < shown else self._empty_color)
+            painter.drawPolygon(STAR_POLYGON, Qt.WindingFill)
+            painter.translate(1.0, 0.0)
+        painter.end()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if not self._read_only:
+            self._set_hover_rating(self._rating_at(event.position().x()))
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._read_only or event.button() != Qt.LeftButton:
+            super().mouseReleaseEvent(event)
+            return
+        clicked = self._rating_at(event.position().x())
+        self.setRating(0 if clicked == self._rating else clicked)
+        self._set_hover_rating(None)
+
+    def leaveEvent(self, event) -> None:
+        self._set_hover_rating(None)
+        super().leaveEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if self._read_only:
+            super().keyPressEvent(event)
+            return
+        key = event.key()
+        if key in (Qt.Key_Right, Qt.Key_Up, Qt.Key_Plus):
+            self.setRating(self._rating + 1)
+        elif key in (Qt.Key_Left, Qt.Key_Down, Qt.Key_Minus):
+            self.setRating(self._rating - 1)
+        elif key == Qt.Key_Home:
+            self.setRating(0)
+        elif key == Qt.Key_End:
+            self.setRating(self._stars)
+        elif Qt.Key_0 <= key <= Qt.Key_9:
+            self.setRating(key - Qt.Key_0)
         else:
-            super(StarDelegate, self).paint(painter, option, index)
+            super().keyPressEvent(event)
 
-    def sizeHint(self, option, index):
-        starRating = index.data()
-        if isinstance(starRating, StarRating):
-            return starRating.sizeHint()
-        else:
-            return super(StarDelegate, self).sizeHint(option, index)
+    def _x_offset(self) -> float:
+        return max(self.width() - self._stars * STAR_SIZE, 0) / 2
 
-    def createEditor(self, parent, option, index):
-        starRating = index.data()
-        if isinstance(starRating, StarRating):
-            editor = StarEditor(parent)
-            editor.editingFinished.connect(self.commitAndCloseEditor)
-            return editor
-        else:
-            return super(StarDelegate, self).createEditor(parent, option, index)
+    def _rating_at(self, x: float) -> int:
+        return min(max(math.ceil((x - self._x_offset()) / STAR_SIZE), 1), self._stars)
 
-    def setEditorData(self, editor, index):
-        starRating = index.data()
-        if isinstance(starRating, StarRating):
-            editor.setStarRating(starRating)
-        else:
-            super(StarDelegate, self).setEditorData(editor, index)
-
-    def setModelData(self, editor, model, index):
-        starRating = index.data()
-        if isinstance(starRating, StarRating):
-            model.setData(index, editor.starRating())
-        else:
-            super(StarDelegate, self).setModelData(editor, model, index)
-
-    def commitAndCloseEditor(self):
-        editor = self.sender()
-        self.commitData.emit(editor)
-        self.closeEditor.emit(editor)
+    def _set_hover_rating(self, rating: int | None) -> None:
+        if rating != self._hover_rating:
+            self._hover_rating = rating
+            self.update()
 
 
 class QtStarRating(QtControl, ProxyStarRating):
-    """ A Qt implementation of an Enaml ProxyStarRating.
+    widget = Typed(StarRatingWidget)
 
-    """
-    #: A reference to the widget created by the proxy.
-    widget = Typed(StarEditor)
+    def create_widget(self) -> None:
+        self.widget = StarRatingWidget(parent=self.parent_widget())
 
-    # --------------------------------------------------------------------------
-    # Initialization API
-    # --------------------------------------------------------------------------
-    def create_widget(self):
-        """ Create the underlying StarEditor widget.
-
-        """
-        self.widget = StarEditor(self.parent_widget())
-
-    def init_widget(self):
-        """ Initialize the underlying widget.
-
-        """
-        super(QtStarRating, self).init_widget()
+    def init_widget(self) -> None:
+        super().init_widget()
         d = self.declaration
         self.set_stars(d.stars)
         self.set_rating(d.rating)
+        self.set_read_only(d.read_only)
         self.widget.ratingChanged.connect(self._on_rating_changed)
 
-    def _on_rating_changed(self):
-        self.declaration.rating = self.widget.starRating().starCount()
+    def _on_rating_changed(self, rating: int) -> None:
+        self.declaration.rating = rating
 
-    # --------------------------------------------------------------------------
-    # ProxyStarRating API
-    # --------------------------------------------------------------------------
-    def set_stars(self, stars):
-        self.widget.starRating().setMaxStarCount(stars)
-        self.widget.repaint()
+    def set_stars(self, stars: int) -> None:
+        with self.geometry_guard():
+            self.widget.setStars(stars)
 
-    def set_rating(self, rating):
-        if rating > self.declaration.stars:
-            self.declaration.rating = self.declaration.stars
-            return
-        elif rating < 0:
-            self.declaration.rating = 0
-            return
-        self.widget.starRating().setStarCount(rating)
-        self.widget.repaint()
+    def set_rating(self, rating: int) -> None:
+        self.widget.setRating(rating)
+
+    def set_read_only(self, read_only: bool) -> None:
+        self.widget.setReadOnly(read_only)
