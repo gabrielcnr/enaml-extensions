@@ -44,7 +44,7 @@ enamldef Main(MainWindow):
     Container:
         Field:
             pass
-            
+
         PushButton:
             text = 'Generate a new DF'
             clicked ::

@@ -73,7 +73,7 @@ class QtTable(QtControl, ProxyTable):
         self.declaration.double_clicked(context)
 
     def _on_selection_changed(self, context: SelectionContext) -> None:
-        # TODO: think better if this convertion for selected_items should be implemented
+        # TODO: think better if this conversion for selected_items should be implemented
         #       inside the QTable (qtable.py)
         self._temp_selection_context = context
         self._selection_timer.start()

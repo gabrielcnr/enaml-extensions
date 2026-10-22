@@ -24,4 +24,3 @@ enamldef Main(MainWindow):
             interval = 200
             timeout ::
                 table.proxy.widget.refresh()
-

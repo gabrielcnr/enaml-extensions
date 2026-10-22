@@ -67,7 +67,7 @@ class DataFrameProxy:
             )
         if tick_interval_ms <= 0 and refresh_cells_callback is not None:
             raise ValueError(
-                'You should specify a tick_interval_ms refresh interval in miliseconds when you '
+                'You should specify a tick_interval_ms refresh interval in milliseconds when you '
                 'pass a refresh_cells_callback.'
             )
         # callers mutating df in place must hold this so the monitor never snapshots a half-applied change

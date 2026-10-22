@@ -33,4 +33,3 @@ enamldef Main(Window):
                 text = 'Radius'
             SpinBox: spin_radius:
                 value = 15
-

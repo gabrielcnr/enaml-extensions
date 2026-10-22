@@ -198,3 +198,6 @@ exclude_also = [
     "raise NotImplementedError",
     "@(abc\\.)?abstractmethod",
 ]
+
+[tool.codespell]
+skip = "uv.lock,*.svg"

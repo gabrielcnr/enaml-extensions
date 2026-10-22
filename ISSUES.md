@@ -2,4 +2,3 @@
 1. if no columns given to the Table, columns should be generated automatically given the first object's attributes or keys(in case of list of dicts)
 1. application bootstrap
 1. FIX: Column object should be refactored outside the qt subpackage
-

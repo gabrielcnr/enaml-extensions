@@ -33,4 +33,3 @@ enamldef Main(MainWindow):
                         activated ::
                             callback = lambda *a: print('TWO')
                             register_shortcut(self, 'Ctrl+2', callback)
-
