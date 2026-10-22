@@ -182,3 +182,9 @@ def test_changing_stars_relayouts_the_widget(enaml_app, qtbot):
     qtbot.waitUntil(lambda: widget.width() == 4 * STAR_SIZE)
 
     window.destroy()
+
+
+def test_declaration_keyword_order_does_not_matter():
+    assert StarRating(rating=7, stars=10).rating == 7
+    assert StarRating(stars=10, rating=7).rating == 7
+    assert StarRating(rating=12, stars=10).rating == 10

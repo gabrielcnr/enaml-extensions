@@ -1,3 +1,12 @@
+try:
+    import qtpy  # noqa: F401
+except ImportError as exc:  # qtpy.QtBindingsNotFoundError subclasses ImportError
+    # No binding is a hard dependency (as with enaml itself), so say how to pick one.
+    raise ImportError(
+        'enaml-extensions needs a Qt binding. Install one with an extra, e.g. '
+        'pip install "enaml-extensions[pyqt6]" (or [pyside6], [pyqt5]).'
+    ) from exc
+
 import enaml
 from enaml.qt.qt_factories import QT_FACTORIES
 

@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from atom.api import Typed
 from enaml.qt.qt_control import QtControl
 from qtpy.QtCore import Qt
@@ -109,8 +111,13 @@ class QtTrafficLight(QtControl, ProxyTrafficLight):
     """A Qt implementation of an Enaml ProxyTrafficLight."""
 
     #: A reference to the widget created by the proxy.
-    widget = Typed(TrafficLightWidget, optional=False)
-    declaration: TrafficLight  # always set once the proxy is active
+    if TYPE_CHECKING:
+        # Narrowed for type checkers only; at runtime both stay optional because enaml
+        # reads them while destroying proxies that were never activated.
+        widget: TrafficLightWidget
+        declaration: TrafficLight
+    else:
+        widget = Typed(TrafficLightWidget)
 
     # --------------------------------------------------------------------------
     # Initialization API

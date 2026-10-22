@@ -1,4 +1,4 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from atom.api import Int, Typed, Value
 from enaml.qt.qt_control import QtControl
@@ -25,8 +25,13 @@ class QtTable(QtControl, ProxyTable):
     """A Qt implementation of an Enaml Table."""
 
     #: A reference to the widget created by the proxy.
-    widget = Typed(QTable, optional=False)
-    declaration: Table  # always set once the proxy is active
+    if TYPE_CHECKING:
+        # Narrowed for type checkers only; at runtime both stay optional because enaml
+        # reads them while destroying proxies that were never activated.
+        widget: QTable
+        declaration: Table
+    else:
+        widget = Typed(QTable)
 
     #: Cyclic notification guard. This a bitfield of multiple guards.
     _guard = Int(0)

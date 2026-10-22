@@ -38,6 +38,7 @@
 ##
 #############################################################################
 import math
+from typing import TYPE_CHECKING
 
 from atom.api import Typed
 from enaml.qt.qt_control import QtControl
@@ -191,8 +192,13 @@ class StarRatingWidget(QWidget):
 
 
 class QtStarRating(QtControl, ProxyStarRating):
-    widget = Typed(StarRatingWidget, optional=False)
-    declaration: StarRating  # always set once the proxy is active
+    if TYPE_CHECKING:
+        # Narrowed for type checkers only; at runtime both stay optional because enaml
+        # reads them while destroying proxies that were never activated.
+        widget: StarRatingWidget
+        declaration: StarRating
+    else:
+        widget = Typed(StarRatingWidget)
 
     def create_widget(self) -> None:
         self.widget = StarRatingWidget(parent=self.parent_widget())

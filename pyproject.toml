@@ -38,7 +38,9 @@ pyqt5 = ["PyQt5>=5.15"]
 pyqt6 = ["PyQt6>=6.5"]
 pyside6 = ["PySide6>=6.5"]
 dataframe = ["pandas>=2.1"]
-scintilla = ["QScintilla>=2.14"]
+# QScintilla is built per binding; there is no PySide6 build.
+scintilla-pyqt5 = ["PyQt5>=5.15", "QScintilla>=2.14"]
+scintilla-pyqt6 = ["PyQt6>=6.5", "PyQt6-QScintilla>=2.14"]
 ipython = ["qtconsole>=5.5"]
 
 [project.urls]
@@ -188,7 +190,7 @@ omit = ["*/enamlext/_version.py"]
 source = ["src/enamlext", "*/site-packages/enamlext"]
 
 [tool.coverage.report]
-fail_under = 65  # ratchet up as coverage grows; never lower it
+fail_under = 72  # ratchet up as coverage grows; never lower it
 show_missing = true
 skip_covered = true
 precision = 1

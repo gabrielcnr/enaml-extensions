@@ -294,3 +294,28 @@ def test_right_click_on_a_header_opens_a_filter_that_filters_the_rows(qtbot):
     QTest.keyClick(popup.findChild(QLineEdit), Qt.Key.Key_Return)
 
     assert [table.text(row, 0) for row in range(table.model().rowCount())] == ['John', 'Ann']
+
+
+@dataclass(frozen=True)
+class Fruit:
+    name: str
+
+
+def test_clicking_a_checkbox_toggles_the_checked_items(qtbot):
+    apple, pear = Fruit('apple'), Fruit('pear')
+    table = QTestTable(columns=[Column('name')], items=[apple, pear], checkable=True, sortable=False)
+    qtbot.addWidget(table)
+    table.show()
+    qtbot.waitExposed(table)
+
+    def click_checkbox(row: int) -> None:
+        # the check indicator sits at the left edge of the checkbox column
+        rect = table.visualRect(table.index(row, 0))
+        QTest.mouseClick(table.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(rect.left() + 8, rect.center().y()))
+
+    with qtbot.waitSignal(table.on_checked_items):
+        click_checkbox(1)
+    assert table.checked_items == {pear}
+
+    click_checkbox(1)
+    assert table.checked_items == set()

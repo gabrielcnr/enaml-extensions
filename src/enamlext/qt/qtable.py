@@ -432,11 +432,12 @@ class QTableModel(QAbstractTableModel):
     def setData(self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole) -> bool:
         if index.column() == 0 and role == Qt.ItemDataRole.CheckStateRole and self.checkable:
             item = self.items[index.row()]
-            if value == Qt.CheckState.Checked:
+            state = Qt.CheckState(value)  # Qt6 views pass a plain int, which never equals a Qt6 enum member
+            if state == Qt.CheckState.Checked:
                 self.checked_items.add(item)
                 self.on_checked_items.emit(self.checked_items)
                 return True
-            if value == Qt.CheckState.Unchecked:
+            if state == Qt.CheckState.Unchecked:
                 self.checked_items.discard(item)
                 self.on_checked_items.emit(self.checked_items)
                 return True

@@ -24,11 +24,11 @@ pip install "enaml-extensions[pyqt6]"    # or [pyside6], or [pyqt5]
 
 Optional extras:
 
-| Extra       | Enables                                   |
-|-------------|-------------------------------------------|
-| `dataframe` | the `DataFrame` widget (pandas)           |
-| `scintilla` | the JSON/SQL editors (QScintilla)         |
-| `ipython`   | the `IPythonConsole` widget (qtconsole)   |
+| Extra | Enables |
+|-------|---------|
+| `dataframe` | the `DataFrame` widget (pandas) |
+| `scintilla-pyqt6` / `scintilla-pyqt5` | the JSON/SQL editors (QScintilla; not available for PySide6) |
+| `ipython` | the `IPythonConsole` widget (qtconsole) |
 
 Python 3.15 is not supported yet: enaml does not have a release that builds on it.
 

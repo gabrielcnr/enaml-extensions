@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from atom.api import Int, Typed
 from enaml.qt.qt_control import QtControl
 from enaml.qt.QtGui import QFont
@@ -13,8 +15,13 @@ class QtFontComboBox(QtControl, ProxyFontComboBox):
     """A Qt implementation of an Enaml FontComboBox."""
 
     #: A reference to the widget created by the proxy.
-    widget = Typed(QFontComboBox, optional=False)
-    declaration: FontComboBox  # always set once the proxy is active
+    if TYPE_CHECKING:
+        # Narrowed for type checkers only; at runtime both stay optional because enaml
+        # reads them while destroying proxies that were never activated.
+        widget: QFontComboBox
+        declaration: FontComboBox
+    else:
+        widget = Typed(QFontComboBox)
 
     # TODO: context manager
     #: Cyclic notification guard. This a bitfield of multiple guards.

@@ -28,3 +28,16 @@ def test_readme_example_imports():
 
     assert Column('age', align=Alignment.RIGHT).align is Alignment.RIGHT
     assert Table is not None
+
+
+def test_missing_qt_binding_explains_how_to_install_one():
+    code = (
+        'import sys\n'
+        'for name in ("PyQt5", "PyQt6", "PySide2", "PySide6"):\n'
+        '    sys.modules[name] = None\n'
+        'import enamlext.widgets\n'
+    )
+    env = {k: v for k, v in os.environ.items() if k not in ('QT_API', 'PYTEST_QT_API')}
+    result = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, env=env, check=False)
+    assert result.returncode != 0
+    assert 'pip install "enaml-extensions[pyqt6]"' in result.stderr

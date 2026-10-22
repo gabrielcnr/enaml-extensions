@@ -51,6 +51,7 @@ jobs:
           # Blocked until enaml publishes a release that compiles on 3.15 (nucleic/enaml#630).
           - { python: "3.15", os: ubuntu-latest, qt: pyqt6, experimental: true }
     env:
+      UV_NO_SYNC: "1"  # `uv sync` below installs exactly this job's extras; don't let `uv run` add the dev group
       QT_API: ${{ matrix.qt }}
       PYTEST_QT_API: ${{ matrix.qt }}
       COVERAGE_FILE: .coverage.${{ matrix.python }}-${{ matrix.qt }}-${{ matrix.os }}
@@ -81,6 +82,8 @@ jobs:
     needs: test
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    env:
+      UV_NO_SYNC: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -123,6 +126,7 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       id-token: write  # trusted publishing
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

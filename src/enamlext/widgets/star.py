@@ -30,6 +30,12 @@ class StarRating(Control):
 
     proxy = Typed(ProxyStarRating)
 
+    def __init__(self, parent: object = None, **kwargs: object) -> None:
+        # Apply stars first so a rating passed alongside it is clamped against the new count.
+        if 'stars' in kwargs:
+            kwargs = {'stars': kwargs.pop('stars'), **kwargs}
+        super().__init__(parent, **kwargs)
+
     def _post_validate_stars(self, old: int, new: int) -> int:
         return max(new, 0)
 
