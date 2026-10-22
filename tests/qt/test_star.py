@@ -1,9 +1,10 @@
 import pytest
 from enaml.qt.qt_application import QtApplication
 from enaml.widgets.api import Container, Window
-from qtpy.QtCore import QPoint, QSize, Qt
-from qtpy.QtGui import QColor
+from qtpy.QtCore import QEvent, QPoint, QPointF, QSize, Qt
+from qtpy.QtGui import QColor, QMouseEvent
 from qtpy.QtTest import QTest
+from qtpy.QtWidgets import QApplication
 
 from enamlext.qt.qt_star import STAR_SIZE, StarRatingWidget
 from enamlext.widgets.star import StarRating
@@ -19,6 +20,20 @@ def widget(qtbot):
 
 def star_centre(index: int) -> QPoint:
     return QPoint(index * STAR_SIZE + STAR_SIZE // 2, STAR_SIZE // 2)
+
+
+def hover(widget: StarRatingWidget, pos: QPoint) -> None:
+    # QTest.mouseMove only warps the OS cursor when no button is held, and whether that produces a
+    # move event depends on the platform (it often doesn't on CI), so deliver the event directly.
+    event = QMouseEvent(
+        QEvent.Type.MouseMove,
+        QPointF(pos),
+        QPointF(widget.mapToGlobal(pos)),
+        Qt.MouseButton.NoButton,
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    QApplication.sendEvent(widget, event)
 
 
 def test_size_hint_fits_all_stars(widget):
@@ -51,13 +66,8 @@ def test_clicking_the_current_rating_clears_it(widget):
     assert widget.rating() == 0
 
 
-def test_hover_previews_without_changing_the_rating(widget, qtbot):
-    # QTest.mouseMove moves the simulated cursor, which only reaches visible widgets, and Qt sends
-    # nothing if the cursor (left over from an earlier test) is already there, so start elsewhere.
-    widget.show()
-    qtbot.waitExposed(widget)
-    QTest.mouseMove(widget, star_centre(0))
-    QTest.mouseMove(widget, star_centre(4))
+def test_hover_previews_without_changing_the_rating(widget):
+    hover(widget, star_centre(4))
     assert widget.hoverRating() == 5
     assert widget.rating() == 2
 
