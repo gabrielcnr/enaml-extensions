@@ -169,3 +169,32 @@ ignore_missing_imports = true
 module = ["enamlext.widgets.ipython_console", "enamlext.widgets._text_input_dialog"]
 ignore_missing_imports = true
 follow_imports = "skip"
+
+[tool.pytest]
+minversion = "9.0"
+strict = true
+testpaths = ["tests"]
+addopts = ["-ra", "--import-mode=importlib"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source_pkgs = ["enamlext"]
+branch = true
+parallel = true
+relative_files = true
+omit = ["*/enamlext/_version.py"]
+
+[tool.coverage.paths]
+source = ["src/enamlext", "*/site-packages/enamlext"]
+
+[tool.coverage.report]
+fail_under = 65  # ratchet up as coverage grows; never lower it
+show_missing = true
+skip_covered = true
+precision = 1
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]

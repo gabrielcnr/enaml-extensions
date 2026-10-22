@@ -1,5 +1,4 @@
 import pytest
-from enaml.qt.qt_application import QtApplication
 from enaml.widgets.api import Container, Window
 from qtpy.QtCore import QEvent, QPoint, QPointF, QSize, Qt
 from qtpy.QtGui import QColor, QMouseEvent
@@ -112,11 +111,6 @@ def test_paints_filled_and_empty_stars(widget):
     assert image.pixelColor(star_centre(1)).name() == '#ff0000'
     assert image.pixelColor(star_centre(2)).name() == '#0000ff'
     assert image.pixelColor(star_centre(4)).name() == '#0000ff'
-
-
-@pytest.fixture
-def enaml_app(qapp):
-    return QtApplication.instance() or QtApplication()
 
 
 def make_window(**kwargs) -> tuple[Window, StarRating]:
