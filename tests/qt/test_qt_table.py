@@ -159,3 +159,26 @@ def test_each_cell_is_painted_with_its_own_cell_style(table):
         (1, 0): ('#00ffff', '#800080', True, True),
         (1, 1): ('#ffc0cb', '#008000', False, False),
     }
+
+
+def test_collect_stats_records_timings(table):
+    column = Column('age', collect_stats=True)
+    with table.updating_internals():
+        table.columns = [column]
+        table.items = [Person(name='John', age=33), Person(name='Pam', age=22)]
+    column.stats.clear()  # populating the table already read every cell to size the columns
+
+    assert table.text(0, 0) == '33'
+
+    assert column.stats[Qt.DisplayRole]['n_calls'] == 1
+    assert column.stats[Qt.DisplayRole]['cum_time'] >= 0
+
+
+@pytest.mark.parametrize(('order', 'expected'), [(Qt.AscendingOrder, ['22', '33', '41']), (Qt.DescendingOrder, ['41', '33', '22'])])
+def test_sorting_by_a_column(qtbot, order, expected):
+    table = QTestTable(columns=[Column('age')], items=[Person('John', 33), Person('Pam', 22), Person('Ann', 41)])
+    qtbot.addWidget(table)
+
+    table.sortByColumn(0, order)
+
+    assert [table.text(row, 0) for row in range(3)] == expected

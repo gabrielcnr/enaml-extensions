@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import TypedDict, Optional, Callable
 
-from PyQt5.QtGui import QColor
+from qtpy.QtGui import QColor
 
 
 class CellStyle(TypedDict, total=False):

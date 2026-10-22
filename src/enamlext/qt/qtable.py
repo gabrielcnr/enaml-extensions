@@ -4,6 +4,7 @@ import itertools
 import logging
 import math
 import operator
+import time
 import warnings
 import weakref
 from abc import abstractmethod, ABC
@@ -358,7 +359,8 @@ class QTableModel(QAbstractTableModel):
                     if math.isnan(value):
                         return float('-inf')
                 return value
-            self._filtered_items = sorted(self._filtered_items, key=sort_key, reverse=order)
+            descending = order == Qt.DescendingOrder  # Qt6 enums are not ints, so never truth-test them
+            self._filtered_items = sorted(self._filtered_items, key=sort_key, reverse=descending)
             self.endResetModel()
 
     def setData(self, index: QModelIndex, value: Any, role: int) -> bool:
@@ -1065,8 +1067,11 @@ def debug_trace():
     """
     import pdb
     import sys
-    from PyQt5.QtCore import pyqtRemoveInputHook
-    pyqtRemoveInputHook()
+    from qtpy import QtCore
+
+    # Only PyQt installs an input hook that fights pdb for stdin; PySide has none to remove.
+    if hasattr(QtCore, 'pyqtRemoveInputHook'):
+        QtCore.pyqtRemoveInputHook()
     # set up the debugger
     debugger = pdb.Pdb()
     debugger.reset()

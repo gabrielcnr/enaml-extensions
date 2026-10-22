@@ -262,3 +262,18 @@ def test_refresh_cells_no_op_on_empty_input():
 
     QTable.refresh_cells(_T(), [], [])
     assert emits == []
+
+
+def test_debug_trace_hands_the_current_frame_to_pdb(mocker):
+    from enamlext.qt.qtable import debug_trace
+
+    interaction = mocker.patch('pdb.Pdb.interaction')
+    mocker.patch('pdb.Pdb.do_next')
+
+    def caller():
+        debug_trace()
+
+    caller()
+
+    frame = interaction.call_args.args[0]
+    assert frame.f_code.co_name == 'caller'

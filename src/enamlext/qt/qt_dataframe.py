@@ -1,16 +1,20 @@
 import logging
 import threading
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import time
 import numpy as np
-import pandas as pd
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 logger = logging.getLogger(__name__)
 
 
 def _monitor_df_changes(df_proxy):
+    import pandas as pd
+
     if df_proxy.instrumentation_enabled:
         logger.info('Starting DataFrameProxy thread for monitoring changes and refreshing ticking cells '
                     f'{threading.current_thread()}')
@@ -46,7 +50,7 @@ def _monitor_df_changes(df_proxy):
 
 class DataFrameProxy:
     def __init__(self,
-                 df: pd.DataFrame,
+                 df: 'pd.DataFrame',
                  *,
                  tick_interval_ms: int = 0,
                  refresh_cells_callback: Callable[[list, list], None] | None = None,

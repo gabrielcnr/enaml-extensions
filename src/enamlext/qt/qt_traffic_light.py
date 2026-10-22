@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QApplication, QHBoxLayout, QLayout
-from PyQt5.QtGui import QPixmap, QColor, QPainter, QBrush, QPen
-from PyQt5.QtCore import Qt
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QApplication, QHBoxLayout, QLayout
+from qtpy.QtGui import QPixmap, QColor, QPainter, QBrush, QPen
+from qtpy.QtCore import Qt
 from atom.api import Typed
 from enaml.qt.qt_control import QtControl
 

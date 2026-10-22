@@ -1,6 +1,6 @@
 from enaml.widgets.api import IPythonConsole as _IPythonConsole
 from qtpy.QtCore import Qt
-from qtpy.QtWidgets import qApp
+from qtpy.QtWidgets import QApplication
 
 
 def add_zoom_shortcuts(ipython_widget):
@@ -8,11 +8,11 @@ def add_zoom_shortcuts(ipython_widget):
 
     def zoom_in(*args):
         ipython_widget.increase_font_size.trigger()
-        qApp.processEvents()
+        QApplication.processEvents()
 
     def zoom_out(*args):
         ipython_widget.decrease_font_size.trigger()
-        qApp.processEvents()
+        QApplication.processEvents()
 
     def on_wheel_event(event):
         if event.modifiers() == Qt.ControlModifier:
