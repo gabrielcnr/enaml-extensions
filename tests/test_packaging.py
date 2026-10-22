@@ -21,3 +21,10 @@ def test_library_modules_do_not_import_test_tools():
     env = {**os.environ, 'QT_QPA_PLATFORM': 'offscreen'}
     result = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, env=env, check=False)
     assert result.returncode == 0, result.stderr
+
+
+def test_readme_example_imports():
+    from enamlext.widgets import Alignment, Column, Table
+
+    assert Column('age', align=Alignment.RIGHT).align is Alignment.RIGHT
+    assert Table is not None
