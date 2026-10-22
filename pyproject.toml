@@ -84,3 +84,13 @@ include = ["src", "tests", "examples", "README.md", "LICENSE"]
 
 [tool.uv]
 default-groups = ["dev"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src", "tests"]
+extend-exclude = ["src/enamlext/_version.py"]
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true

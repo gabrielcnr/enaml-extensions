@@ -99,10 +99,12 @@ def test_filters():
     col_age = Column('age', use_getitem=True)
     col_name = Column('name', use_getitem=True)
 
-    filters = TableFilters([
-        Filter(col_age, '> 12'),
-        Filter(col_name, 'Leo'),
-    ])
+    filters = TableFilters(
+        [
+            Filter(col_age, '> 12'),
+            Filter(col_name, 'Leo'),
+        ]
+    )
 
     items = [
         {'name': 'Leo', 'age': 13},
@@ -137,11 +139,11 @@ def test_get_filter_for_column():
 # Summary
 ###########
 
+
 def test_compute_summary():
     values = [1, 2, 'foo', 'bar', -3, -4, -1]
     summary = compute_summary(values)
-    expected_summary = TableSelectionSummary(sum=-5, values=values, min=-4, max=2,
-                                             count_numbers=5)
+    expected_summary = TableSelectionSummary(sum=-5, values=values, min=-4, max=2, count_numbers=5)
     assert expected_summary == summary
 
     assert 7 == summary.count
@@ -151,8 +153,7 @@ def test_compute_summary():
 def test_compute_summary_diff():
     values = [-4, 11]
     summary = compute_summary(values)
-    expected_summary = TableSelectionSummary(sum=7, values=values, min=-4, max=11,
-                                             count_numbers=2)
+    expected_summary = TableSelectionSummary(sum=7, values=values, min=-4, max=11, count_numbers=2)
     assert expected_summary == summary
 
     assert 2 == summary.count
@@ -218,22 +219,31 @@ def test_refresh_cells_groups_by_row_and_emits_one_range_per_row():
     emits = []
 
     class FakeIndex:
-        def __init__(self, row, col): self.row, self.col = row, col
-        def __repr__(self): return f'({self.row},{self.col})'
+        def __init__(self, row, col):
+            self.row, self.col = row, col
+
+        def __repr__(self):
+            return f'({self.row},{self.col})'
 
     class FakeModel:
-        def index(self, row, col): return FakeIndex(row, col)
+        def index(self, row, col):
+            return FakeIndex(row, col)
+
         class _Sig:
-            def __init__(self, sink): self.sink = sink
+            def __init__(self, sink):
+                self.sink = sink
+
             def emit(self, top_left, bottom_right):
-                self.sink.append(((top_left.row, top_left.col),
-                                  (bottom_right.row, bottom_right.col)))
-        def __init__(self, sink): self.dataChanged = self._Sig(sink)
+                self.sink.append(((top_left.row, top_left.col), (bottom_right.row, bottom_right.col)))
+
+        def __init__(self, sink):
+            self.dataChanged = self._Sig(sink)
 
     fake_model = FakeModel(emits)
 
     class _T:
-        def model(self): return fake_model
+        def model(self):
+            return fake_model
 
     # Same-row clustered: cols 1, 3, 5 in row 7 collapse to one range (7,1)→(7,5)
     QTable.refresh_cells(_T(), [7, 7, 7], [1, 3, 5])
@@ -256,8 +266,11 @@ def test_refresh_cells_no_op_on_empty_input():
         def model(self):
             class M:
                 class S:
-                    def emit(self, *a): emits.append(a)
+                    def emit(self, *a):
+                        emits.append(a)
+
                 dataChanged = S()
+
             return M()
 
     QTable.refresh_cells(_T(), [], [])

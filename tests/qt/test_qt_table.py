@@ -41,20 +41,20 @@ def test_displayed_data_basic(table):
         age: int
 
     items = [
-        Person(name="John", age=33),
-        Person(name="Pam", age=22),
+        Person(name='John', age=33),
+        Person(name='Pam', age=22),
     ]
 
     columns = [
-        Column("name", title="Name"),
-        Column("age", align=Alignment.RIGHT),
+        Column('name', title='Name'),
+        Column('age', align=Alignment.RIGHT),
     ]
 
     with table.updating_internals():
         table.columns = columns
         table.items = items
 
-    assert table.text(1, 0) == "Pam"
+    assert table.text(1, 0) == 'Pam'
 
 
 @dataclass
@@ -174,7 +174,9 @@ def test_collect_stats_records_timings(table):
     assert column.stats[Qt.DisplayRole]['cum_time'] >= 0
 
 
-@pytest.mark.parametrize(('order', 'expected'), [(Qt.AscendingOrder, ['22', '33', '41']), (Qt.DescendingOrder, ['41', '33', '22'])])
+@pytest.mark.parametrize(
+    ('order', 'expected'), [(Qt.AscendingOrder, ['22', '33', '41']), (Qt.DescendingOrder, ['41', '33', '22'])]
+)
 def test_sorting_by_a_column(qtbot, order, expected):
     table = QTestTable(columns=[Column('age')], items=[Person('John', 33), Person('Pam', 22), Person('Ann', 41)])
     qtbot.addWidget(table)

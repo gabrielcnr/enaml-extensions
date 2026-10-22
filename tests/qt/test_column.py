@@ -40,7 +40,8 @@ def test_giving_fmt_as_callback():
         return str(value)[::-1].upper()
 
     class InterestingClass:
-        def __str__(self): return 'TextForUsers'
+        def __str__(self):
+            return 'TextForUsers'
 
     obj = InterestingClass()
     item = {'obj': obj, 'foo': None}
@@ -48,7 +49,6 @@ def test_giving_fmt_as_callback():
     column = Column('obj', fmt=uppercase_mirrored, use_getitem=True)
 
     assert 'SRESUROFTXET' == column.get_displayed_value(item)
-
 
 
 def test_generate_columns_with_hints():
@@ -70,7 +70,7 @@ def test_generate_columns_with_hints():
         },
         'price': {
             'fmt': ',.2f',
-        }
+        },
     }
     generated_columns = generate_columns(items, hints=hints, exclude=['quantity'])
 
@@ -108,16 +108,21 @@ named_tuples = [Record('A', 10.25, 'EUR'), Record('B', 12.0, 'GBP')]
 
 tuples = [('A', 10.25, 'EUR'), ('B', 12.0, 'GBP')]
 
+
 @dataclass
 class RecordData:
     symbol: str
     price: float
     currency: str
 
+
 records = [RecordData('A', 10.25, 'EUR'), RecordData('B', 12.0, 'GBP')]
 
-dicts = [{'symbol': 'A', 'price': 10.25, 'currency': 'EUR'},
-         {'symbol': 'B', 'price': 12.0, 'currency': 'GBP'}, ]
+dicts = [
+    {'symbol': 'A', 'price': 10.25, 'currency': 'EUR'},
+    {'symbol': 'B', 'price': 12.0, 'currency': 'GBP'},
+]
+
 
 @pytest.mark.parametrize(
     ['items', 'include', 'hints'],
@@ -127,7 +132,7 @@ dicts = [{'symbol': 'A', 'price': 10.25, 'currency': 'EUR'},
         (tuples, [2, 1], {2: {'title': 'Currency'}, 1: {'title': 'Price'}}),
         (records, ['currency', 'price'], {}),
         (dicts, ['currency', 'price'], {}),
-    ]
+    ],
 )
 def test_generate_columns_include(items, include, hints):
     col_1, col_2 = generate_columns(items, include=include, hints=hints)
@@ -148,7 +153,7 @@ def test_generate_columns_include(items, include, hints):
         (tuples, [1], {0: {'title': 'Symbol'}, 2: {'title': 'Currency'}}),
         (records, ['price'], {}),
         (dicts, ['price'], {}),
-    ]
+    ],
 )
 def test_generate_columns_exclude(items, exclude, hints):
     col_1, col_2 = generate_columns(items, exclude=exclude, hints=hints)

@@ -11,8 +11,8 @@ INDEX_GUARD = 0x1
 
 
 class QtFontComboBox(QtControl, ProxyFontComboBox):
-    """ A Qt implementation of an Enaml FontComboBox.
-    """
+    """A Qt implementation of an Enaml FontComboBox."""
+
     #: A reference to the widget created by the proxy.
     widget = Typed(QFontComboBox)
 
@@ -22,20 +22,17 @@ class QtFontComboBox(QtControl, ProxyFontComboBox):
 
     # Initialization API
     def create_widget(self):
-        """ Create the QFontComboBox widget.
-        """
+        """Create the QFontComboBox widget."""
         self.widget = QFontComboBox(self.parent_widget())
 
     def init_widget(self):
-        """ Create and initialize the underlying widget.
-        """
+        """Create and initialize the underlying widget."""
         super().init_widget()
         self.widget.currentFontChanged.connect(self.on_font_changed)
 
     # Signal Handlers
     def on_font_changed(self, qfont: QFont):
-        """ The signal handler for the font changed signal.
-        """
+        """The signal handler for the font changed signal."""
         if not self._guard & INDEX_GUARD:
             self.declaration.font = qfont.family()
 

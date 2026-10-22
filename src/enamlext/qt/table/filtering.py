@@ -4,8 +4,8 @@ from enamlext.qt.table.column import Column
 
 
 class Filter:
-    """ One filter, bound to one column.
-    """
+    """One filter, bound to one column."""
+
     def __init__(self, column: Column, expression: str):
         self.column = column
         self.expression = expression.strip()  # as entered by the user
@@ -25,6 +25,7 @@ class Filter:
 
     def _generate_filter_evaluation_callback(self):
         if self._expression_startswith_operator(self.expression):
+
             def callback(x):
                 ns = {'x': x}
                 try:
@@ -33,6 +34,7 @@ class Filter:
                     return False
 
         else:
+
             def callback(x):
                 return self.expression.lower() in str(x).lower()
 
@@ -41,6 +43,7 @@ class Filter:
     def __call__(self, item: Any) -> bool:
         value = self.column.get_value(item)
         return self._evaluate_filter(value)
+
 
 # TODO: IDEA
 #       we are using the Column's get_value to get the value
@@ -53,8 +56,8 @@ class Filter:
 
 
 class TableFilters:
-    """ Collection of Filters.
-    """
+    """Collection of Filters."""
+
     def __init__(self, filters: List[Filter] = None):
         if filters is None:
             filters = {}
@@ -72,8 +75,7 @@ class TableFilters:
                 yield item
 
     def filter(self, item: Any) -> bool:
-        """ Returns True if the given item is included after evaluating all the filters.
-        """
+        """Returns True if the given item is included after evaluating all the filters."""
         for filter in self.filters.values():
             if not filter(item):
                 return False

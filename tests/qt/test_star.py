@@ -82,8 +82,16 @@ def test_read_only_ignores_clicks_and_keys(widget, qtbot):
 
 @pytest.mark.parametrize(
     ('key', 'expected'),
-    [(Qt.Key_Right, 3), (Qt.Key_Up, 3), (Qt.Key_Left, 1), (Qt.Key_Down, 1),
-     (Qt.Key_Home, 0), (Qt.Key_End, 5), (Qt.Key_4, 4), (Qt.Key_0, 0)],
+    [
+        (Qt.Key_Right, 3),
+        (Qt.Key_Up, 3),
+        (Qt.Key_Left, 1),
+        (Qt.Key_Down, 1),
+        (Qt.Key_Home, 0),
+        (Qt.Key_End, 5),
+        (Qt.Key_4, 4),
+        (Qt.Key_0, 0),
+    ],
 )
 def test_keyboard_changes_the_rating(widget, key, expected):
     QTest.keyClick(widget, key)

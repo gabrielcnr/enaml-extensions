@@ -13,7 +13,7 @@ class TableSelectionSummary:
     values: list
 
     @classmethod
-    def from_selection_context(cls, selection_context: SelectionContext) -> "TableSelectionSummary":
+    def from_selection_context(cls, selection_context: SelectionContext) -> 'TableSelectionSummary':
         return compute_summary([v for _, v in selection_context.selected_values])
 
     @property
@@ -27,7 +27,7 @@ class TableSelectionSummary:
 
     @property
     def diff(self) -> Optional[float]:
-        """ Returns the absolute difference/distance between 2 selected numbers
+        """Returns the absolute difference/distance between 2 selected numbers
         when all is selected are those 2 numbers and nothing else.
         """
         if self.count == self.count_numbers == 2:
@@ -71,5 +71,6 @@ def compute_summary(selected_values: list) -> TableSelectionSummary:
             min_value = min(min_value, value)
             max_value = max(max_value, value)
 
-    return TableSelectionSummary(sum=sum_, count_numbers=count_numbers,
-                                 min=min_value, max=max_value, values=selected_values)
+    return TableSelectionSummary(
+        sum=sum_, count_numbers=count_numbers, min=min_value, max=max_value, values=selected_values
+    )

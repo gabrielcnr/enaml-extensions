@@ -55,8 +55,9 @@ DEFAULT_EMPTY_COLOR = QColor('#d0d0d0')
 def _make_star_polygon() -> QPolygonF:
     # A unit-square five-pointed star: each step jumps 144 degrees (0.8 * pi)
     # so the outline crosses itself, and WindingFill paints the centre solid.
-    points = [QPointF(0.5 + 0.5 * math.cos(0.8 * i * math.pi), 0.5 + 0.5 * math.sin(0.8 * i * math.pi))
-              for i in range(5)]
+    points = [
+        QPointF(0.5 + 0.5 * math.cos(0.8 * i * math.pi), 0.5 + 0.5 * math.sin(0.8 * i * math.pi)) for i in range(5)
+    ]
     return QPolygonF(points)
 
 

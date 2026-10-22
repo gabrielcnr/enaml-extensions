@@ -1,6 +1,4 @@
-from atom.api import (
-    Typed, ForwardTyped, Int, observe
-)
+from atom.api import Typed, ForwardTyped, Int, observe
 from atom.typing_utils import ChangeDict
 
 from enaml.core.declarative import d_
@@ -8,10 +6,9 @@ from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
 
 
-
 class ProxyTrafficLight(ProxyControl):
-    """ The abstract definition of a proxy TrafficLightWidget object.
-    """
+    """The abstract definition of a proxy TrafficLightWidget object."""
+
     #: A reference to the TrafficLight declaration.
     declaration = ForwardTyped(lambda: TrafficLight)
 
@@ -23,8 +20,8 @@ class ProxyTrafficLight(ProxyControl):
 
 
 class TrafficLight(Control):
-    """ Enaml declarative control for giving a TrafficLight widget.
-    """
+    """Enaml declarative control for giving a TrafficLight widget."""
+
     color = d_(Typed(str))
 
     radius = d_(Int(default=20))
@@ -39,8 +36,10 @@ class TrafficLight(Control):
 
 def traffic_light_factory():
     from enamlext.qt.qt_traffic_light import QtTrafficLight
+
     return QtTrafficLight
 
 
 from enaml.qt.qt_factories import QT_FACTORIES
+
 QT_FACTORIES['TrafficLight'] = traffic_light_factory

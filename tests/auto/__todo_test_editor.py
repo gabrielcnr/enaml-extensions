@@ -68,4 +68,3 @@ def test_create_editor_control():
     editor = Editor(obj=person)
     assert editor.obj is person
     assert len(editor.children) == 2
-

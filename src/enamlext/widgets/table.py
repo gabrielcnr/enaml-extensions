@@ -17,8 +17,8 @@ ColumnHints = Dict[ColumnID, ColumnHint]
 
 
 class ProxyTable(ProxyControl):
-    """ The abstract definition of a proxy Table object.
-    """
+    """The abstract definition of a proxy Table object."""
+
     #: A reference to the Table declaration.
     declaration = ForwardTyped(lambda: Table)
 
@@ -51,9 +51,10 @@ class ProxyTable(ProxyControl):
 
 
 class Table(Control):
-    """ A tabular grid/table, column-oriented, where individual items are
+    """A tabular grid/table, column-oriented, where individual items are
     displayed in individual rows, and should have the same type.
     """
+
     #: The columns for the table (horizontal axis/headers)
     columns = d_(List())
 
@@ -102,19 +103,19 @@ class Table(Control):
 
     # Observers
 
-    @observe("columns",
-             "items",
-             "selected_items",
-             "context_menu",
-             "checkable",
-             "sortable",
-             "show_summary",
-             "hints",
-             "selection_mode",
-             )
+    @observe(
+        'columns',
+        'items',
+        'selected_items',
+        'context_menu',
+        'checkable',
+        'sortable',
+        'show_summary',
+        'hints',
+        'selection_mode',
+    )
     def _update_proxy(self, change: Dict):
-        """ An observer which sends state change to the proxy.
-        """
+        """An observer which sends state change to the proxy."""
         # The superclass handler implementation is sufficient.
         super()._update_proxy(change)
 

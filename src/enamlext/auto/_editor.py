@@ -4,6 +4,7 @@ from enaml.core.declarative import d_
 from enamlext.widgets import Field
 import datetime
 import enaml
+
 with enaml.imports():
     from enaml.stdlib.fields import IntField
 
@@ -12,16 +13,14 @@ def connect(model, model_attr, view, view_attr):
     assert isinstance(model, Atom)
     assert isinstance(view, Atom)
 
-    model.observe(model_attr,
-                  lambda change: setattr(view, view_attr, change['value']))
-    view.observe(view_attr,
-                 lambda change: setattr(model, model_attr, change['value']))
+    model.observe(model_attr, lambda change: setattr(view, view_attr, change['value']))
+    view.observe(view_attr, lambda change: setattr(model, model_attr, change['value']))
 
     # Initially the view should be sync'd with the model
     try:
         setattr(view, view_attr, getattr(model, model_attr))
     except Exception as ex:
-        #import pdb ;pdb.set_trace()
+        # import pdb ;pdb.set_trace()
         raise
 
 

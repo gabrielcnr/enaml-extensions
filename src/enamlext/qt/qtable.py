@@ -29,7 +29,7 @@ from enamlext.qt.table.table_context import TableContext
 logger = logging.getLogger(__name__)
 
 DEFAULT_ROW_HEIGHT = 23
-DEFAULT_FONT_NAME = "Calibri"
+DEFAULT_FONT_NAME = 'Calibri'
 DEFAULT_FONT_SIZE_PX = 13
 
 CHECKBOX_FLAG = Qt.ItemNeverHasChildren | Qt.ItemIsEditable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
@@ -117,20 +117,20 @@ def default_convert_item(item):
 
 
 class QTableModel(QAbstractTableModel):
-
     #: signal used to notify the view whenever checked_items changes
     on_checked_items: Signal = Signal(set)
 
-    def __init__(self,
-                 columns: List[Column],
-                 items: Optional[List[Any]] = None,
-                 *,
-                 checkable: bool = False,
-                 checked_items: Optional[Collection[Any]] = None,
-                 parent: Optional[QObject] = None,
-                 error_handling: str = 'graceful',  # TODO: other modes
-                 convert_item = default_convert_item,
-                 ):
+    def __init__(
+        self,
+        columns: List[Column],
+        items: Optional[List[Any]] = None,
+        *,
+        checkable: bool = False,
+        checked_items: Optional[Collection[Any]] = None,
+        parent: Optional[QObject] = None,
+        error_handling: str = 'graceful',  # TODO: other modes
+        convert_item=default_convert_item,
+    ):
         super().__init__(parent)
         self.columns = columns
         self._original_items = items
@@ -149,8 +149,10 @@ class QTableModel(QAbstractTableModel):
         if checked_items is None:
             checked_items = set()
         if not isinstance(checked_items, set):
-            warnings.warn(f"QTableModel checked_items is recommend to be a "
-                          f"set, but got: {type(checked_items).__name__} instead - coercing to set")
+            warnings.warn(
+                f'QTableModel checked_items is recommend to be a '
+                f'set, but got: {type(checked_items).__name__} instead - coercing to set'
+            )
             checked_items = set(checked_items)
         self.checked_items = checked_items
 
@@ -217,8 +219,10 @@ class QTableModel(QAbstractTableModel):
                     return to_qt_alignment(column.get_align(item))
                 except Exception as exc:
                     if self.error_handling == 'graceful':
-                        logger.warning(f'Error when resolving alignment for column: {col_index = }, '
-                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                        logger.warning(
+                            f'Error when resolving alignment for column: {col_index = }, '
+                            f'{column.title = !r}, {index.row() = }, {exc = }'
+                        )
                     else:
                         raise
         elif role == Qt.ToolTipRole:
@@ -253,8 +257,10 @@ class QTableModel(QAbstractTableModel):
                         return make_custom_font(font_spec)
                 except Exception as exc:
                     if self.error_handling == 'graceful':
-                        logger.warning(f'Error when resolving font for column: {col_index = }, '
-                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                        logger.warning(
+                            f'Error when resolving font for column: {col_index = }, '
+                            f'{column.title = !r}, {index.row() = }, {exc = }'
+                        )
                     else:
                         raise
 
@@ -270,8 +276,10 @@ class QTableModel(QAbstractTableModel):
                         return style.get('color')
                 except Exception as exc:
                     if self.error_handling == 'graceful':
-                        logger.warning(f'Error when resolving foreground colour style for column: {col_index = }, '
-                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                        logger.warning(
+                            f'Error when resolving foreground colour style for column: {col_index = }, '
+                            f'{column.title = !r}, {index.row() = }, {exc = }'
+                        )
                     else:
                         raise
 
@@ -285,8 +293,10 @@ class QTableModel(QAbstractTableModel):
                         return style.get('background')
                 except Exception as exc:
                     if self.error_handling == 'graceful':
-                        logger.warning(f'Error when resolving background colour style for column: {col_index = }, '
-                                       f'{column.title = !r}, {index.row() = }, {exc = }')
+                        logger.warning(
+                            f'Error when resolving background colour style for column: {col_index = }, '
+                            f'{column.title = !r}, {index.row() = }, {exc = }'
+                        )
                     else:
                         raise
 
@@ -302,7 +312,7 @@ class QTableModel(QAbstractTableModel):
                     column=column,
                     convert=self.convert_item,
                 )
-                if (image := column.get_image(context)):
+                if image := column.get_image(context):
                     return _load_scaled_pixmap(image)
 
     def _get_cell_style(self, index: QModelIndex, role: int, col_index: int, column: Column) -> Optional[CellStyle]:
@@ -334,7 +344,7 @@ class QTableModel(QAbstractTableModel):
     def sort(self, column_index, order=None) -> None:
         if self.columns:
             # TODO: instead of relying on column (positional) index we should
-            #       be keeping a referencing to the column and improve 
+            #       be keeping a referencing to the column and improve
             #       Column identity and equality comparison to restore sorting
             column = self.columns[column_index]
             self._last_sorting_column = column, column_index, order
@@ -353,12 +363,14 @@ class QTableModel(QAbstractTableModel):
                     # not very likely to be the same column - avoid sorting incorrectly
                     return
             self.beginResetModel()
+
             def sort_key(item):
                 value = column.get_value(item)
                 if isinstance(value, float):
                     if math.isnan(value):
                         return float('-inf')
                 return value
+
             descending = order == Qt.DescendingOrder  # Qt6 enums are not ints, so never truth-test them
             self._filtered_items = sorted(self._filtered_items, key=sort_key, reverse=descending)
             self.endResetModel()
@@ -430,12 +442,12 @@ class QTableModel(QAbstractTableModel):
 
     @property
     def items(self) -> List[Any]:
-        """ read from the filtered items """
+        """read from the filtered items"""
         return self._filtered_items
 
     @items.setter
     def items(self, items: Iterable[Any]) -> None:
-        """ write to the original items (not filtered) """
+        """write to the original items (not filtered)"""
         self._original_items = items
         self._apply_filters()
         try:
@@ -479,7 +491,7 @@ class QTableModel(QAbstractTableModel):
 
 
 class DoubleClickContext:
-    def __init__(self, index: QModelIndex, table: "QTable"):
+    def __init__(self, index: QModelIndex, table: 'QTable'):
         self.index = index
         self.__table = table
 
@@ -511,17 +523,19 @@ class DoubleClickContext:
 
     @property
     def value(self) -> str:
-        """ Returns the displayed value. """
+        """Returns the displayed value."""
         return self.column.get_displayed_value(self.item)  # TODO: should ask the column or should ask the model?
 
 
 class SelectionContext:
-    def __init__(self,
-                 table: "QTable",
-                 selected_indexes: List[QModelIndex],
-                 current: QModelIndex,
-                 added: Optional[List[QModelIndex]],
-                 removed: Optional[List[QModelIndex]]):
+    def __init__(
+        self,
+        table: 'QTable',
+        selected_indexes: List[QModelIndex],
+        current: QModelIndex,
+        added: Optional[List[QModelIndex]],
+        removed: Optional[List[QModelIndex]],
+    ):
         self.__table = weakref.ref(table)
         self.selected_model_indexes = selected_indexes
         self.added_model_indexes = added
@@ -553,8 +567,7 @@ class SelectionContext:
         table = self.__table()
         if table is not None:
             row_indexes = (i.row() for i in self.selected_model_indexes)
-            return [table.model().get_item_by_index(i)
-                    for i in set(row_indexes)]
+            return [table.model().get_item_by_index(i) for i in set(row_indexes)]
 
     @property
     def selected_values(self) -> List[Any]:  # TODO: generator?
@@ -562,7 +575,7 @@ class SelectionContext:
         if table is not None:
             get_cell_value = table.model().get_cell_value
             for row_index, column_index in self.selected_indexes:
-                yield((row_index, column_index), get_cell_value(row_index, column_index))
+                yield ((row_index, column_index), get_cell_value(row_index, column_index))
 
 
 class QTable(QTableView):
@@ -579,18 +592,19 @@ class QTable(QTableView):
     #: signal to notify whenever the checked items change
     on_checked_items: Signal = Signal(set)
 
-    def __init__(self,
-                 columns: List[Column],
-                 items: Optional[List[Any]] = None,
-                 *,
-                 checkable: bool = False,
-                 context_menu: List["ContextMenuAction"] = None,
-                 alternate_row_colors: bool = True,
-                 checked_items: Collection[Any] = None,
-                 sortable: bool = True,
-                 parent: QObject = None,
-                 convert_item = None,
-                 ):
+    def __init__(
+        self,
+        columns: List[Column],
+        items: Optional[List[Any]] = None,
+        *,
+        checkable: bool = False,
+        context_menu: List['ContextMenuAction'] = None,
+        alternate_row_colors: bool = True,
+        checked_items: Collection[Any] = None,
+        sortable: bool = True,
+        parent: QObject = None,
+        convert_item=None,
+    ):
         super().__init__(parent=parent)
         self.columns = columns
         if items is None:
@@ -599,8 +613,9 @@ class QTable(QTableView):
         self.context_menu = context_menu
         self.setAlternatingRowColors(alternate_row_colors)
         self.doubleClicked.connect(self.on_double_clicked)
-        model = QTableModel(self.columns, self.items, checkable=checkable, checked_items=checked_items,
-                            convert_item=convert_item)
+        model = QTableModel(
+            self.columns, self.items, checkable=checkable, checked_items=checked_items, convert_item=convert_item
+        )
         model.on_checked_items.connect(self.on_model_checked_items_changed)
         self.setModel(model)
         self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
@@ -610,7 +625,6 @@ class QTable(QTableView):
         #       that is internal and is possible of updating?
         #       Also, need to eliminate the duplication here - we should only work in terms of what's inside the model
         #       this will prevent from view and model getting out of sync
-
 
         # Horizontal header with filter capabilities
         h_header = QFilterableHeaderView(Qt.Horizontal, parent=self)
@@ -628,13 +642,14 @@ class QTable(QTableView):
             super().paintEvent(event)
 
     def keyPressEvent(self, event: QEvent):
-        """ Supports copying when multiple cells are selected. """
+        """Supports copying when multiple cells are selected."""
         if event.matches(QKeySequence.Copy):
             selected_indexes = self.selectedIndexes()
             if selected_indexes:
                 data = ((i.row(), i.column(), self.model().data(i, role=Qt.DisplayRole)) for i in selected_indexes)
-                rows = ((v for _, _, v in cells)
-                        for _, cells in itertools.groupby(sorted(data), key=operator.itemgetter(0)))
+                rows = (
+                    (v for _, _, v in cells) for _, cells in itertools.groupby(sorted(data), key=operator.itemgetter(0))
+                )
 
                 sio = StringIO()
                 writer = csv.writer(sio, delimiter='\t')
@@ -851,8 +866,7 @@ class QTable(QTableView):
     # Checked Items
 
     def on_model_checked_items_changed(self, checked_items: Set):
-        """ Just passes along the notification of the change on the checked items.
-        """
+        """Just passes along the notification of the change on the checked items."""
         self.on_checked_items.emit(checked_items)
 
     @property
@@ -895,11 +909,12 @@ class MenuActionContext:
     when the user requests a context menu on the table (for example, by performing a right-click)
     """
 
-    def __init__(self,
-                 pos: QPoint,
-                 table: QTable,
-                 convert_item = default_convert_item,
-                 ):
+    def __init__(
+        self,
+        pos: QPoint,
+        table: QTable,
+        convert_item=default_convert_item,
+    ):
         self.__table = table
         self.pos = pos
         if convert_item is None:
@@ -943,7 +958,7 @@ class MenuActionContext:
 
     @property
     def value(self) -> str:
-        """ Returns the displayed value. """
+        """Returns the displayed value."""
         if (item := self.item) is not None:  # TODO: use a different sentinel here?
             return self.column.get_displayed_value(item)
 
@@ -1094,27 +1109,22 @@ if __name__ == '__main__':
     # Fixing PyQt issue on MacOS BigSur
     import os
 
-    os.environ["QT_MAC_WANTS_LAYER"] = "1"
+    os.environ['QT_MAC_WANTS_LAYER'] = '1'
 
     app = QApplication([])
 
-
     def tooltip_callback(table_context: TableContext) -> str:
         item = table_context.item
-        return f"{item.name} is {item.age} years old"
-
+        return f'{item.name} is {item.age} years old'
 
     def age_cell_style(table_context: TableContext) -> CellStyle:
         if table_context.item.age > 30:
             return CellStyle(color=QColor(200, 20, 100))
 
-
     columns = [
-        Column("name", title="Name"),
-        Column("age", align=Alignment.RIGHT, tooltip=tooltip_callback,
-               cell_style=age_cell_style)
+        Column('name', title='Name'),
+        Column('age', align=Alignment.RIGHT, tooltip=tooltip_callback, cell_style=age_cell_style),
     ]
-
 
     @dataclass(frozen=True)
     class Person:
@@ -1123,14 +1133,12 @@ if __name__ == '__main__':
         age: int
         sex: str
 
-
     people_kwargs = [
-        dict(name="John", age=33, sex="M"),
-        dict(name="Pam", age=22, sex="F"),
+        dict(name='John', age=33, sex='M'),
+        dict(name='Pam', age=22, sex='F'),
     ]
 
     items = [Person(id=uuid.uuid4(), **kw) for kw in itertools.islice(itertools.cycle(people_kwargs), 0, 10)]
-
 
     def echo_factory(n: int) -> ContextMenuAction:
         class EchoAction(ContextMenuAction):
@@ -1138,14 +1146,14 @@ if __name__ == '__main__':
                 return True
 
             def get_caption(self, context):
-                return f"Echo {n}"
+                return f'Echo {n}'
 
             def execute(self, context):
-                print(f"Echo {n} - Cell: ({context.row_index}, "
-                      f"{context.column_index}) has value: {context.raw_value!r}")
+                print(
+                    f'Echo {n} - Cell: ({context.row_index}, {context.column_index}) has value: {context.raw_value!r}'
+                )
 
         return EchoAction()
-
 
     context_menu_actions = [
         *(echo_factory(n) for n in range(1, 11)),
@@ -1157,37 +1165,34 @@ if __name__ == '__main__':
     table.set_vertical_header_visible(False)
     table.show_horizontal_header()
 
-
     # table.setStyleSheet("background-color: rgb(255, 255, 245); alternate-background-color: rgb(220,200,220);")
 
     def double_click_callback(context: DoubleClickContext):
-        print(f"Double click happened:",
-              f"  cell = {context.cell}",
-              f"  column = {context.column}",
-              f"  raw_value = {context.raw_value}",
-              sep="\n")
-
+        print(
+            f'Double click happened:',
+            f'  cell = {context.cell}',
+            f'  column = {context.column}',
+            f'  raw_value = {context.raw_value}',
+            sep='\n',
+        )
 
     table.on_double_click.connect(double_click_callback)
 
-
     def selection_callback(context: SelectionContext):
         print(
-            f"Selected indexes: {context.selected_indexes}",
-            f"Added: {context.added_indexes}",
-            f"Removed: {context.removed_indexes}",
-            f"Current: {context.current_index}",
-            sep="\n",
+            f'Selected indexes: {context.selected_indexes}',
+            f'Added: {context.added_indexes}',
+            f'Removed: {context.removed_indexes}',
+            f'Current: {context.current_index}',
+            sep='\n',
         )
-
 
     table.on_selection.connect(selection_callback)
 
     def checked_items_callback(checked_items: set):
-        print("Checked items:", checked_items)
+        print('Checked items:', checked_items)
 
     table.on_checked_items.connect(checked_items_callback)
-
 
     table.show()
 

@@ -5,7 +5,7 @@ from threading import Thread
 import pandas as pd
 from atom.api import *
 
-FACTOR = .5
+FACTOR = 0.5
 
 
 class Model(Atom):
@@ -38,7 +38,6 @@ class Model(Atom):
             self.df_2['value x n'] = self.df_2['value'] * self.n
 
 
-
 def tick(model):
     while True:
         model.n = random.randint(-100_000, 100_000)
@@ -46,8 +45,7 @@ def tick(model):
 
 
 def update_df(model):
-    """Another thread that updates less frequently the dataframe.
-    """
+    """Another thread that updates less frequently the dataframe."""
     while True:
         fruits = ['apple', 'banana', 'cherry', 'melon', 'pear']
         df = pd.DataFrame()

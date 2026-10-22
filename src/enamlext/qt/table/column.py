@@ -13,28 +13,29 @@ from enamlext.qt.table.table_context import TableContext
 
 
 class Alignment(str, Enum):
-    LEFT = "left"
-    CENTER = "center"
-    RIGHT = "right"
+    LEFT = 'left'
+    CENTER = 'center'
+    RIGHT = 'right'
 
 
 AUTO_ALIGN = object()  # sentinel
 
 
 class Column:
-    def __init__(self,
-                 key: Union[str, Callable],
-                 title: Optional[str] = None,
-                 align: Alignment = AUTO_ALIGN,
-                 tooltip: Optional[Union[str, Callable]] = None,
-                 # TODO: how to specify the types for the signature of the callback here?
-                 cell_style: Optional[Callable] = None,
-                 use_getitem: bool = False,
-                 fmt: str = '',
-                 size: Union[ColumnSize, int] = ColumnSize.AUTO,
-                 image: Optional[str] = None, # TODO: support callback
-                 collect_stats: bool = False,
-                 ):
+    def __init__(
+        self,
+        key: Union[str, Callable],
+        title: Optional[str] = None,
+        align: Alignment = AUTO_ALIGN,
+        tooltip: Optional[Union[str, Callable]] = None,
+        # TODO: how to specify the types for the signature of the callback here?
+        cell_style: Optional[Callable] = None,
+        use_getitem: bool = False,
+        fmt: str = '',
+        size: Union[ColumnSize, int] = ColumnSize.AUTO,
+        image: Optional[str] = None,  # TODO: support callback
+        collect_stats: bool = False,
+    ):
         self.key = key
         self._link_get_value_method(key, use_getitem)
         if title is None and isinstance(key, str):
@@ -95,7 +96,7 @@ class Column:
         else:
             return format(value, self.fmt) if value is not None else ''
 
-    def get_tooltip(self, table_context: "TableContext") -> str:
+    def get_tooltip(self, table_context: 'TableContext') -> str:
         if self.tooltip is not None:
             if callable(self.tooltip):
                 return str(self.tooltip(table_context))  # TODO: is it a good practice to enforce str() here?
@@ -104,7 +105,7 @@ class Column:
         else:
             return repr(table_context.raw_value)
 
-    def get_cell_style(self, table_context: "TableContext") -> Optional[CellStyle]:
+    def get_cell_style(self, table_context: 'TableContext') -> Optional[CellStyle]:
         if self.cell_style is not None:
             return self.cell_style(table_context) or CellStyle()
 
@@ -148,6 +149,7 @@ class Column:
 
 # Auto-Generation of Columns
 
+
 def make_title(title: str):
     return str(title).replace('_', ' ').title()
 
@@ -165,9 +167,13 @@ def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyl
         return NEGATIVE_NUMBER_CELL_STYLE
 
 
-def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
-                     include: Optional[Container[str]] = None,
-                     exclude: Optional[Container[str]] = None) -> List[Column]:
+def generate_columns(
+    items: Sequence,
+    *,
+    hints: Optional[Dict] = None,
+    include: Optional[Container[str]] = None,
+    exclude: Optional[Container[str]] = None,
+) -> List[Column]:
     """
     hints: only make sense with named keys?
            hints are a dict of column id -> kwargs dict that will
@@ -201,6 +207,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
     if isinstance(items, DataFrameProxy):
         import pandas as pd
         import numpy as np
+
         df = items.df
         for i, (name, dtype) in enumerate(df.dtypes.items()):
             if exclude is not None and name in exclude_set:
@@ -217,8 +224,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
                 align = Alignment.LEFT
                 style = None
 
-            kwargs = {'title': make_title(name), 'align': align, 'cell_style': style,
-                      'use_getitem': True}
+            kwargs = {'title': make_title(name), 'align': align, 'cell_style': style, 'use_getitem': True}
 
             hint = hints.get(name, {})
             kwargs.update(hint)

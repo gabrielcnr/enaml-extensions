@@ -22,8 +22,8 @@ SELECTION_MODES_MAP = {
 
 
 class QtTable(QtControl, ProxyTable):
-    """ A Qt implementation of an Enaml Table.
-    """
+    """A Qt implementation of an Enaml Table."""
+
     #: A reference to the widget created by the proxy.
     widget = Typed(QTable)
 
@@ -35,19 +35,16 @@ class QtTable(QtControl, ProxyTable):
 
     # Initialization API
     def create_widget(self):
-        """ Create the QTable widget.
-        """
+        """Create the QTable widget."""
         if hasattr(self.declaration, 'convert_item'):
             convert_item = self.declaration.convert_item
         else:
             convert_item = None
 
-        self.widget = QTable([], parent=self.parent_widget(),
-                             convert_item=convert_item)
+        self.widget = QTable([], parent=self.parent_widget(), convert_item=convert_item)
 
     def init_widget(self):
-        """ Create and initialize the underlying widget.
-        """
+        """Create and initialize the underlying widget."""
         timer = QTimer()
         timer.setSingleShot(True)
         timer.setInterval(300)  # TODO: should we make this configurable?
@@ -96,14 +93,12 @@ class QtTable(QtControl, ProxyTable):
 
     # ProxyTable API
     def set_items(self, items: List[Any]):
-        """ Set the items (rows) of the QTable.
-        """
+        """Set the items (rows) of the QTable."""
         with self.widget.updating_internals():
             self.widget.items = items
 
     def set_columns(self, columns: List[Column]):
-        """ Set the columns of the QTable.
-        """
+        """Set the columns of the QTable."""
         with self.widget.updating_internals():
             self.widget.columns = columns
 
@@ -111,7 +106,7 @@ class QtTable(QtControl, ProxyTable):
         pass
 
     def set_context_menu(self, context_menu: List):
-        self.widget.context_menu = context_menu # TODO: make this a property of the QTable
+        self.widget.context_menu = context_menu  # TODO: make this a property of the QTable
 
     def set_checkable(self, checkable: bool) -> None:
         self.widget.checkable = checkable
@@ -122,8 +117,7 @@ class QtTable(QtControl, ProxyTable):
     def set_selection_mode(self, selection_mode: str) -> None:
         self.widget.set_selection_mode(SELECTION_MODES_MAP[selection_mode])
 
-    def set_hints(self, hints: dict) -> None:
-        ...  # do nothing because underlying widget does not know about hints
+    def set_hints(self, hints: dict) -> None: ...  # do nothing because underlying widget does not know about hints
 
     def refresh_summary(self, context: Optional[SelectionContext] = None) -> None:
         if context is None:

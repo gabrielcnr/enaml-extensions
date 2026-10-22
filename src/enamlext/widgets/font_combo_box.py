@@ -4,9 +4,8 @@ from enaml.widgets.control import Control, ProxyControl
 
 
 class ProxyFontComboBox(ProxyControl):
-    """ The abstract definition of a proxy FontComboBox object.
+    """The abstract definition of a proxy FontComboBox object."""
 
-    """
     #: A reference to the FontComboBox declaration.
     declaration = ForwardTyped(lambda: FontComboBox)
 
@@ -15,10 +14,11 @@ class ProxyFontComboBox(ProxyControl):
 
 
 class FontComboBox(Control):
-    """ A drop-down list from which a font can be selected at a time.
+    """A drop-down list from which a font can be selected at a time.
 
     Fonts are pulled from the system.
     """
+
     #: The font family currently selected.
     font = d_(Str())
 
