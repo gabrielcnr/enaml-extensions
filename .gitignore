@@ -36,6 +36,11 @@ var/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Virtual environments and tool caches
+.venv/
+.ruff_cache/
+.mypy_cache/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/

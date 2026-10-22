@@ -1,20 +1,86 @@
 [build-system]
-requires = ["setuptools>=30.3.0", "wheel", "setuptools_scm"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27", "hatch-vcs>=0.5"]
+build-backend = "hatchling.build"
 
-[tools.setuptools_scm]
-write_to="src/enamlext/_version.py"
+[project]
+name = "enaml-extensions"
+dynamic = ["version"]
+description = "Extra widgets and extensions for building UIs with Enaml"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Gabriel Reis", email = "gabrielcnr@gmail.com" }]
+keywords = ["enaml", "qt", "widgets", "extras", "extensions", "table", "qt-table", "ui", "gui"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: Software Development :: Widget Sets",
+    "Typing :: Typed",
+]
+dependencies = [
+    "atom>=0.12",
+    "enaml>=0.19",
+    "numpy>=1.26",
+    "qtpy>=2.4",
+]
 
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-envlist = py{310,311,312}
+[project.optional-dependencies]
+pyqt5 = ["PyQt5>=5.15"]
+pyqt6 = ["PyQt6>=6.5"]
+pyside6 = ["PySide6>=6.5"]
+dataframe = ["pandas>=2.1"]
+scintilla = ["QScintilla>=2.14"]
+ipython = ["qtconsole>=5.5"]
 
-[testenv]
-deps =
-    pytest
-    pytest-qt
-    pytest-mock
-    pandas
-commands = pytest -vv -s
-"""
+[project.urls]
+Homepage = "https://github.com/gabrielcnr/enaml-extensions"
+Source = "https://github.com/gabrielcnr/enaml-extensions"
+Issues = "https://github.com/gabrielcnr/enaml-extensions/issues"
+Changelog = "https://github.com/gabrielcnr/enaml-extensions/releases"
+
+[dependency-groups]
+test = [
+    "coverage[toml]>=7.10",
+    "pandas>=2.1",
+    "pytest>=9.0",
+    "pytest-mock>=3.14",
+    "pytest-qt>=4.5",
+]
+lint = [
+    "pre-commit>=4.3",
+    "ruff>=0.17",
+]
+typing = [
+    "mypy>=2.0",
+    "pandas-stubs>=2.2",
+    { include-group = "test" },
+]
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+    { include-group = "typing" },
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/enamlext/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/enamlext"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "examples", "README.md", "LICENSE"]
+
+[tool.uv]
+default-groups = ["dev"]
