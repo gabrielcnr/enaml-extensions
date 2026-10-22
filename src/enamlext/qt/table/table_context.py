@@ -1,7 +1,11 @@
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from qtpy.QtCore import QModelIndex
+
+if TYPE_CHECKING:
+    from enamlext.qt.qtable import QTableModel
+    from enamlext.qt.table.column import Column
 
 
 def default_convert(item):

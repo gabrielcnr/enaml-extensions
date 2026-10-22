@@ -1,4 +1,5 @@
 from atom.api import Atom, List, Str, Typed
+
 from enamlext.view_model import ViewModel
 
 

@@ -1,8 +1,9 @@
 import logging
 import threading
-from typing import TYPE_CHECKING, Callable
-
 import time
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 if TYPE_CHECKING:
@@ -17,8 +18,8 @@ def _monitor_df_changes(df_proxy):
 
     if df_proxy.instrumentation_enabled:
         logger.info(
-            'Starting DataFrameProxy thread for monitoring changes and refreshing ticking cells '
-            f'{threading.current_thread()}'
+            'Starting DataFrameProxy thread for monitoring changes and refreshing ticking cells %s',
+            threading.current_thread(),
         )
 
     from enaml.application import deferred_call
@@ -29,8 +30,7 @@ def _monitor_df_changes(df_proxy):
     while df_proxy.is_active():
         time.sleep(interval)
 
-        if df_proxy.instrumentation_enabled:
-            t0 = time.perf_counter()
+        t0 = time.perf_counter()
 
         with df_proxy.lock:
             new_values = df_proxy.df.values.copy()
@@ -46,10 +46,10 @@ def _monitor_df_changes(df_proxy):
 
         if df_proxy.instrumentation_enabled:
             elapsed = time.perf_counter() - t0
-            logger.info(f'It took {elapsed:.3f} s inside the monitoring thread')
+            logger.info('It took %.3f s inside the monitoring thread', elapsed)
 
     if df_proxy.instrumentation_enabled:
-        logger.info(f'Thread died: DataFrameProxy ticking monitor {threading.current_thread()}')
+        logger.info('Thread died: DataFrameProxy ticking monitor %s', threading.current_thread())
 
 
 class DataFrameProxy:
@@ -84,9 +84,8 @@ class DataFrameProxy:
 
     def update_values_and_refresh_cells(self, new_values, row_indexes, col_indexes):
         # must be called in the main thread!
-        if self.instrumentation_enabled:
-            t0 = time.perf_counter()
-
+        assert self.refresh_cells_callback is not None, 'only called for ticking frames'
+        t0 = time.perf_counter()
         self.values = new_values
         self.refresh_cells_callback(row_indexes, col_indexes)
 
@@ -94,7 +93,10 @@ class DataFrameProxy:
             elapsed = time.perf_counter() - t0
             changed_col_names = {i: self.df.columns[i] for i in set(col_indexes)}
             logger.info(
-                f'It took {elapsed:.3f} s inside the main thread refreshing {len(row_indexes)} cells - modified cols: {changed_col_names}'
+                'It took %.3f s inside the main thread refreshing %d cells - modified cols: %s',
+                elapsed,
+                len(row_indexes),
+                changed_col_names,
             )
 
     @property

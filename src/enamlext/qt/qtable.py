@@ -7,24 +7,46 @@ import operator
 import time
 import warnings
 import weakref
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
+from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import lru_cache
 from io import StringIO
-from typing import Optional, Any, List, Tuple, NamedTuple, Collection, Set, Iterable
+from typing import Any, NamedTuple, cast
+
+from qtpy.QtCore import (
+    QAbstractTableModel,
+    QItemSelection,
+    QItemSelectionModel,
+    QModelIndex,
+    QObject,
+    QPoint,
+    Qt,
+    Signal,
+)
+from qtpy.QtGui import QColor, QContextMenuEvent, QFont, QKeyEvent, QKeySequence, QMouseEvent, QPaintEvent, QPixmap
+from qtpy.QtWidgets import (
+    QAbstractItemView,
+    QAction,
+    QApplication,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QPushButton,
+    QTableView,
+    QVBoxLayout,
+    QWidget,
+)
 
 # Constants
-
-from enamlext.qt.table.column import Column, Alignment, AUTO_ALIGN
+from enamlext.qt.table.column import AUTO_ALIGN, Alignment, Column
 from enamlext.qt.table.defs import CellStyle
-from enamlext.qt.table.filtering import TableFilters, Filter
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QObject, QPoint, Signal, QItemSelection, QEvent
-from qtpy.QtGui import QContextMenuEvent, QFont, QColor, QPixmap, QKeySequence
-from qtpy.QtWidgets import QApplication, QTableView, QMenu, QAction
-
+from enamlext.qt.table.filtering import Filter, TableFilters
 from enamlext.qt.table.table_context import TableContext
-
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +54,15 @@ DEFAULT_ROW_HEIGHT = 23
 DEFAULT_FONT_NAME = 'Calibri'
 DEFAULT_FONT_SIZE_PX = 13
 
-CHECKBOX_FLAG = Qt.ItemNeverHasChildren | Qt.ItemIsEditable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
+CHECKBOX_FLAG = (
+    Qt.ItemFlag.ItemNeverHasChildren
+    | Qt.ItemFlag.ItemIsEditable
+    | Qt.ItemFlag.ItemIsUserCheckable
+    | Qt.ItemFlag.ItemIsEnabled
+)
 
 
-RED = QColor(Qt.red)
+RED = QColor(Qt.GlobalColor.red)
 
 
 class SelectionMode(Enum):
@@ -45,10 +72,30 @@ class SelectionMode(Enum):
     MULTI_ROWS = auto()
 
 
+QT_SELECTION = {
+    SelectionMode.SINGLE_CELL: (
+        QAbstractItemView.SelectionMode.SingleSelection,
+        QAbstractItemView.SelectionBehavior.SelectItems,
+    ),
+    SelectionMode.MULTI_CELLS: (
+        QAbstractItemView.SelectionMode.ExtendedSelection,
+        QAbstractItemView.SelectionBehavior.SelectItems,
+    ),
+    SelectionMode.SINGLE_ROW: (
+        QAbstractItemView.SelectionMode.SingleSelection,
+        QAbstractItemView.SelectionBehavior.SelectRows,
+    ),
+    SelectionMode.MULTI_ROWS: (
+        QAbstractItemView.SelectionMode.ExtendedSelection,
+        QAbstractItemView.SelectionBehavior.SelectRows,
+    ),
+}
+
+
 QT_ALIGNMENT_MAP = {
-    Alignment.LEFT: int(Qt.AlignLeft | Qt.AlignVCenter),
-    Alignment.CENTER: int(Qt.AlignCenter | Qt.AlignVCenter),
-    Alignment.RIGHT: int(Qt.AlignRight | Qt.AlignVCenter),
+    Alignment.LEFT: int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+    Alignment.CENTER: int(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter),
+    Alignment.RIGHT: int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
 }
 
 QtAlignment = int
@@ -94,7 +141,7 @@ def make_custom_font(font_spec: str) -> QFont:
             font.setPixelSize(int(token[:-2]))
             tokens.remove(token)
             break
-        elif token.endswith('pt'):
+        if token.endswith('pt'):
             font.setPointSize(int(token[:-2]))
             tokens.remove(token)
             break
@@ -122,18 +169,18 @@ class QTableModel(QAbstractTableModel):
 
     def __init__(
         self,
-        columns: List[Column],
-        items: Optional[List[Any]] = None,
+        columns: list[Column],
+        items: list[Any] | None = None,
         *,
         checkable: bool = False,
-        checked_items: Optional[Collection[Any]] = None,
-        parent: Optional[QObject] = None,
+        checked_items: Collection[Any] | None = None,
+        parent: QObject | None = None,
         error_handling: str = 'graceful',  # TODO: other modes
         convert_item=default_convert_item,
     ):
         super().__init__(parent)
         self.columns = columns
-        self._original_items = items
+        self._original_items: Iterable[Any] = [] if items is None else items
         self.checkable = checkable
         self.error_handling = error_handling
         if convert_item is None:
@@ -141,7 +188,7 @@ class QTableModel(QAbstractTableModel):
         self.convert_item = convert_item
 
         # Filtering
-        self._filtered_items = None
+        self._filtered_items: list[Any] = []
         self.filters = TableFilters()
         self._apply_filters()
 
@@ -151,7 +198,8 @@ class QTableModel(QAbstractTableModel):
         if not isinstance(checked_items, set):
             warnings.warn(
                 f'QTableModel checked_items is recommend to be a '
-                f'set, but got: {type(checked_items).__name__} instead - coercing to set'
+                f'set, but got: {type(checked_items).__name__} instead - coercing to set',
+                stacklevel=2,
             )
             checked_items = set(checked_items)
         self.checked_items = checked_items
@@ -159,29 +207,28 @@ class QTableModel(QAbstractTableModel):
         self._font = self._create_font()  # cache the font
         self._font_bold = self._create_font(bold=True)
 
-        self._last_sorting_column = None
+        self._last_sorting_column: tuple[Column, int, Qt.SortOrder] | None = None
 
-        self._cell_style_cache: Optional[dict] = None
+        self._cell_style_cache: dict | None = None
 
     def __len__(self):
         return len(self.items)  # O(1)
 
     # QAbstractTableModel interface -----------------------------------------------------------------------------------
 
-    def rowCount(self, parent: Optional[QModelIndex] = None) -> int:
+    def rowCount(self, parent: QModelIndex | None = None) -> int:
         return len(self.items)  # O(1)
 
-    def columnCount(self, parent: Optional[QModelIndex] = None) -> int:
+    def columnCount(self, parent: QModelIndex | None = None) -> int:
         return len(self.columns) + int(self.checkable)  # O(1)
 
-    def flags(self, index: QModelIndex) -> Qt.ItemFlags:
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         column_index = index.column()
         if column_index == 0 and self.checkable:
             return CHECKBOX_FLAG
-        else:
-            return super().flags(index)
+        return super().flags(index)
 
-    def data(self, index: QModelIndex, role: int) -> Any:
+    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         column = self.get_column_by_index(index.column())
         if column.collect_stats:
             t0 = time.perf_counter()
@@ -189,24 +236,17 @@ class QTableModel(QAbstractTableModel):
             t1 = time.perf_counter()
             column.record_stats(role=role, elapsed=t1 - t0)
             return result
-        else:
-            return self._data(index, role)
+        return self._data(index, role)
 
     def _data(self, index, role):
-        if role == Qt.DisplayRole:
-            if self.checkable:
-                offset = 1
-            else:
-                offset = 0
+        if role == Qt.ItemDataRole.DisplayRole:
+            offset = 1 if self.checkable else 0
             if (col_index := index.column()) or not self.checkable:
                 column = self.columns[col_index - offset]  # O(1)
                 item = self.items[index.row()]  # O(1)
                 return column.get_displayed_value(item)
-        elif role == Qt.TextAlignmentRole:
-            if self.checkable:
-                offset = 1
-            else:
-                offset = 0
+        elif role == Qt.ItemDataRole.TextAlignmentRole:
+            offset = 1 if self.checkable else 0
             # Only the first column is checkable (index = 0) - so we need to account for that offset
             if (col_index := index.column()) or not self.checkable:
                 column = self.columns[col_index - offset]  # O(1)
@@ -220,12 +260,16 @@ class QTableModel(QAbstractTableModel):
                 except Exception as exc:
                     if self.error_handling == 'graceful':
                         logger.warning(
-                            f'Error when resolving alignment for column: {col_index = }, '
-                            f'{column.title = !r}, {index.row() = }, {exc = }'
+                            'Error when resolving alignment for column: col_index = %r, '
+                            'column.title = %r, index.row() = %r, exc = %r',
+                            col_index,
+                            column.title,
+                            index.row(),
+                            exc,
                         )
                     else:
                         raise
-        elif role == Qt.ToolTipRole:
+        elif role == Qt.ItemDataRole.ToolTipRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
             context = TableContext(
@@ -237,17 +281,16 @@ class QTableModel(QAbstractTableModel):
                 convert=self.convert_item,
             )  # TODO: should we check if the column has a tooltip callback before creating this?
             return column.get_tooltip(context)
-        elif role == Qt.CheckStateRole and self.checkable and index.column() == 0:
+        elif role == Qt.ItemDataRole.CheckStateRole and self.checkable and index.column() == 0:
             # TODO: think about using the check state of the vertical header to control checked items
             #       what if we want to have more than 1 column that is checkable?
             #       should we keep a collection of checked items separately or should we consider wrapping each
             #       item in a wrapper object that holds the checked state? how about a proxy object?
             item = self.items[index.row()]  # O(1)
             if item in self.checked_items:
-                return Qt.Checked
-            else:
-                return Qt.Unchecked
-        elif role == Qt.FontRole:
+                return Qt.CheckState.Checked
+            return Qt.CheckState.Unchecked
+        elif role == Qt.ItemDataRole.FontRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
             if column.cell_style is not None:
@@ -258,15 +301,19 @@ class QTableModel(QAbstractTableModel):
                 except Exception as exc:
                     if self.error_handling == 'graceful':
                         logger.warning(
-                            f'Error when resolving font for column: {col_index = }, '
-                            f'{column.title = !r}, {index.row() = }, {exc = }'
+                            'Error when resolving font for column: col_index = %r, '
+                            'column.title = %r, index.row() = %r, exc = %r',
+                            col_index,
+                            column.title,
+                            index.row(),
+                            exc,
                         )
                     else:
                         raise
 
             return self._font
 
-        elif role == Qt.ForegroundRole:
+        elif role == Qt.ItemDataRole.ForegroundRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
             if column.cell_style is not None:
@@ -277,13 +324,17 @@ class QTableModel(QAbstractTableModel):
                 except Exception as exc:
                     if self.error_handling == 'graceful':
                         logger.warning(
-                            f'Error when resolving foreground colour style for column: {col_index = }, '
-                            f'{column.title = !r}, {index.row() = }, {exc = }'
+                            'Error when resolving foreground colour style for column: col_index = %r, '
+                            'column.title = %r, index.row() = %r, exc = %r',
+                            col_index,
+                            column.title,
+                            index.row(),
+                            exc,
                         )
                     else:
                         raise
 
-        elif role == Qt.BackgroundColorRole:
+        elif role == Qt.ItemDataRole.BackgroundRole:
             col_index = index.column()
             column = self.get_column_by_index(col_index)
             if column.cell_style is not None:
@@ -294,13 +345,17 @@ class QTableModel(QAbstractTableModel):
                 except Exception as exc:
                     if self.error_handling == 'graceful':
                         logger.warning(
-                            f'Error when resolving background colour style for column: {col_index = }, '
-                            f'{column.title = !r}, {index.row() = }, {exc = }'
+                            'Error when resolving background colour style for column: col_index = %r, '
+                            'column.title = %r, index.row() = %r, exc = %r',
+                            col_index,
+                            column.title,
+                            index.row(),
+                            exc,
                         )
                     else:
                         raise
 
-        elif role == Qt.DecorationRole:  # TODO: refactor (DRY)
+        elif role == Qt.ItemDataRole.DecorationRole:  # TODO: refactor (DRY)
             col_index = index.column()
             column = self.get_column_by_index(col_index)
             if column.image is not None:
@@ -315,7 +370,7 @@ class QTableModel(QAbstractTableModel):
                 if image := column.get_image(context):
                     return _load_scaled_pixmap(image)
 
-    def _get_cell_style(self, index: QModelIndex, role: int, col_index: int, column: Column) -> Optional[CellStyle]:
+    def _get_cell_style(self, index: QModelIndex, role: int, col_index: int, column: Column) -> CellStyle | None:
         key = (index.row(), col_index)
         cache = self._cell_style_cache
         if cache is not None and key in cache:
@@ -366,60 +421,59 @@ class QTableModel(QAbstractTableModel):
 
             def sort_key(item):
                 value = column.get_value(item)
-                if isinstance(value, float):
-                    if math.isnan(value):
-                        return float('-inf')
+                if isinstance(value, float) and math.isnan(value):
+                    return float('-inf')
                 return value
 
-            descending = order == Qt.DescendingOrder  # Qt6 enums are not ints, so never truth-test them
+            descending = order == Qt.SortOrder.DescendingOrder  # Qt6 enums are not ints, so never truth-test them
             self._filtered_items = sorted(self._filtered_items, key=sort_key, reverse=descending)
             self.endResetModel()
 
-    def setData(self, index: QModelIndex, value: Any, role: int) -> bool:
-        if index.column() == 0 and role == Qt.CheckStateRole and self.checkable:
+    def setData(self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole) -> bool:
+        if index.column() == 0 and role == Qt.ItemDataRole.CheckStateRole and self.checkable:
             item = self.items[index.row()]
-            if value == Qt.Checked:
+            if value == Qt.CheckState.Checked:
                 self.checked_items.add(item)
                 self.on_checked_items.emit(self.checked_items)
                 return True
-            elif value == Qt.Unchecked:
+            if value == Qt.CheckState.Unchecked:
                 self.checked_items.discard(item)
                 self.on_checked_items.emit(self.checked_items)
                 return True
 
         return False
 
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
-        if orientation == Qt.Horizontal:
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
+        if orientation == Qt.Orientation.Horizontal:
             if self.checkable:
                 offset = 1
 
                 # TEMP
                 if section == 0:
-                    return
+                    return None
                 # END OF TEMP
             else:
                 offset = 0
 
-            if role == Qt.DisplayRole:
+            if role == Qt.ItemDataRole.DisplayRole:
                 column = self.columns[section - offset]  # O(1)
                 if column.title is not None:
                     return column.title
-            elif role == Qt.TextAlignmentRole:
+            elif role == Qt.ItemDataRole.TextAlignmentRole:
                 column = self.columns[section - offset]  # O(1)
                 if len(self):
-                    first_item = self.items[0]
-                    align = column.get_align(first_item)
+                    align = column.get_align(self.items[0])
+                elif column.align is AUTO_ALIGN:
+                    align = Alignment.LEFT
                 else:
-                    if (align := column.align) is AUTO_ALIGN:
-                        align = Alignment.LEFT
+                    align = column.align
                 return to_qt_alignment(align)
-            elif role == Qt.ForegroundRole:
+            elif role == Qt.ItemDataRole.ForegroundRole:
                 column = self.columns[section - offset]  # O(1)
                 if column in self.filters:
                     return RED
 
-            elif role == Qt.FontRole:
+            elif role == Qt.ItemDataRole.FontRole:
                 column = self.columns[section - offset]  # O(1)
                 if column in self.filters:
                     return self._font_bold
@@ -441,7 +495,7 @@ class QTableModel(QAbstractTableModel):
             return column.get_value(item)
 
     @property
-    def items(self) -> List[Any]:
+    def items(self) -> list[Any]:
         """read from the filtered items"""
         return self._filtered_items
 
@@ -452,12 +506,11 @@ class QTableModel(QAbstractTableModel):
         self._apply_filters()
         try:
             self._apply_sorting()
-        except (IndexError, KeyError) as ex:
-            print('it was not possible to re-apply sorting configuration: {ex}')
+        except (IndexError, KeyError) as exc:
+            logger.warning('It was not possible to re-apply the sorting configuration: %r', exc)
 
     def set_filter(self, column: Column, expression: str) -> None:
-        filter = Filter(column, expression)
-        self.filters.add_filter(filter)
+        self.filters.add_filter(Filter(column, expression))
         self._apply_filters()
 
     def _apply_filters(self) -> None:
@@ -480,7 +533,8 @@ class QTableModel(QAbstractTableModel):
         if self.filters:
             self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
         else:
-            self._filtered_items = self._original_items
+            # Keep the caller's sequence (e.g. a DataFrameProxy) rather than copying it.
+            self._filtered_items = cast('list[Any]', self._original_items)
 
     def _create_font(self, bold: bool = False) -> QFont:
         font = QFont(DEFAULT_FONT_NAME)
@@ -496,7 +550,7 @@ class DoubleClickContext:
         self.__table = table
 
     @property
-    def cell(self) -> Tuple[int, int]:
+    def cell(self) -> tuple[int, int]:
         return (self.row_index, self.column_index)
 
     @property
@@ -531,10 +585,10 @@ class SelectionContext:
     def __init__(
         self,
         table: 'QTable',
-        selected_indexes: List[QModelIndex],
+        selected_indexes: list[QModelIndex],
         current: QModelIndex,
-        added: Optional[List[QModelIndex]],
-        removed: Optional[List[QModelIndex]],
+        added: list[QModelIndex] | None,
+        removed: list[QModelIndex] | None,
     ):
         self.__table = weakref.ref(table)
         self.selected_model_indexes = selected_indexes
@@ -543,39 +597,42 @@ class SelectionContext:
         self.current_model_index = current
 
     @property
-    def selected_indexes(self) -> List[Cell]:
-        return [(i.row(), i.column()) for i in self.selected_model_indexes]
+    def selected_indexes(self) -> list[Cell]:
+        return [Cell(i.row(), i.column()) for i in self.selected_model_indexes]
 
     @property
-    def added_indexes(self) -> Optional[List[Cell]]:
+    def added_indexes(self) -> list[Cell] | None:
         if self.added_model_indexes:
-            return [(i.row(), i.column()) for i in self.added_model_indexes]
+            return [Cell(i.row(), i.column()) for i in self.added_model_indexes]
+        return None
 
     @property
-    def removed_indexes(self) -> Optional[List[Cell]]:
+    def removed_indexes(self) -> list[Cell] | None:
         if self.removed_model_indexes:
-            return [(i.row(), i.column()) for i in self.removed_model_indexes]
+            return [Cell(i.row(), i.column()) for i in self.removed_model_indexes]
+        return None
 
     @property
     def current_index(self) -> Cell:
-        return (self.current_model_index.row(), self.current_model_index.column())
+        return Cell(self.current_model_index.row(), self.current_model_index.column())
 
     # TODO: distinguish between when selection is based on single cell, single row,
     #       multiple cells, multiple rows
     @property
-    def selected_items(self) -> List[Any]:
+    def selected_items(self) -> list[Any] | None:
         table = self.__table()
-        if table is not None:
-            row_indexes = (i.row() for i in self.selected_model_indexes)
-            return [table.model().get_item_by_index(i) for i in set(row_indexes)]
+        if table is None:
+            return None
+        row_indexes = (i.row() for i in self.selected_model_indexes)
+        return [table.model().get_item_by_index(i) for i in set(row_indexes)]
 
     @property
-    def selected_values(self) -> List[Any]:  # TODO: generator?
+    def selected_values(self) -> Iterator[tuple[Cell, Any]]:
         table = self.__table()
         if table is not None:
             get_cell_value = table.model().get_cell_value
             for row_index, column_index in self.selected_indexes:
-                yield ((row_index, column_index), get_cell_value(row_index, column_index))
+                yield Cell(row_index, column_index), get_cell_value(row_index, column_index)
 
 
 class QTable(QTableView):
@@ -594,15 +651,15 @@ class QTable(QTableView):
 
     def __init__(
         self,
-        columns: List[Column],
-        items: Optional[List[Any]] = None,
+        columns: list[Column],
+        items: list[Any] | None = None,
         *,
         checkable: bool = False,
-        context_menu: List['ContextMenuAction'] = None,
+        context_menu: list['ContextMenuAction'] | None = None,
         alternate_row_colors: bool = True,
-        checked_items: Collection[Any] = None,
+        checked_items: Collection[Any] | None = None,
         sortable: bool = True,
-        parent: QObject = None,
+        parent: QWidget | None = None,
         convert_item=None,
     ):
         super().__init__(parent=parent)
@@ -610,7 +667,7 @@ class QTable(QTableView):
         if items is None:
             items = []
         self.items = items
-        self.context_menu = context_menu
+        self.context_menu = context_menu or []
         self.setAlternatingRowColors(alternate_row_colors)
         self.doubleClicked.connect(self.on_double_clicked)
         model = QTableModel(
@@ -627,26 +684,46 @@ class QTable(QTableView):
         #       this will prevent from view and model getting out of sync
 
         # Horizontal header with filter capabilities
-        h_header = QFilterableHeaderView(Qt.Horizontal, parent=self)
+        h_header = QFilterableHeaderView(Qt.Orientation.Horizontal, parent=self)
         h_header.filterChanged.connect(self.on_filter_changed)
         h_header.setSectionsClickable(True)
         h_header.setSortIndicatorShown(True)
         self.setHorizontalHeader(h_header)
 
-        self.__selection_mode_override = None
+        self.__selection_mode = SelectionMode.MULTI_CELLS  # QTableView's own default: extended, per-item
+        self.__selection_mode_override: SelectionMode | None = None
 
-    def paintEvent(self, event):
+    # QTable installs its model, headers and selection model in __init__ and never removes them,
+    # so these accessors narrow away the `| None` the Qt stubs declare.
+    def model(self) -> QTableModel:
+        return cast('QTableModel', super().model())
+
+    def horizontalHeader(self) -> QHeaderView:
+        return cast('QHeaderView', super().horizontalHeader())
+
+    def verticalHeader(self) -> QHeaderView:
+        return cast('QHeaderView', super().verticalHeader())
+
+    def selectionModel(self) -> QItemSelectionModel:
+        return cast('QItemSelectionModel', super().selectionModel())
+
+    def paintEvent(self, event: QPaintEvent | None) -> None:
         # Font, Foreground and Background share one CellStyle per cell; scoping the
         # cache to a single paint means it can never serve a stale style.
         with self.model().caching_cell_styles():
             super().paintEvent(event)
 
-    def keyPressEvent(self, event: QEvent):
+    def keyPressEvent(self, event: QKeyEvent | None) -> None:
         """Supports copying when multiple cells are selected."""
-        if event.matches(QKeySequence.Copy):
+        if event is None:
+            return super().keyPressEvent(event)
+        if event.matches(QKeySequence.StandardKey.Copy):
             selected_indexes = self.selectedIndexes()
             if selected_indexes:
-                data = ((i.row(), i.column(), self.model().data(i, role=Qt.DisplayRole)) for i in selected_indexes)
+                data = (
+                    (i.row(), i.column(), self.model().data(i, role=Qt.ItemDataRole.DisplayRole))
+                    for i in selected_indexes
+                )
                 rows = (
                     (v for _, _, v in cells) for _, cells in itertools.groupby(sorted(data), key=operator.itemgetter(0))
                 )
@@ -656,8 +733,11 @@ class QTable(QTableView):
                 writer.writerows(rows)
 
                 sio.seek(0)
-                QApplication.clipboard().setText(sio.read())
-        elif (event.modifiers() & Qt.ControlModifier) and (event.modifiers() & Qt.AltModifier):
+                if (clipboard := QApplication.clipboard()) is not None:
+                    clipboard.setText(sio.read())
+        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (
+            event.modifiers() & Qt.KeyboardModifier.AltModifier
+        ):
             if self.__selection_mode_override is None:
                 self.__selection_mode_override = self.__selection_mode
                 self.set_selection_mode(SelectionMode.MULTI_CELLS)
@@ -665,11 +745,15 @@ class QTable(QTableView):
         else:
             return super().keyPressEvent(event)
 
-    def keyReleaseEvent(self, event: QEvent) -> None:
-        if not ((event.modifiers() & Qt.ControlModifier) and (event.modifiers() & Qt.AltModifier)):
-            if self.__selection_mode_override is not None:
-                self.set_selection_mode(self.__selection_mode_override)
-                self.__selection_mode_override = None
+    def keyReleaseEvent(self, event: QKeyEvent | None) -> None:
+        if event is None:
+            return super().keyReleaseEvent(event)
+        ctrl_alt_held = (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (
+            event.modifiers() & Qt.KeyboardModifier.AltModifier
+        )
+        if not ctrl_alt_held and self.__selection_mode_override is not None:
+            self.set_selection_mode(self.__selection_mode_override)
+            self.__selection_mode_override = None
         return super().keyReleaseEvent(event)
 
     def on_filter_changed(self, column: Column, expression: str) -> None:
@@ -679,22 +763,22 @@ class QTable(QTableView):
         self.model().clear_filters()
 
     @property
-    def columns(self) -> List[Column]:
+    def columns(self) -> list[Column]:
         return self._columns
 
     @columns.setter
-    def columns(self, columns: List[Column]):
+    def columns(self, columns: list[Column]):
         self._columns = columns
         # refresh the model
         if self.model() is not None:
             self.model().columns = columns
 
     @property
-    def items(self) -> List:
+    def items(self) -> list:
         return self._items
 
     @items.setter
-    def items(self, items: List[Any]):
+    def items(self, items: list[Any]):
         self._items = items
         # refresh the model
         if self.model() is not None:
@@ -765,26 +849,17 @@ class QTable(QTableView):
         if len(rows) == 0:
             return
         by_row: dict[int, list[int]] = {}
-        for r, c in zip(rows, cols):
+        for r, c in zip(rows, cols, strict=True):
             by_row.setdefault(int(r), []).append(int(c))
         for row, row_cols in by_row.items():
             cmin = min(row_cols)
             cmax = max(row_cols)
             m.dataChanged.emit(m.index(row, cmin), m.index(row, cmax))
 
-    def set_selection_mode(self, selection_mode: SelectionMode):
-        if selection_mode == SelectionMode.SINGLE_CELL:
-            self.setSelectionMode(self.SingleSelection)
-            self.setSelectionBehavior(self.SelectItems)
-        elif selection_mode == SelectionMode.MULTI_CELLS:
-            self.setSelectionMode(self.ExtendedSelection)
-            self.setSelectionBehavior(self.SelectItems)
-        elif selection_mode == SelectionMode.SINGLE_ROW:
-            self.setSelectionMode(self.SingleSelection)
-            self.setSelectionBehavior(self.SelectRows)
-        elif selection_mode == SelectionMode.MULTI_ROWS:
-            self.setSelectionMode(self.ExtendedSelection)
-            self.setSelectionBehavior(self.SelectRows)
+    def set_selection_mode(self, selection_mode: SelectionMode) -> None:
+        mode, behavior = QT_SELECTION[selection_mode]
+        self.setSelectionMode(mode)
+        self.setSelectionBehavior(behavior)
         self.__selection_mode = selection_mode
 
     # Header visibility controls
@@ -809,7 +884,9 @@ class QTable(QTableView):
 
     # Context Menu
 
-    def contextMenuEvent(self, event: QContextMenuEvent):
+    def contextMenuEvent(self, event: QContextMenuEvent | None) -> None:
+        if event is None:
+            return
         default_actions = [ResetFiltersAction(table=self)]
         context_menu = self.context_menu + default_actions
 
@@ -829,7 +906,7 @@ class QTable(QTableView):
                 menu.addAction(action)
 
             pos = self.mapToGlobal(event.pos())
-            menu.exec_(pos)
+            menu.exec(pos)
 
     # Double Click
 
@@ -854,27 +931,25 @@ class QTable(QTableView):
         self.on_selection.emit(selection_context)
 
     def get_current_selection_context(self) -> SelectionContext:
-        selection_context = SelectionContext(
+        return SelectionContext(
             table=self,
             selected_indexes=self.selectionModel().selectedIndexes(),
             added=None,
             removed=None,
             current=self.currentIndex(),
         )
-        return selection_context
 
     # Checked Items
 
-    def on_model_checked_items_changed(self, checked_items: Set):
+    def on_model_checked_items_changed(self, checked_items: set):
         """Just passes along the notification of the change on the checked items."""
         self.on_checked_items.emit(checked_items)
 
     @property
-    def checked_items(self) -> Set:
+    def checked_items(self) -> set:
         if self.checkable:
             return self.model().checked_items
-        else:
-            return set()
+        return set()
 
     # Column Sizes
     def adjust_column_sizes(self) -> None:
@@ -893,7 +968,7 @@ class QTable(QTableView):
                 get_displayed_value = col.get_displayed_value
                 size = 20
                 for row_index in range(min(model.rowCount(), 1000)):
-                    size = max(size, fm.width(get_displayed_value(items[row_index])))
+                    size = max(size, fm.horizontalAdvance(get_displayed_value(items[row_index])))
                 self.horizontalHeader().resizeSection(i, size + 10)
             elif isinstance(col.size, int):
                 self.horizontalHeader().resizeSection(i, col.size)
@@ -947,20 +1022,23 @@ class MenuActionContext:
             return self.model.get_item_by_index(row_index)
 
     @property
-    def column(self) -> Column:
+    def column(self) -> Column | None:
         if (col_index := self.column_index) != -1:
             return self.model.get_column_by_index(col_index)
+        return None
 
     @property
     def raw_value(self) -> Any:
-        if (item := self.item) is not None:  # TODO: use a different sentinel here?
-            return self.column.get_value(item)
+        if (item := self.item) is not None and (column := self.column) is not None:  # TODO: use a different sentinel?
+            return column.get_value(item)
+        return None
 
     @property
-    def value(self) -> str:
+    def value(self) -> str | None:
         """Returns the displayed value."""
-        if (item := self.item) is not None:  # TODO: use a different sentinel here?
-            return self.column.get_displayed_value(item)
+        if (item := self.item) is not None and (column := self.column) is not None:  # TODO: use a different sentinel?
+            return column.get_displayed_value(item)
+        return None
 
 
 class ContextMenuAction(ABC):
@@ -969,7 +1047,7 @@ class ContextMenuAction(ABC):
         pass
 
     @abstractmethod
-    def get_caption(self, context: MenuActionContext) -> bool:
+    def get_caption(self, context: MenuActionContext) -> str:
         pass
 
     @abstractmethod
@@ -984,14 +1062,11 @@ class ResetFiltersAction(ContextMenuAction):
     def is_enabled(self, context: MenuActionContext) -> bool:
         return bool(self.table.model().filters)
 
-    def get_caption(self, context: MenuActionContext) -> bool:
+    def get_caption(self, context: MenuActionContext) -> str:
         return 'Reset Filters'
 
     def execute(self, context: MenuActionContext) -> None:
         self.table.clear_filters()
-
-
-from qtpy.QtWidgets import QWidget, QHeaderView, QLineEdit, QPushButton, QGroupBox, QHBoxLayout, QVBoxLayout, QLabel
 
 
 class QFilterWidget(QWidget):
@@ -1042,34 +1117,33 @@ class QFilterWidget(QWidget):
 
         self.setLayout(layout)
 
-        self.setWindowFlags(Qt.Popup)
+        self.setWindowFlags(Qt.WindowType.Popup)
         self.resize(200, 80)
 
-    def show(self, global_pos):
+    def popup(self, global_pos: QPoint) -> None:
         self.move(global_pos)
-        super().show()
+        self.show()
         self._input_field.setFocus()
 
-    def _notify_callback(self, *args):
-        expression = str(self._input_field.text()).strip()
+    def _notify_callback(self, *args: object) -> None:
+        expression = self._input_field.text().strip()
         self.callback(self.column, expression)
-        self._input_field = None
         self.close()
 
 
 class QFilterableHeaderView(QHeaderView):
     filterChanged = Signal(Column, str)
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.RightButton:
-            table: QTable = self.parent()
-            model: QTableModel = table.model()
-            column_index = self.logicalIndexAt(event.pos())
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:
+        if event is not None and event.button() == Qt.MouseButton.RightButton:
+            table = cast('QTable', self.parent())
+            model = table.model()
+            column_index = self.logicalIndexAt(event.position().toPoint())
             column = model.get_column_by_index(column_index)
             filter_widget = QFilterWidget(column, self.filter_callback, model.filters, parent=table)
-            filter_widget.show(event.globalPos())
+            filter_widget.popup(event.globalPosition().toPoint())
 
-        return super().mousePressEvent(event)
+        super().mousePressEvent(event)
 
     def filter_callback(self, column: Column, expression: str):
         # TODO: use column index?
@@ -1082,6 +1156,7 @@ def debug_trace():
     """
     import pdb
     import sys
+
     from qtpy import QtCore
 
     # Only PyQt installs an input hook that fights pdb for stdin; PySide has none to remove.
@@ -1091,7 +1166,7 @@ def debug_trace():
     debugger = pdb.Pdb()
     debugger.reset()
     # custom next to get outside of function scope
-    debugger.do_next(None)  # run the next command
+    debugger.do_next('')  # run the next command
     users_frame = sys._getframe().f_back  # frame where the user invoked `pyqt_set_trace()`
     debugger.interaction(users_frame, None)
 
@@ -1099,10 +1174,9 @@ def debug_trace():
 
 
 if __name__ == '__main__':
-    import uuid
-
     # Making Ctrl+C work
     import signal
+    import uuid
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
@@ -1117,9 +1191,10 @@ if __name__ == '__main__':
         item = table_context.item
         return f'{item.name} is {item.age} years old'
 
-    def age_cell_style(table_context: TableContext) -> CellStyle:
+    def age_cell_style(table_context: TableContext) -> CellStyle | None:
         if table_context.item.age > 30:
             return CellStyle(color=QColor(200, 20, 100))
+        return None
 
     columns = [
         Column('name', title='Name'),
@@ -1128,14 +1203,14 @@ if __name__ == '__main__':
 
     @dataclass(frozen=True)
     class Person:
-        id: str
+        id: uuid.UUID
         name: str
         age: int
         sex: str
 
-    people_kwargs = [
-        dict(name='John', age=33, sex='M'),
-        dict(name='Pam', age=22, sex='F'),
+    people_kwargs: list[dict[str, Any]] = [
+        {'name': 'John', 'age': 33, 'sex': 'M'},
+        {'name': 'Pam', 'age': 22, 'sex': 'F'},
     ]
 
     items = [Person(id=uuid.uuid4(), **kw) for kw in itertools.islice(itertools.cycle(people_kwargs), 0, 10)]
@@ -1169,7 +1244,7 @@ if __name__ == '__main__':
 
     def double_click_callback(context: DoubleClickContext):
         print(
-            f'Double click happened:',
+            'Double click happened:',
             f'  cell = {context.cell}',
             f'  column = {context.column}',
             f'  raw_value = {context.raw_value}',
@@ -1196,4 +1271,4 @@ if __name__ == '__main__':
 
     table.show()
 
-    app.exec_()
+    app.exec()

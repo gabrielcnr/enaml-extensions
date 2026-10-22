@@ -1,1 +1,3 @@
-from ._editor import create_editor, Editor
+from ._editor import Editor, create_editor
+
+__all__ = ['Editor', 'create_editor']

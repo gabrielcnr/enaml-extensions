@@ -1,8 +1,7 @@
-from atom.api import Typed, ForwardTyped, Int, observe
+from atom.api import ForwardTyped, Int, Typed, observe
 from atom.typing_utils import ChangeDict
-
 from enaml.core.declarative import d_
-
+from enaml.qt.qt_factories import QT_FACTORIES
 from enaml.widgets.control import Control, ProxyControl
 
 
@@ -31,7 +30,7 @@ class TrafficLight(Control):
 
     @observe('color', 'radius')
     def _update_proxy(self, change: ChangeDict) -> None:
-        super(TrafficLight, self)._update_proxy(change)
+        super()._update_proxy(change)
 
 
 def traffic_light_factory():
@@ -39,7 +38,5 @@ def traffic_light_factory():
 
     return QtTrafficLight
 
-
-from enaml.qt.qt_factories import QT_FACTORIES
 
 QT_FACTORIES['TrafficLight'] = traffic_light_factory

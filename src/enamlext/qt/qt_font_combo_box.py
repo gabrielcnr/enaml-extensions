@@ -1,10 +1,9 @@
-from atom.api import Typed, Int
-from enaml.qt.QtWidgets import QFontComboBox
-from enaml.qt.QtGui import QFont
+from atom.api import Int, Typed
 from enaml.qt.qt_control import QtControl
+from enaml.qt.QtGui import QFont
+from enaml.qt.QtWidgets import QFontComboBox
 
-from enamlext.widgets.font_combo_box import ProxyFontComboBox
-
+from enamlext.widgets.font_combo_box import FontComboBox, ProxyFontComboBox
 
 # cyclic notification guard flags
 INDEX_GUARD = 0x1
@@ -14,7 +13,8 @@ class QtFontComboBox(QtControl, ProxyFontComboBox):
     """A Qt implementation of an Enaml FontComboBox."""
 
     #: A reference to the widget created by the proxy.
-    widget = Typed(QFontComboBox)
+    widget = Typed(QFontComboBox, optional=False)
+    declaration: FontComboBox  # always set once the proxy is active
 
     # TODO: context manager
     #: Cyclic notification guard. This a bitfield of multiple guards.

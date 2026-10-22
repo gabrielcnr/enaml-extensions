@@ -2,7 +2,7 @@ from atom.api import Atom, Str
 from enaml.widgets.api import Field
 
 from enamlext.auto import create_editor
-from enamlext.auto._editor import connect, Editor
+from enamlext.auto._editor import Editor, connect
 
 
 class Person(Atom):
@@ -13,7 +13,7 @@ def test_simple_editor():
     person = Person()
     editor = create_editor(person)
 
-    assert 2 == len(editor.children)
+    assert len(editor.children) == 2
 
 
 def test_exclude():
@@ -23,7 +23,7 @@ def test_exclude():
     person = Person2()
     editor = create_editor(person)
 
-    assert 0 == len(editor.children)
+    assert len(editor.children) == 0
 
 
 def test_connect():

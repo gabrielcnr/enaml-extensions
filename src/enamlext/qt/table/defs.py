@@ -1,13 +1,17 @@
+from collections.abc import Callable
 from enum import Enum
-from typing import TypedDict, Optional, Callable
+from typing import TYPE_CHECKING, TypedDict
 
 from qtpy.QtGui import QColor
 
+if TYPE_CHECKING:
+    from enamlext.qt.table.table_context import TableContext
+
 
 class CellStyle(TypedDict, total=False):
-    color: Optional[QColor]
-    background: Optional[QColor]
-    font: Optional[str]
+    color: QColor | None
+    background: QColor | None
+    font: str | None
 
 
 CellStyleCallback = Callable[['TableContext'], CellStyle]

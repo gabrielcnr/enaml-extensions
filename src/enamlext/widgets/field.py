@@ -1,6 +1,6 @@
-from enaml.widgets.api import Field as _Field
 from atom.api import Enum, List
 from enaml.core.declarative import d_
+from enaml.widgets.api import Field as _Field
 
 
 class Field(_Field):

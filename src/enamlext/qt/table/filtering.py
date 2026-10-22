@@ -1,4 +1,5 @@
-from typing import Iterable, Generator, Any, List, Optional
+from collections.abc import Generator, Iterable
+from typing import Any
 
 from enamlext.qt.table.column import Column
 
@@ -17,11 +18,7 @@ class Filter:
     def _expression_startswith_operator(self, expression: str) -> bool:
         operators = {'>', '<', '>=', '<=', '==', '!='}
 
-        for op in operators:
-            if expression.startswith(op):
-                return True
-
-        return False
+        return any(expression.startswith(op) for op in operators)
 
     def _generate_filter_evaluation_callback(self):
         if self._expression_startswith_operator(self.expression):
@@ -58,10 +55,8 @@ class Filter:
 class TableFilters:
     """Collection of Filters."""
 
-    def __init__(self, filters: List[Filter] = None):
-        if filters is None:
-            filters = {}
-        self.filters = {f.column: f for f in filters}
+    def __init__(self, filters: list[Filter] | None = None):
+        self.filters = {f.column: f for f in filters or []}
 
     def __len__(self):
         return len(self.filters)
@@ -76,10 +71,7 @@ class TableFilters:
 
     def filter(self, item: Any) -> bool:
         """Returns True if the given item is included after evaluating all the filters."""
-        for filter in self.filters.values():
-            if not filter(item):
-                return False
-        return True
+        return all(column_filter(item) for column_filter in self.filters.values())
 
     def add_filter(self, filter: Filter) -> None:
         if filter.expression:
@@ -87,7 +79,7 @@ class TableFilters:
         else:
             self.filters.pop(filter.column, None)
 
-    def get(self, column: Column) -> Optional[Filter]:
+    def get(self, column: Column) -> Filter | None:
         return self.filters.get(column)
 
     def clear(self):

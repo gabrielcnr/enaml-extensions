@@ -1,4 +1,4 @@
-from atom.api import Str, Typed, ForwardTyped, set_default
+from atom.api import ForwardTyped, Str, Typed, set_default
 from enaml.core.declarative import d_
 from enaml.widgets.control import Control, ProxyControl
 

@@ -1,10 +1,10 @@
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QApplication, QHBoxLayout, QLayout
-from qtpy.QtGui import QPixmap, QColor, QPainter, QBrush, QPen
-from qtpy.QtCore import Qt
 from atom.api import Typed
 from enaml.qt.qt_control import QtControl
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QBrush, QColor, QPainter, QPen, QPixmap
+from qtpy.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from enamlext.widgets.traffic_light import ProxyTrafficLight
+from enamlext.widgets.traffic_light import ProxyTrafficLight, TrafficLight
 
 
 class TrafficLightWidget(QWidget):
@@ -22,6 +22,7 @@ class TrafficLightWidget(QWidget):
         self.radius = radius
 
         # Initialize the layout based on orientation
+        layout: QVBoxLayout | QHBoxLayout
         if orientation == 'vertical':
             layout = QVBoxLayout()
             self.setFixedSize(self.radius * 2 + 20, self.radius * 6 + 20)
@@ -65,7 +66,7 @@ class TrafficLightWidget(QWidget):
         self.set_light(None)  # Force a redraw with the new radius
         self.update()  # Force a repaint of the widget
 
-    def set_light(self, color: str) -> None:
+    def set_light(self, color: str | None) -> None:
         """
         Set the light to the given color ('red', 'yellow', 'green') or turn off all lights (None).
 
@@ -93,22 +94,23 @@ class TrafficLightWidget(QWidget):
         :param color: The QColor to set.
         """
         pixmap = QPixmap(self.radius * 2, self.radius * 2)
-        pixmap.fill(Qt.transparent)
+        pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
         painter.setBrush(QBrush(color))
-        painter.setPen(QPen(Qt.black, 2))
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
         painter.drawEllipse(0, 0, self.radius * 2, self.radius * 2)
         painter.end()
 
         label.setPixmap(pixmap)
-        label.setAlignment(Qt.AlignCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
 
 class QtTrafficLight(QtControl, ProxyTrafficLight):
     """A Qt implementation of an Enaml ProxyTrafficLight."""
 
     #: A reference to the widget created by the proxy.
-    widget = Typed(TrafficLightWidget)
+    widget = Typed(TrafficLightWidget, optional=False)
+    declaration: TrafficLight  # always set once the proxy is active
 
     # --------------------------------------------------------------------------
     # Initialization API
@@ -156,4 +158,4 @@ if __name__ == '__main__':
     main_widget.setLayout(main_layout)
     main_widget.show()
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

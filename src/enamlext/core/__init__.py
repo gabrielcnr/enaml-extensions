@@ -1,4 +1,4 @@
-from typing import Iterator, Callable
+from collections.abc import Callable, Iterator
 
 from enaml.widgets.main_window import MainWindow
 from enaml.widgets.widget import Widget
@@ -31,8 +31,8 @@ def iter_children(obj, type_=None):
 
 
 def register_shortcut(obj, key_sequence: str, callback: Callable[[], None]):
-    from qtpy.QtWidgets import QShortcut
     from qtpy.QtGui import QKeySequence
+    from qtpy.QtWidgets import QShortcut
 
     widget = obj.proxy.widget
 
@@ -50,7 +50,7 @@ def register_widget_shortcut(obj, key_sequence, callback):
     from qtpy.QtCore import Qt
 
     shortcut = register_shortcut(obj, key_sequence, callback)
-    shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+    shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
     return shortcut
 
 
@@ -58,7 +58,7 @@ def register_window_shortcut(obj, key_sequence, callback):
     from qtpy.QtCore import Qt
 
     shortcut = register_shortcut(get_window(obj), key_sequence, callback)
-    shortcut.setContext(Qt.WindowShortcut)
+    shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
     return shortcut
 
 
@@ -66,5 +66,5 @@ def register_application_shortcut(obj, key_sequence, callback):
     from qtpy.QtCore import Qt
 
     shortcut = register_shortcut(get_main_window(obj), key_sequence, callback)
-    shortcut.setContext(Qt.ApplicationShortcut)
+    shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
     return shortcut

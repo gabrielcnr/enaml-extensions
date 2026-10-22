@@ -14,7 +14,7 @@ def test_safe_set_without_application():
     model = Model()
     model.safe_set('value', 12)
 
-    assert 12 == model.value
+    assert model.value == 12
 
 
 def test_safe_set_with_application_from_main_ui_thread():
@@ -26,7 +26,7 @@ def test_safe_set_with_application_from_main_ui_thread():
     app = QtApplication()
 
     model.safe_set('value', 15)
-    assert 15 == model.value
+    assert model.value == 15
 
     app.destroy()
 

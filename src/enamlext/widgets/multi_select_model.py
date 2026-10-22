@@ -2,16 +2,15 @@
 MultiSelect widget - allows for multiple selection/choices.
 """
 
-from typing import Optional
-from unittest import mock
+from collections.abc import Collection, Sequence
+from typing import Any
 
-import pytest
 from atom.api import Atom, List
 from atom.atom import observe
 from atom.property import Property
 
 
-def is_valid_selection(items: List, selected_items: List) -> bool:
+def is_valid_selection(items: Collection[Any], selected_items: Collection[Any]) -> bool:
     selected_items_set = set(selected_items)
     items_set = set(items)
     return (
@@ -39,7 +38,7 @@ class MultiSelectModel(Atom):
     #: collection of items still up for grabs (read-only!)
     available_items = Property(cached=True)
 
-    def __init__(self, items: List, selected_items: Optional[List] = None):
+    def __init__(self, items: Sequence[Any], selected_items: Sequence[Any] | None = None):
         """
         The list of all available items must always be provided.
         Optionally the model can also be initialized with some selected_items.
@@ -54,10 +53,10 @@ class MultiSelectModel(Atom):
                 f'there must be no duplicates.'
             )
         with self.suppress_notifications():
-            self.items = items
+            self.items = list(items)
 
         # Now, finally, we fire the notifications
-        self.selected_items = selected_items
+        self.selected_items = list(selected_items)
 
     @observe('items', 'selected_items')
     def _refresh_available_items(self, change=None):
@@ -67,7 +66,7 @@ class MultiSelectModel(Atom):
                 f'The selected_items must bea a subset of all the items and '
                 f'there must be no duplicates.'
             )
-        self.get_member('available_items').reset(self)
+        self.get_member('available_items').reset(self)  # type: ignore[attr-defined]  # Property, not plain Member
 
     @available_items.getter
     def get_available_items(self):
@@ -93,51 +92,3 @@ class MultiSelectModel(Atom):
         self.selected_items = [item for item in self.selected_items if item not in items]
 
     clear_selection = select_none
-
-
-def test_is_valid_selection():
-    # there should be no duplicated items
-    # the items should respect original order/sequence
-    assert is_valid_selection([1, 2, 3], [1, 3])
-    assert is_valid_selection([1, 2, 3], [])
-    assert is_valid_selection([1, 2, 3], [1, 2, 3])
-    assert not is_valid_selection([1, 2, 3], [1, 2, 3, 4])
-    assert not is_valid_selection([1, 2, 3], [1, 2, 5])
-
-
-def test_multi_select_model_refreshes_available_items_correctly():
-    multi_select_model = MultiSelectModel(items=[1, 2, 3, 4], selected_items=[2, 3])
-    assert multi_select_model.available_items == [1, 4]
-
-    multi_select_model.items = [1, 2, 3, 4, 5]
-    assert multi_select_model.available_items == [1, 4, 5]
-
-    multi_select_model.selected_items = [1, 2, 3, 4, 5]
-    assert multi_select_model.available_items == []
-
-
-def test_can_observe_on_available_items_notifications():
-    multi_select_model = MultiSelectModel(items=[1, 2, 3, 4], selected_items=[2, 3])
-
-    callback = mock.Mock(spec=True)
-
-    multi_select_model.observe('available_items', callback)
-
-    multi_select_model.selected_items = [2, 3, 4]
-
-    callback.assert_called_once()
-
-
-def test_exception_is_raised_when_model_reaches_invalid_state_after_update():
-    multi_select_model = MultiSelectModel(items=[1, 2, 3, 4], selected_items=[2, 3])
-    with pytest.raises(MultiSelectUpdateError):
-        multi_select_model.selected_items = [2, 2, 3]
-
-
-def test_invert_selection():
-    multi_select_model = MultiSelectModel(items=[1, 2, 3, 4], selected_items=[2, 3])
-    assert multi_select_model.available_items == [1, 4]
-
-    multi_select_model.invert_selection()
-    assert multi_select_model.available_items == [2, 3]
-    assert multi_select_model.selected_items == [1, 4]

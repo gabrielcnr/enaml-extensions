@@ -1,19 +1,19 @@
-from typing import Any, Dict
+from typing import Any
 
-from atom.api import Typed, ForwardTyped, List, Bool, observe, Event, Value, Enum
+from atom.api import Bool, Enum, Event, ForwardTyped, List, Typed, Value, observe
 from atom.api import Dict as AtomDict
 from atom.atom import set_default
+from atom.typing_utils import ChangeDict
 from enaml.core.declarative import d_, d_func
 from enaml.widgets.control import Control, ProxyControl
 
 from enamlext.qt.qtable import DoubleClickContext, SelectionContext  # TODO: weak design (leaking Qt details)
 from enamlext.qt.table.summary import TableSelectionSummary
 
-
 ColumnID = str
 ColumnKwarg = str
-ColumnHint = Dict[ColumnKwarg, Any]
-ColumnHints = Dict[ColumnID, ColumnHint]
+ColumnHint = dict[ColumnKwarg, Any]
+ColumnHints = dict[ColumnID, ColumnHint]
 
 
 class ProxyTable(ProxyControl):
@@ -114,12 +114,12 @@ class Table(Control):
         'hints',
         'selection_mode',
     )
-    def _update_proxy(self, change: Dict):
+    def _update_proxy(self, change: ChangeDict):
         """An observer which sends state change to the proxy."""
         # The superclass handler implementation is sufficient.
         super()._update_proxy(change)
 
     @d_func
     def refresh(self) -> None:
-        if self.initialized:
+        if self.initialized and self.proxy is not None:
             self.proxy.widget.refresh()

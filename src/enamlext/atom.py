@@ -2,7 +2,7 @@ import functools
 import threading
 
 from atom.api import Atom as BaseAtom
-from enaml.application import deferred_call, Application
+from enaml.application import Application, deferred_call
 
 
 class Atom(BaseAtom):

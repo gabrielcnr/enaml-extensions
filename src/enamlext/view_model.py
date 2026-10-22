@@ -1,5 +1,4 @@
 from operator import attrgetter
-from typing import Dict
 
 from atom.api import Atom
 from atom.atom import AtomMeta, observe
@@ -8,7 +7,7 @@ from atom.typing_utils import ChangeDict
 from enaml.application import deferred_call
 
 
-def _iter_atom_members(dct: Dict):
+def _iter_atom_members(dct: dict):
     for k, v in dct.items():
         if issubclass(type(v), Member):
             yield k, v

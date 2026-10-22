@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from enamlext.qt.qt_dataframe import DataFrameProxy
-from enamlext.qt.table.column import Column, generate_columns, Alignment
+from enamlext.qt.table.column import Alignment, Column, generate_columns
 
 
 def test_get_displayed_value():
@@ -16,11 +16,7 @@ def test_get_displayed_value():
 
         def __format__(self, spec: str) -> str:
             s = str(self)
-            if spec == 'u':
-                s = s.upper()
-            else:
-                s = format(s, spec)
-            return s
+            return s.upper() if spec == 'u' else format(s, spec)
 
     foo = Foo()
 
@@ -29,10 +25,10 @@ def test_get_displayed_value():
     column = Column('foo', use_getitem=True)
 
     assert foo is column.get_value(item)
-    assert 'string for Foo' == column.get_displayed_value(item)
+    assert column.get_displayed_value(item) == 'string for Foo'
 
     column2 = Column('foo', use_getitem=True, fmt='u')
-    assert 'STRING FOR FOO' == column2.get_displayed_value(item)
+    assert column2.get_displayed_value(item) == 'STRING FOR FOO'
 
 
 def test_giving_fmt_as_callback():
@@ -48,7 +44,7 @@ def test_giving_fmt_as_callback():
 
     column = Column('obj', fmt=uppercase_mirrored, use_getitem=True)
 
-    assert 'SRESUROFTXET' == column.get_displayed_value(item)
+    assert column.get_displayed_value(item) == 'SRESUROFTXET'
 
 
 def test_generate_columns_with_hints():
@@ -59,9 +55,9 @@ def test_generate_columns_with_hints():
         quantity: int
 
     items = [
-        t1 := Trade(symbol='FOO', price=15.2, quantity=500),
+        Trade(symbol='FOO', price=15.2, quantity=500),
         t2 := Trade(symbol='BAR', price=22.3, quantity=800),
-        t3 := Trade(symbol='FOO', price=16.1, quantity=100),
+        Trade(symbol='FOO', price=16.1, quantity=100),
     ]
 
     hints = {
@@ -81,7 +77,7 @@ def test_generate_columns_with_hints():
     assert column_price.title == 'Price'
     assert column_price.fmt == ',.2f'
 
-    assert '22.30' == column_price.get_displayed_value(t2)
+    assert column_price.get_displayed_value(t2) == '22.30'
 
 
 def test_generate_columns_with_pandas_dataframe():
@@ -125,7 +121,7 @@ dicts = [
 
 
 @pytest.mark.parametrize(
-    ['items', 'include', 'hints'],
+    ('items', 'include', 'hints'),
     [
         (DataFrameProxy(df), ['currency', 'price'], {}),
         (named_tuples, ['currency', 1], {}),
@@ -146,7 +142,7 @@ def test_generate_columns_include(items, include, hints):
 
 
 @pytest.mark.parametrize(
-    ['items', 'exclude', 'hints'],
+    ('items', 'exclude', 'hints'),
     [
         (DataFrameProxy(df), ['price'], {}),
         (named_tuples, ['price'], {}),
@@ -164,3 +160,13 @@ def test_generate_columns_exclude(items, exclude, hints):
 
     assert_column(col_1, 'Symbol', Alignment.LEFT)
     assert_column(col_2, 'Currency', Alignment.LEFT)
+
+
+def test_total_cost_sums_cumulative_time_across_roles():
+    column = Column('age', collect_stats=True)
+    column.record_stats(role=0, elapsed=0.25)
+    column.record_stats(role=0, elapsed=0.25)
+    column.record_stats(role=6, elapsed=1.0)
+
+    assert column.total_cost() == 1.5
+    assert Column('age').total_cost() == 0

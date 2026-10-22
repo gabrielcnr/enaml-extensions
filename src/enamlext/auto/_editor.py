@@ -1,9 +1,11 @@
-from atom.api import Atom, Value, Typed
-from enaml.widgets.api import Form, Label, DatetimeSelector
-from enaml.core.declarative import d_
-from enamlext.widgets import Field
 import datetime
+
 import enaml
+from atom.api import Atom, Typed, Value
+from enaml.core.declarative import d_
+from enaml.widgets.api import DatetimeSelector, Form, Label
+
+from enamlext.widgets import Field
 
 with enaml.imports():
     from enaml.stdlib.fields import IntField
@@ -19,7 +21,7 @@ def connect(model, model_attr, view, view_attr):
     # Initially the view should be sync'd with the model
     try:
         setattr(view, view_attr, getattr(model, model_attr))
-    except Exception as ex:
+    except Exception:
         # import pdb ;pdb.set_trace()
         raise
 
@@ -32,7 +34,7 @@ def create_editor(obj, form=None):
     form = form or Form()
 
     # get the members
-    for member_name, member_descriptor in klass.members().iteritems():
+    for member_name, member_descriptor in klass.members().items():
         # by default we are skipping members starting with _
         if member_name.startswith('_'):
             continue
@@ -66,5 +68,5 @@ class Editor(Form):
     obj = d_(Value())
 
     def __init__(self, *args, **kwargs):
-        super(Editor, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         create_editor(self.obj, self)
