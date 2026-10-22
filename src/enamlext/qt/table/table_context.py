@@ -1,10 +1,16 @@
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from qtpy.QtCore import QModelIndex
 
+if TYPE_CHECKING:
+    from enamlext.qt.qtable import QTableModel
+    from enamlext.qt.table.column import Column
+
+
 def default_convert(item):
     return item
+
 
 class TableContext:
     """
@@ -16,14 +22,15 @@ class TableContext:
     calculated on demand... which hopefully makes it more efficient
     """
 
-    def __init__(self,
-                 model: "QTableModel",
-                 index: QModelIndex,
-                 role: int,
-                 column_index: int,
-                 column: "Column",
-                 convert = default_convert,
-                 ):
+    def __init__(
+        self,
+        model: 'QTableModel',
+        index: QModelIndex,
+        role: int,
+        column_index: int,
+        column: 'Column',
+        convert=default_convert,
+    ):
         self.__model = model
         self.index = index
         self.role = role
@@ -49,5 +56,5 @@ class TableContext:
 
     @cached_property
     def value(self) -> str:
-        """ Returns the displayed value. """
+        """Returns the displayed value."""
         return self.column.get_displayed_value(self._raw_item)

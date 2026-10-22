@@ -1,20 +1,205 @@
 [build-system]
-requires = ["setuptools>=30.3.0", "wheel", "setuptools_scm"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27", "hatch-vcs>=0.5"]
+build-backend = "hatchling.build"
 
-[tools.setuptools_scm]
-write_to="src/enamlext/_version.py"
+[project]
+name = "enaml-extensions"
+dynamic = ["version"]
+description = "Extra widgets and extensions for building UIs with Enaml"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Gabriel Reis", email = "gabrielcnr@gmail.com" }]
+keywords = ["enaml", "qt", "widgets", "extras", "extensions", "table", "qt-table", "ui", "gui"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: Software Development :: Widget Sets",
+    "Typing :: Typed",
+]
+dependencies = [
+    "atom>=0.12",
+    "enaml>=0.19",
+    "numpy>=1.26",
+    "qtpy>=2.4",
+]
 
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-envlist = py{310,311,312}
+[project.optional-dependencies]
+pyqt5 = ["PyQt5>=5.15"]
+pyqt6 = ["PyQt6>=6.5"]
+pyside6 = ["PySide6>=6.5"]
+dataframe = ["pandas>=2.1"]
+# QScintilla is built per binding; there is no PySide6 build.
+scintilla-pyqt5 = ["PyQt5>=5.15", "QScintilla>=2.14"]
+scintilla-pyqt6 = ["PyQt6>=6.5", "PyQt6-QScintilla>=2.14"]
+ipython = ["qtconsole>=5.5"]
 
-[testenv]
-deps =
-    pytest
-    pytest-qt
-    pytest-mock
-    pandas
-commands = pytest -vv -s
-"""
+[project.urls]
+Homepage = "https://github.com/gabrielcnr/enaml-extensions"
+Source = "https://github.com/gabrielcnr/enaml-extensions"
+Issues = "https://github.com/gabrielcnr/enaml-extensions/issues"
+Changelog = "https://github.com/gabrielcnr/enaml-extensions/releases"
+
+[dependency-groups]
+test = [
+    "coverage[toml]>=7.10",
+    "pandas>=2.1",
+    "pytest>=9.0",
+    "pytest-mock>=3.14",
+    "pytest-qt>=4.5",
+]
+lint = [
+    "pre-commit>=4.3",
+    "ruff>=0.17",
+]
+typing = [
+    "mypy>=2.0",
+    "pandas-stubs>=2.2",
+    { include-group = "test" },
+]
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+    { include-group = "typing" },
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/enamlext/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/enamlext"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "examples", "README.md", "LICENSE"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src", "tests"]
+extend-exclude = ["src/enamlext/_version.py"]
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "A",    # flake8-builtins
+    "B",    # flake8-bugbear
+    "BLE",  # flake8-blind-except
+    "C4",   # flake8-comprehensions
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "FURB", # refurb
+    "G",    # flake8-logging-format
+    "I",    # isort
+    "ISC",  # flake8-implicit-str-concat
+    "LOG",  # flake8-logging
+    "N",    # pep8-naming
+    "PERF", # perflint
+    "PGH",  # pygrep-hooks
+    "PIE",  # flake8-pie
+    "PLE",  # pylint errors
+    "PLW",  # pylint warnings
+    "PT",   # flake8-pytest-style
+    "RET",  # flake8-return
+    "RUF",  # ruff-specific rules
+    "SIM",  # flake8-simplify
+    "T10",  # flake8-debugger
+    "T20",  # flake8-print
+    "TC",   # flake8-type-checking
+    "TID",  # flake8-tidy-imports
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+    "YTT",  # flake8-2020
+]
+ignore = [
+    "E501",   # line length is the formatter's job
+    "ISC001", # conflicts with the formatter
+    "N802",   # Qt overrides and Qt-style accessors are camelCase (paintEvent, sizeHint, setStars)
+    "N803",   # ... and so are their arguments
+    "N815",   # ... and Qt-mirroring class attributes
+    "RET503", # Qt data()/headerData() overrides deliberately fall through to None
+    "UP042",  # StrEnum changes str() of members; Alignment/ColumnSize keep (str, Enum) semantics
+]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/**" = ["T20", "F403", "F405"]
+"src/enamlext/qt/qtable.py" = ["T100", "T20"]  # debug_trace() drives pdb; the __main__ demo prints
+"src/enamlext/qt/table/filtering.py" = ["A002"]  # add_filter(filter=...) is public API
+"tests/**" = ["T20"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["enamlext"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/enamlext"]
+exclude = ["src/enamlext/_version\\.py$"]
+check_untyped_defs = true
+strict_equality = true
+extra_checks = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined"]
+
+[[tool.mypy.overrides]]
+module = ["enaml.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# .enaml modules are compiled by enaml at import time; mypy cannot read them
+module = ["enamlext.widgets.ipython_console", "enamlext.widgets._text_input_dialog"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[tool.pytest]
+minversion = "9.0"
+strict = true
+testpaths = ["tests"]
+addopts = ["-ra", "--import-mode=importlib"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source_pkgs = ["enamlext"]
+branch = true
+parallel = true
+relative_files = true
+omit = ["*/enamlext/_version.py"]
+
+[tool.coverage.paths]
+source = ["src/enamlext", "*/site-packages/enamlext"]
+
+[tool.coverage.report]
+fail_under = 72  # ratchet up as coverage grows; never lower it
+show_missing = true
+skip_covered = true
+precision = 1
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.codespell]
+skip = "uv.lock,*.svg"

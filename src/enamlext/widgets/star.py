@@ -1,4 +1,5 @@
 from atom.api import Bool, ForwardTyped, Int, Typed, observe, set_default
+from atom.typing_utils import ChangeDict
 from enaml.core.declarative import d_
 from enaml.qt.qt_factories import QT_FACTORIES
 from enaml.widgets.control import Control, ProxyControl
@@ -29,18 +30,24 @@ class StarRating(Control):
 
     proxy = Typed(ProxyStarRating)
 
+    def __init__(self, parent: object = None, **kwargs: object) -> None:
+        # Apply stars first so a rating passed alongside it is clamped against the new count.
+        if 'stars' in kwargs:
+            kwargs = {'stars': kwargs.pop('stars'), **kwargs}
+        super().__init__(parent, **kwargs)
+
     def _post_validate_stars(self, old: int, new: int) -> int:
         return max(new, 0)
 
     def _post_validate_rating(self, old: int, new: int) -> int:
         return min(max(new, 0), self.stars)
 
-    def _observe_stars(self, change: dict) -> None:
+    def _observe_stars(self, change: ChangeDict) -> None:
         if self.rating > self.stars:
             self.rating = self.stars
 
     @observe('stars', 'rating', 'read_only')
-    def _update_proxy(self, change: dict) -> None:
+    def _update_proxy(self, change: ChangeDict) -> None:
         super()._update_proxy(change)
 
 

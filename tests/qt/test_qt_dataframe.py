@@ -3,23 +3,17 @@ import time
 
 import numpy as np
 import pandas as pd
-import pytest
-from enaml.qt.qt_application import QtApplication
 
 from enamlext.qt.qt_dataframe import DataFrameProxy
-
-
-@pytest.fixture
-def enaml_app(qapp):
-    yield QtApplication.instance() or QtApplication()
 
 
 def test_monitor_never_snapshots_a_mutation_in_progress_under_the_proxy_lock(enaml_app, qtbot):
     n = 100
     df = pd.DataFrame({'a': np.zeros(n), 'b': np.zeros(n), 'obj': [object() for _ in range(n)]})
     snapshots = []
-    proxy = DataFrameProxy(df, tick_interval_ms=10,
-                           refresh_cells_callback=lambda rows, cols: snapshots.append(proxy.values))
+    proxy = DataFrameProxy(
+        df, tick_interval_ms=10, refresh_cells_callback=lambda rows, cols: snapshots.append(proxy.values)
+    )
 
     def update_a_then_b():
         with proxy.lock:

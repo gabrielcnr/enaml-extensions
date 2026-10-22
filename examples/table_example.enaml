@@ -15,8 +15,8 @@ from pathlib import Path
 
 
 # TODO: fix these dependencies on Qt (leaking)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor, QPixmap
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QColor, QPixmap
 RED = QColor(Qt.red)
 
 from enamlext.qt.qtable import TableContext, CellStyle

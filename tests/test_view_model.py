@@ -1,4 +1,5 @@
 from atom.api import Atom, List, Str, Typed
+
 from enamlext.view_model import ViewModel
 
 
@@ -21,11 +22,13 @@ def test_view_model_subclassing(mocker):
     controller.other = 'other'
     view_model.yet_another = 'yet_another'
 
-    mock_deferred_call.assert_has_calls([
-        # set controller
-        mocker.call(setattr, view_model, 'orders', []),
-        # set controller.orders (blank)
-        mocker.call(setattr, view_model, 'orders', []),
-        # finally the set controller.orders with orders
-        mocker.call(setattr, view_model, 'orders', ['Order1', 'Order2']),
-   ])
+    mock_deferred_call.assert_has_calls(
+        [
+            # set controller
+            mocker.call(setattr, view_model, 'orders', []),
+            # set controller.orders (blank)
+            mocker.call(setattr, view_model, 'orders', []),
+            # finally the set controller.orders with orders
+            mocker.call(setattr, view_model, 'orders', ['Order1', 'Order2']),
+        ]
+    )

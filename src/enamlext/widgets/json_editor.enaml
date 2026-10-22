@@ -1,5 +1,5 @@
 """
-It needs conda package: qscintilla2
+Needs QScintilla: pip install "enaml-extensions[scintilla-pyqt6]" (or [scintilla-pyqt5]).
 """
 from enaml.scintilla.scintilla import Scintilla
 from enaml.scintilla.themes.idle import IDLE_THEME

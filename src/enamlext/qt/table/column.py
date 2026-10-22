@@ -1,8 +1,9 @@
 import datetime
+from collections.abc import Callable, Collection, Hashable, Mapping, Sequence
 from enum import Enum
 from numbers import Number
 from operator import itemgetter
-from typing import Union, Callable, Optional, Any, Sequence, Mapping, List, Dict, Container
+from typing import Any, NamedTuple, TypeGuard, cast
 
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QColor
@@ -13,28 +14,34 @@ from enamlext.qt.table.table_context import TableContext
 
 
 class Alignment(str, Enum):
-    LEFT = "left"
-    CENTER = "center"
-    RIGHT = "right"
+    LEFT = 'left'
+    CENTER = 'center'
+    RIGHT = 'right'
 
 
-AUTO_ALIGN = object()  # sentinel
+class _AutoAlign(Enum):
+    # A one-member enum is the typed way to spell a sentinel: `align is AUTO_ALIGN` narrows for type checkers.
+    AUTO_ALIGN = 'auto'
+
+
+AUTO_ALIGN = _AutoAlign.AUTO_ALIGN
 
 
 class Column:
-    def __init__(self,
-                 key: Union[str, Callable],
-                 title: Optional[str] = None,
-                 align: Alignment = AUTO_ALIGN,
-                 tooltip: Optional[Union[str, Callable]] = None,
-                 # TODO: how to specify the types for the signature of the callback here?
-                 cell_style: Optional[Callable] = None,
-                 use_getitem: bool = False,
-                 fmt: str = '',
-                 size: Union[ColumnSize, int] = ColumnSize.AUTO,
-                 image: Optional[str] = None, # TODO: support callback
-                 collect_stats: bool = False,
-                 ):
+    def __init__(
+        self,
+        key: str | Callable,
+        title: str | None = None,
+        align: Alignment | _AutoAlign = AUTO_ALIGN,
+        tooltip: str | Callable | None = None,
+        # TODO: how to specify the types for the signature of the callback here?
+        cell_style: Callable | None = None,
+        use_getitem: bool = False,
+        fmt: str = '',
+        size: ColumnSize | int = ColumnSize.AUTO,
+        image: str | None = None,  # TODO: support callback
+        collect_stats: bool = False,
+    ):
         self.key = key
         self._link_get_value_method(key, use_getitem)
         if title is None and isinstance(key, str):
@@ -47,13 +54,14 @@ class Column:
         self.size = size  # TODO: should we also support callable?
         self.image = image
         if cell_style is not None:
-            self.get_cell_style = cell_style
+            self.get_cell_style = cell_style  # type: ignore[method-assign]  # skip the wrapper per cell
         self.collect_stats = collect_stats
-        self.stats = {}
+        self.stats: dict[int, dict[str, float]] = {}
+        self.df_index: int | None = None  # set by generate_columns() for DataFrame columns
         # Cached AUTO_ALIGN resolution: filled in on the first non-None value
         # encountered, then reused for the column's lifetime so we stop running
         # an isinstance chain per cell per repaint.
-        self._resolved_auto_align: Optional[Alignment] = None
+        self._resolved_auto_align: Alignment | None = None
 
     def record_stats(self, role: int, elapsed: float):
         if role not in self.stats:
@@ -64,25 +72,23 @@ class Column:
         stats_for_role['cum_time'] += elapsed
         stats_for_role['avg_time'] = stats_for_role['cum_time'] / stats_for_role['n_calls']
 
-    def total_cost(self):
-        if not self.stats:
-            return 0
+    def total_cost(self) -> float:
+        return sum(stats['cum_time'] for stats in self.stats.values())
 
-        return sum((stats['cum_time'] for stats in self.stats))
-
-    def _link_get_value_method(self, key, use_getitem):
+    def _link_get_value_method(self, key: str | Callable, use_getitem: bool) -> None:
+        # Bind the right lookup once per column so the per-cell hot path never branches on the key type.
         if callable(key):
-            self.get_value = key  # we re-wire the get_value() here
+            self.get_value = key  # type: ignore[method-assign]
         elif use_getitem:
-            self.get_value = self.get_value_by_getitem_lookup
+            self.get_value = self.get_value_by_getitem_lookup  # type: ignore[method-assign]
         else:
-            self.get_value = self.get_value_by_attribute_lookup
+            self.get_value = self.get_value_by_attribute_lookup  # type: ignore[method-assign]
 
     def get_value(self, item: Any) -> Any:
         raise RuntimeError('get_value() not dynamic linked during initialization')
 
     def get_value_by_attribute_lookup(self, item: Any) -> Any:
-        return getattr(item, self.key)
+        return getattr(item, cast('str', self.key))
 
     def get_value_by_getitem_lookup(self, item: Any) -> Any:
         return item[self.key]
@@ -92,21 +98,19 @@ class Column:
         value = self.get_value(item)
         if callable(self.fmt):
             return self.fmt(value)
-        else:
-            return format(value, self.fmt) if value is not None else ''
+        return format(value, self.fmt) if value is not None else ''
 
-    def get_tooltip(self, table_context: "TableContext") -> str:
+    def get_tooltip(self, table_context: 'TableContext') -> str:
         if self.tooltip is not None:
             if callable(self.tooltip):
                 return str(self.tooltip(table_context))  # TODO: is it a good practice to enforce str() here?
-            else:
-                return self.tooltip  # str
-        else:
-            return repr(table_context.raw_value)
+            return self.tooltip  # str
+        return repr(table_context.raw_value)
 
-    def get_cell_style(self, table_context: "TableContext") -> Optional[CellStyle]:
+    def get_cell_style(self, table_context: 'TableContext') -> CellStyle | None:
         if self.cell_style is not None:
             return self.cell_style(table_context) or CellStyle()
+        return None
 
     def get_align(self, item: Any) -> Alignment:
         if self.align is not AUTO_ALIGN:
@@ -122,7 +126,7 @@ class Column:
         self._resolved_auto_align = align
         return align
 
-    def get_align_quick(self) -> Optional[Alignment]:
+    def get_align_quick(self) -> Alignment | None:
         """Return the column's alignment without needing an item, or None when
         the column is AUTO_ALIGN and hasn't been resolved yet. Lets callers
         skip fetching/converting the row item on every TextAlignmentRole call.
@@ -134,40 +138,46 @@ class Column:
     def resolve_column_alignment_based_on_value(self, value: Any) -> Alignment:
         if isinstance(value, Number):
             return Alignment.RIGHT
-        elif isinstance(value, (datetime.datetime, datetime.date)):
+        if isinstance(value, (datetime.datetime, datetime.date)):
             return Alignment.CENTER
-        elif isinstance(value, str):
+        if isinstance(value, str):
             return Alignment.LEFT
-        else:
-            return Alignment.LEFT
+        return Alignment.LEFT
 
-    def get_image(self, table_context: 'TableContext') -> Optional[str]:  # TODO: should return Path?
+    def get_image(self, table_context: 'TableContext') -> str | None:  # TODO: should return Path?
         if self.image:
             return str(self.image)
+        return None
 
 
 # Auto-Generation of Columns
 
-def make_title(title: str):
+
+def make_title(title: object) -> str:
     return str(title).replace('_', ' ').title()
 
 
-def is_namedtuple(obj):
-    return isinstance(obj, tuple) and hasattr((T := type(obj)), '_fields') and hasattr(T, '_asdict')
+def is_namedtuple(obj: object) -> TypeGuard[NamedTuple]:
+    return isinstance(obj, tuple) and hasattr(type(obj), '_fields') and hasattr(type(obj), '_asdict')
 
 
-RED = QColor(Qt.red)
+RED = QColor(Qt.GlobalColor.red)
 NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
 
 
-def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle:
+def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle | None:
     if table_context.raw_value < 0:
         return NEGATIVE_NUMBER_CELL_STYLE
+    return None
 
 
-def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
-                     include: Optional[Container[str]] = None,
-                     exclude: Optional[Container[str]] = None) -> List[Column]:
+def generate_columns(
+    items: Sequence,
+    *,
+    hints: dict | None = None,
+    include: Sequence[Hashable] | None = None,
+    exclude: Collection[Hashable] | None = None,
+) -> list[Column]:
     """
     hints: only make sense with named keys?
            hints are a dict of column id -> kwargs dict that will
@@ -189,18 +199,17 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
         hints = {}
     if include and exclude:
         raise ValueError('Cannot use include and exclude simultaneously.')
-    if exclude is not None:
-        exclude_set = set(exclude)
-    if include is not None:
-        include_set = set(include)
+    exclude_set: set[Hashable] = set(exclude) if exclude is not None else set()
+    include_set: set[Hashable] = set(include) if include is not None else set()
     if not len(items):
         return []
     first_row = items[0]
-    columns = {}  # column_index -> Column
+    columns: dict[int, Column] = {}  # column_index -> Column
+    kwargs: dict[str, Any]
 
     if isinstance(items, DataFrameProxy):
         import pandas as pd
-        import numpy as np
+
         df = items.df
         for i, (name, dtype) in enumerate(df.dtypes.items()):
             if exclude is not None and name in exclude_set:
@@ -217,38 +226,28 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
                 align = Alignment.LEFT
                 style = None
 
-            kwargs = {'title': make_title(name), 'align': align, 'cell_style': style,
-                      'use_getitem': True}
+            kwargs = {'title': make_title(name), 'align': align, 'cell_style': style, 'use_getitem': True}
 
             hint = hints.get(name, {})
             kwargs.update(hint)
 
             column = Column(itemgetter(i), **kwargs)
 
-            if include is not None:
-                column_index = include.index(name)
-            else:
-                column_index = i
+            column_index = include.index(name) if include is not None else i
 
             column.df_index = i
 
             columns[column_index] = column
 
     elif isinstance(first_row, tuple):
-        if is_namedtuple(first_row):
-            fields = type(first_row)._fields
-        else:
-            fields = None
+        fields = first_row._fields if is_namedtuple(first_row) else None
         for i, value in enumerate(first_row):
             field_name = fields[i] if fields is not None else object()
-            if exclude is not None and (set([i, field_name]) & exclude_set):
+            if exclude is not None and ({i, field_name} & exclude_set):
                 continue
-            if include is not None and not (set([i, field_name]) & include_set):
+            if include is not None and not ({i, field_name} & include_set):
                 continue
-            if fields is not None:
-                title = make_title(fields[i])
-            else:
-                title = str(i)
+            title = make_title(fields[i]) if fields is not None else str(i)
             kwargs = {'title': title}
             if isinstance(value, Number):
                 kwargs['align'] = Alignment.RIGHT
@@ -258,13 +257,8 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             kwargs.update(hint)
             column = Column(itemgetter(i), **kwargs)
             if include is not None:
-                for v in (i, field_name):
-                    try:
-                        column_index = include.index(v)
-                    except ValueError:
-                        continue
-                    else:
-                        break
+                # The include_set check above guarantees one of these is in `include`.
+                column_index = next(include.index(v) for v in (i, field_name) if v in include_set)
             else:
                 column_index = i
             columns[column_index] = column
@@ -275,10 +269,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
                 continue
             if include is not None and key not in include_set:
                 continue
-            if isinstance(key, str):
-                title = make_title(key)
-            else:
-                title = str(key)
+            title = make_title(key) if isinstance(key, str) else str(key)
 
             kwargs = {'title': title}
             if isinstance(value, Number):
@@ -290,10 +281,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             kwargs.update(hint)
             column = Column(itemgetter(key), **kwargs)
 
-            if include is not None:
-                column_index = include.index(key)
-            else:
-                column_index = i
+            column_index = include.index(key) if include is not None else i
             columns[column_index] = column
 
     elif hasattr(type(first_row), '__dataclass_fields__'):
@@ -315,11 +303,7 @@ def generate_columns(items: Sequence, *, hints: Optional[Dict] = None,
             kwargs.update(hint)
 
             column = Column(field, **kwargs)
-            if include is not None:
-                column_index = include.index(field)
-            else:
-                column_index = i
+            column_index = include.index(field) if include is not None else i
             columns[column_index] = column
 
-    ordered_columns = [columns[c] for c in sorted(columns)]
-    return ordered_columns
+    return [columns[c] for c in sorted(columns)]

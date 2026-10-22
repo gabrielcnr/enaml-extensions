@@ -12,9 +12,9 @@ def test_safe_set_without_application():
         value = Int()
 
     model = Model()
-    model.safe_set("value", 12)
+    model.safe_set('value', 12)
 
-    assert 12 == model.value
+    assert model.value == 12
 
 
 def test_safe_set_with_application_from_main_ui_thread():
@@ -25,14 +25,14 @@ def test_safe_set_with_application_from_main_ui_thread():
 
     app = QtApplication()
 
-    model.safe_set("value", 15)
-    assert 15 == model.value
+    model.safe_set('value', 15)
+    assert model.value == 15
 
     app.destroy()
 
 
 def test_safe_set_with_application_from_another_thread(mocker):
-    mock_deferred_call = mocker.patch("enamlext.atom.deferred_call", autospec=True)
+    mock_deferred_call = mocker.patch('enamlext.atom.deferred_call', autospec=True)
 
     class Model(Atom):
         value = Int()
@@ -42,23 +42,21 @@ def test_safe_set_with_application_from_another_thread(mocker):
     app = QtApplication()
 
     def worker(given_model):
-        given_model.safe_set("value", 23)
+        given_model.safe_set('value', 23)
 
     thread = threading.Thread(target=worker, args=(model,))
     thread.daemon = True
     thread.start()
 
-    time.sleep(.2)
+    time.sleep(0.2)
 
-    mock_deferred_call.assert_called_once_with(
-        setattr, model, "value", 23
-    )
+    mock_deferred_call.assert_called_once_with(setattr, model, 'value', 23)
 
     app.destroy()
 
 
 def test_on_thread(mocker):
-    mock_deferred_call = mocker.patch("enamlext.atom.deferred_call", autospec=True)
+    mock_deferred_call = mocker.patch('enamlext.atom.deferred_call', autospec=True)
 
     class Model(Atom):
         value = Int()
@@ -69,14 +67,12 @@ def test_on_thread(mocker):
 
     @on_thread
     def worker(given_model):
-        given_model.safe_set("value", 19)
+        given_model.safe_set('value', 19)
 
     worker(model)
 
-    time.sleep(.2)
+    time.sleep(0.2)
 
-    mock_deferred_call.assert_called_once_with(
-        setattr, model, "value", 19
-    )
+    mock_deferred_call.assert_called_once_with(setattr, model, 'value', 19)
 
     app.destroy()

@@ -38,14 +38,15 @@
 ##
 #############################################################################
 import math
+from typing import TYPE_CHECKING
 
 from atom.api import Typed
 from enaml.qt.qt_control import QtControl
-from qtpy.QtCore import QPointF, QSize, Qt, Signal
+from qtpy.QtCore import QEvent, QPointF, QSize, Qt, Signal
 from qtpy.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPolygonF
 from qtpy.QtWidgets import QSizePolicy, QWidget
 
-from enamlext.widgets.star import ProxyStarRating
+from enamlext.widgets.star import ProxyStarRating, StarRating
 
 STAR_SIZE = 20
 DEFAULT_COLOR = QColor('#daa520')
@@ -55,8 +56,9 @@ DEFAULT_EMPTY_COLOR = QColor('#d0d0d0')
 def _make_star_polygon() -> QPolygonF:
     # A unit-square five-pointed star: each step jumps 144 degrees (0.8 * pi)
     # so the outline crosses itself, and WindingFill paints the centre solid.
-    points = [QPointF(0.5 + 0.5 * math.cos(0.8 * i * math.pi), 0.5 + 0.5 * math.sin(0.8 * i * math.pi))
-              for i in range(5)]
+    points = [
+        QPointF(0.5 + 0.5 * math.cos(0.8 * i * math.pi), 0.5 + 0.5 * math.sin(0.8 * i * math.pi)) for i in range(5)
+    ]
     return QPolygonF(points)
 
 
@@ -76,8 +78,8 @@ class StarRatingWidget(QWidget):
         self._empty_color = QColor(DEFAULT_EMPTY_COLOR)
         self.setRating(rating)
         self.setMouseTracking(True)
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
     def stars(self) -> int:
         return self._stars
@@ -106,7 +108,7 @@ class StarRatingWidget(QWidget):
 
     def setReadOnly(self, read_only: bool) -> None:
         self._read_only = read_only
-        self.setFocusPolicy(Qt.NoFocus if read_only else Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus if read_only else Qt.FocusPolicy.StrongFocus)
         self._set_hover_rating(None)
 
     def color(self) -> QColor:
@@ -129,51 +131,51 @@ class StarRatingWidget(QWidget):
     def minimumSizeHint(self) -> QSize:
         return self.sizeHint()
 
-    def paintEvent(self, event: QPaintEvent) -> None:
+    def paintEvent(self, event: QPaintEvent | None) -> None:
         shown = self._rating if self._hover_rating is None else self._hover_rating
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.setPen(Qt.NoPen)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(Qt.PenStyle.NoPen)
         painter.translate(self._x_offset(), (self.height() - STAR_SIZE) / 2)
         painter.scale(STAR_SIZE, STAR_SIZE)
         for i in range(self._stars):
             painter.setBrush(self._color if i < shown else self._empty_color)
-            painter.drawPolygon(STAR_POLYGON, Qt.WindingFill)
+            painter.drawPolygon(STAR_POLYGON, Qt.FillRule.WindingFill)
             painter.translate(1.0, 0.0)
         painter.end()
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if not self._read_only:
+    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:
+        if event is not None and not self._read_only:
             self._set_hover_rating(self._rating_at(event.position().x()))
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if self._read_only or event.button() != Qt.LeftButton:
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
+        if event is None or self._read_only or event.button() != Qt.MouseButton.LeftButton:
             super().mouseReleaseEvent(event)
             return
         clicked = self._rating_at(event.position().x())
         self.setRating(0 if clicked == self._rating else clicked)
         self._set_hover_rating(None)
 
-    def leaveEvent(self, event) -> None:
+    def leaveEvent(self, event: QEvent | None) -> None:
         self._set_hover_rating(None)
         super().leaveEvent(event)
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:
-        if self._read_only:
+    def keyPressEvent(self, event: QKeyEvent | None) -> None:
+        if event is None or self._read_only:
             super().keyPressEvent(event)
             return
         key = event.key()
-        if key in (Qt.Key_Right, Qt.Key_Up, Qt.Key_Plus):
+        if key in (Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Plus):
             self.setRating(self._rating + 1)
-        elif key in (Qt.Key_Left, Qt.Key_Down, Qt.Key_Minus):
+        elif key in (Qt.Key.Key_Left, Qt.Key.Key_Down, Qt.Key.Key_Minus):
             self.setRating(self._rating - 1)
-        elif key == Qt.Key_Home:
+        elif key == Qt.Key.Key_Home:
             self.setRating(0)
-        elif key == Qt.Key_End:
+        elif key == Qt.Key.Key_End:
             self.setRating(self._stars)
-        elif Qt.Key_0 <= key <= Qt.Key_9:
-            self.setRating(key - Qt.Key_0)
+        elif Qt.Key.Key_0 <= key <= Qt.Key.Key_9:
+            self.setRating(key - Qt.Key.Key_0)
         else:
             super().keyPressEvent(event)
 
@@ -190,7 +192,13 @@ class StarRatingWidget(QWidget):
 
 
 class QtStarRating(QtControl, ProxyStarRating):
-    widget = Typed(StarRatingWidget)
+    if TYPE_CHECKING:
+        # Narrowed for type checkers only; at runtime both stay optional because enaml
+        # reads them while destroying proxies that were never activated.
+        widget: StarRatingWidget
+        declaration: StarRating
+    else:
+        widget = Typed(StarRatingWidget)
 
     def create_widget(self) -> None:
         self.widget = StarRatingWidget(parent=self.parent_widget())

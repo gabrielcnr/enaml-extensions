@@ -1,13 +1,13 @@
-from typing import List, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from atom.api import Int, Typed, Value
 from enaml.qt.qt_control import QtControl
+from enaml.qt.QtCore import QTimer
 
-from enamlext.qt.qtable import QTable, DoubleClickContext, SelectionContext, SelectionMode
+from enamlext.qt.qtable import DoubleClickContext, QTable, SelectionContext, SelectionMode
 from enamlext.qt.table.column import Column
 from enamlext.qt.table.summary import TableSelectionSummary
-from enamlext.widgets.table import ProxyTable
-from enaml.qt.QtCore import QTimer
+from enamlext.widgets.table import ProxyTable, Table
 
 # cyclic notification guard flags
 INDEX_GUARD = 0x1
@@ -22,10 +22,16 @@ SELECTION_MODES_MAP = {
 
 
 class QtTable(QtControl, ProxyTable):
-    """ A Qt implementation of an Enaml Table.
-    """
+    """A Qt implementation of an Enaml Table."""
+
     #: A reference to the widget created by the proxy.
-    widget = Typed(QTable)
+    if TYPE_CHECKING:
+        # Narrowed for type checkers only; at runtime both stay optional because enaml
+        # reads them while destroying proxies that were never activated.
+        widget: QTable
+        declaration: Table
+    else:
+        widget = Typed(QTable)
 
     #: Cyclic notification guard. This a bitfield of multiple guards.
     _guard = Int(0)
@@ -35,19 +41,13 @@ class QtTable(QtControl, ProxyTable):
 
     # Initialization API
     def create_widget(self):
-        """ Create the QTable widget.
-        """
-        if hasattr(self.declaration, 'convert_item'):
-            convert_item = self.declaration.convert_item
-        else:
-            convert_item = None
+        """Create the QTable widget."""
+        convert_item = self.declaration.convert_item if hasattr(self.declaration, 'convert_item') else None
 
-        self.widget = QTable([], parent=self.parent_widget(),
-                             convert_item=convert_item)
+        self.widget = QTable([], parent=self.parent_widget(), convert_item=convert_item)
 
     def init_widget(self):
-        """ Create and initialize the underlying widget.
-        """
+        """Create and initialize the underlying widget."""
         timer = QTimer()
         timer.setSingleShot(True)
         timer.setInterval(300)  # TODO: should we make this configurable?
@@ -78,7 +78,7 @@ class QtTable(QtControl, ProxyTable):
         self.declaration.double_clicked(context)
 
     def _on_selection_changed(self, context: SelectionContext) -> None:
-        # TODO: think better if this convertion for selected_items should be implemented
+        # TODO: think better if this conversion for selected_items should be implemented
         #       inside the QTable (qtable.py)
         self._temp_selection_context = context
         self._selection_timer.start()
@@ -95,23 +95,21 @@ class QtTable(QtControl, ProxyTable):
             self.refresh_summary(context)
 
     # ProxyTable API
-    def set_items(self, items: List[Any]):
-        """ Set the items (rows) of the QTable.
-        """
+    def set_items(self, items: list[Any]):
+        """Set the items (rows) of the QTable."""
         with self.widget.updating_internals():
             self.widget.items = items
 
-    def set_columns(self, columns: List[Column]):
-        """ Set the columns of the QTable.
-        """
+    def set_columns(self, columns: list[Column]):
+        """Set the columns of the QTable."""
         with self.widget.updating_internals():
             self.widget.columns = columns
 
-    def set_selected_items(self, selected_items: List[Any]):
+    def set_selected_items(self, selected_items: list[Any]):
         pass
 
-    def set_context_menu(self, context_menu: List):
-        self.widget.context_menu = context_menu # TODO: make this a property of the QTable
+    def set_context_menu(self, context_menu: list):
+        self.widget.context_menu = context_menu  # TODO: make this a property of the QTable
 
     def set_checkable(self, checkable: bool) -> None:
         self.widget.checkable = checkable
@@ -122,10 +120,9 @@ class QtTable(QtControl, ProxyTable):
     def set_selection_mode(self, selection_mode: str) -> None:
         self.widget.set_selection_mode(SELECTION_MODES_MAP[selection_mode])
 
-    def set_hints(self, hints: dict) -> None:
-        ...  # do nothing because underlying widget does not know about hints
+    def set_hints(self, hints: dict) -> None: ...  # do nothing because underlying widget does not know about hints
 
-    def refresh_summary(self, context: Optional[SelectionContext] = None) -> None:
+    def refresh_summary(self, context: SelectionContext | None = None) -> None:
         if context is None:
             context = self.widget.get_current_selection_context()
         self.declaration.summary = TableSelectionSummary.from_selection_context(context)

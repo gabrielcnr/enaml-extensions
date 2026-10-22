@@ -1,5 +1,4 @@
 import pytest
-from enaml.qt.qt_application import QtApplication
 from enaml.widgets.api import Container, Window
 from qtpy.QtCore import QEvent, QPoint, QPointF, QSize, Qt
 from qtpy.QtGui import QColor, QMouseEvent
@@ -56,13 +55,13 @@ def test_reducing_stars_clamps_the_rating(widget):
 
 def test_clicking_a_star_sets_the_rating(widget, qtbot):
     with qtbot.waitSignal(widget.ratingChanged) as blocker:
-        QTest.mouseClick(widget, Qt.LeftButton, pos=star_centre(3))
+        QTest.mouseClick(widget, Qt.MouseButton.LeftButton, pos=star_centre(3))
     assert widget.rating() == 4
     assert blocker.args == [4]
 
 
 def test_clicking_the_current_rating_clears_it(widget):
-    QTest.mouseClick(widget, Qt.LeftButton, pos=star_centre(1))
+    QTest.mouseClick(widget, Qt.MouseButton.LeftButton, pos=star_centre(1))
     assert widget.rating() == 0
 
 
@@ -75,15 +74,23 @@ def test_hover_previews_without_changing_the_rating(widget):
 def test_read_only_ignores_clicks_and_keys(widget, qtbot):
     widget.setReadOnly(True)
     with qtbot.assertNotEmitted(widget.ratingChanged):
-        QTest.mouseClick(widget, Qt.LeftButton, pos=star_centre(4))
-        QTest.keyClick(widget, Qt.Key_Right)
+        QTest.mouseClick(widget, Qt.MouseButton.LeftButton, pos=star_centre(4))
+        QTest.keyClick(widget, Qt.Key.Key_Right)
     assert widget.rating() == 2
 
 
 @pytest.mark.parametrize(
     ('key', 'expected'),
-    [(Qt.Key_Right, 3), (Qt.Key_Up, 3), (Qt.Key_Left, 1), (Qt.Key_Down, 1),
-     (Qt.Key_Home, 0), (Qt.Key_End, 5), (Qt.Key_4, 4), (Qt.Key_0, 0)],
+    [
+        (Qt.Key.Key_Right, 3),
+        (Qt.Key.Key_Up, 3),
+        (Qt.Key.Key_Left, 1),
+        (Qt.Key.Key_Down, 1),
+        (Qt.Key.Key_Home, 0),
+        (Qt.Key.Key_End, 5),
+        (Qt.Key.Key_4, 4),
+        (Qt.Key.Key_0, 0),
+    ],
 )
 def test_keyboard_changes_the_rating(widget, key, expected):
     QTest.keyClick(widget, key)
@@ -104,12 +111,6 @@ def test_paints_filled_and_empty_stars(widget):
     assert image.pixelColor(star_centre(1)).name() == '#ff0000'
     assert image.pixelColor(star_centre(2)).name() == '#0000ff'
     assert image.pixelColor(star_centre(4)).name() == '#0000ff'
-
-
-@pytest.fixture
-def enaml_app(qapp):
-    app = QtApplication.instance() or QtApplication()
-    yield app
 
 
 def make_window(**kwargs) -> tuple[Window, StarRating]:
@@ -146,7 +147,7 @@ def test_proxy_syncs_declaration_and_widget(enaml_app, qtbot):
     rating.read_only = False
     assert (widget.stars(), widget.rating(), widget.isReadOnly()) == (3, 3, False)
 
-    QTest.mouseClick(widget, Qt.LeftButton, pos=star_centre(0))
+    QTest.mouseClick(widget, Qt.MouseButton.LeftButton, pos=star_centre(0))
     assert rating.rating == 1
 
     window.destroy()
@@ -165,7 +166,7 @@ def test_stars_are_centred_when_the_widget_is_wider_than_needed(widget):
 
 def test_clicks_account_for_centring(widget):
     widget.resize(5 * STAR_SIZE + 100, STAR_SIZE)
-    QTest.mouseClick(widget, Qt.LeftButton, pos=QPoint(50 + 3 * STAR_SIZE + STAR_SIZE // 2, STAR_SIZE // 2))
+    QTest.mouseClick(widget, Qt.MouseButton.LeftButton, pos=QPoint(50 + 3 * STAR_SIZE + STAR_SIZE // 2, STAR_SIZE // 2))
     assert widget.rating() == 4
 
 
@@ -181,3 +182,9 @@ def test_changing_stars_relayouts_the_widget(enaml_app, qtbot):
     qtbot.waitUntil(lambda: widget.width() == 4 * STAR_SIZE)
 
     window.destroy()
+
+
+def test_declaration_keyword_order_does_not_matter():
+    assert StarRating(rating=7, stars=10).rating == 7
+    assert StarRating(stars=10, rating=7).rating == 7
+    assert StarRating(rating=12, stars=10).rating == 10

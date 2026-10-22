@@ -22,4 +22,3 @@ enamldef Main(Window):
     Container:
         DictView:
             dict_ = {'name': 'John', 'last_name': 'Lennon', 'age': 40}
-

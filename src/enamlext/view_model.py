@@ -1,5 +1,4 @@
 from operator import attrgetter
-from typing import Dict
 
 from atom.api import Atom
 from atom.atom import AtomMeta, observe
@@ -8,7 +7,7 @@ from atom.typing_utils import ChangeDict
 from enaml.application import deferred_call
 
 
-def _iter_atom_members(dct: Dict):
+def _iter_atom_members(dct: dict):
     for k, v in dct.items():
         if issubclass(type(v), Member):
             yield k, v
@@ -16,9 +15,11 @@ def _iter_atom_members(dct: Dict):
 
 def _create_refresh_method(name: str, bind: str):
     first_part, _ = bind.split('.')
+
     def _refresh(self, change: ChangeDict) -> None:
         if attrgetter(first_part)(self) is not None:
             deferred_call(setattr, self, name, attrgetter(bind)(self))
+
     _refresh.__name__ = f'_refresh_{name}'
     return observe(bind, first_part)(_refresh)
 
