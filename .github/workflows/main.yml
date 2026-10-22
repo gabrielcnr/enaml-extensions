@@ -92,7 +92,7 @@ jobs:
   python-next:
     # Not required: enaml has no release that compiles on 3.15 yet (nucleic/enaml#630). When this
     # turns green, add 3.15 to the test matrix and the classifiers.
-    name: Python 3.15 (allowed to fail)
+    name: Python 3.15 (preview)
     runs-on: ubuntu-latest
     env:
       UV_NO_SYNC: "1"
@@ -121,8 +121,18 @@ jobs:
             echo "apt attempt $attempt failed; retrying in 15s" && sleep 15
           done
           exit 1
-      - run: uv sync --group test --extra pyqt6 --extra dataframe
-      - run: uv run pytest
+      # Step-level continue-on-error keeps the job (and the PR check) green while 3.15 is blocked;
+      # the outcome is reported in the job summary instead.
+      - id: py315
+        continue-on-error: true
+        run: uv sync --group test --extra pyqt6 --extra dataframe && uv run pytest
+      - name: Report 3.15 status
+        run: |
+          if [ "${{ steps.py315.outcome }}" = "success" ]; then
+            echo "Python 3.15 now installs and passes: add it to the test matrix and classifiers." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Python 3.15 is still blocked (enaml has no release that builds on it; see nucleic/enaml#630)." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   coverage:
     name: Coverage
@@ -164,7 +174,6 @@ jobs:
     steps:
       - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35  # v1.3.0
         with:
-          allowed-failures: python-next
           jobs: ${{ toJSON(needs) }}
 
   publish:
