@@ -26,7 +26,8 @@ def _monitor_df_changes(df_proxy):
         if df_proxy.instrumentation_enabled:
             t0 = time.perf_counter()
 
-        new_values = df_proxy.df.values.copy()
+        with df_proxy.lock:
+            new_values = df_proxy.df.values.copy()
 
         row_indexes, col_indexes = np.where(~((current_values == new_values) | (pd.isna(current_values) & pd.isna(new_values))))
 
@@ -56,6 +57,8 @@ class DataFrameProxy:
         if tick_interval_ms <= 0 and refresh_cells_callback is not None:
             raise ValueError('You should specify a tick_interval_ms refresh interval in miliseconds when you '
                              'pass a refresh_cells_callback.')
+        # callers mutating df in place must hold this so the monitor never snapshots a half-applied change
+        self.lock = threading.RLock()
         self.values = df.values
         self.df = df
         self.tick_interval_ms = tick_interval_ms
@@ -63,7 +66,6 @@ class DataFrameProxy:
         self.instrumentation_enabled = instrumentation_enabled
         self._is_active = True
         if self.is_ticking:
-            import threading
             t = threading.Thread(target=_monitor_df_changes,
                                  args=(self,),
                                  daemon=True)
