@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from qtpy.QtCore import QPoint
-from qtpy.QtGui import QColor, QContextMenuEvent, QKeySequence, QPalette
+from qtpy.QtCore import QEvent, QPoint
+from qtpy.QtGui import QColor, QContextMenuEvent, QHelpEvent, QKeySequence, QPalette
 from qtpy.QtTest import QTest
-from qtpy.QtWidgets import QAbstractItemView, QApplication, QLineEdit, QMenu, QStyledItemDelegate
+from qtpy.QtWidgets import QAbstractItemView, QApplication, QLineEdit, QMenu, QStyledItemDelegate, QToolTip
 
 from enamlext.qt.qtable import QFilterWidget, QModelIndex, Qt, QTable, QTableModel, SelectionMode
 from enamlext.qt.table.column import Alignment, Column
@@ -319,3 +319,47 @@ def test_clicking_a_checkbox_toggles_the_checked_items(qtbot):
 
     click_checkbox(1)
     assert table.checked_items == set()
+
+
+def test_header_tooltip_is_shown_on_the_column_header(qtbot):
+    table = QTestTable(
+        columns=[Column('name'), Column('age', header_tooltip='Age in whole years')],
+        items=[Person('John', 33)],
+    )
+    qtbot.addWidget(table)
+    model = table.model()
+
+    assert model.headerData(1, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) == 'Age in whole years'
+    assert model.headerData(0, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) is None
+
+
+def test_header_tooltip_accounts_for_the_checkbox_column(qtbot):
+    table = QTestTable(
+        columns=[Column('name', header_tooltip='Full name'), Column('age')],
+        items=[Fruit('apple')],
+        checkable=True,
+    )
+    qtbot.addWidget(table)
+    model = table.model()
+
+    assert model.headerData(0, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) is None
+    assert model.headerData(1, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) == 'Full name'
+    assert model.headerData(2, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) is None
+
+
+def test_hovering_a_header_shows_its_tooltip(qtbot):
+    table = QTestTable(
+        columns=[Column('name'), Column('age', header_tooltip='Age in whole years')],
+        items=[Person('John', 33)],
+        sortable=False,
+    )
+    qtbot.addWidget(table)
+    table.show()
+    qtbot.waitExposed(table)
+    header = table.horizontalHeader()
+    pos = QPoint(header.sectionViewportPosition(1) + 5, header.height() // 2)
+
+    QApplication.sendEvent(header.viewport(), QHelpEvent(QEvent.Type.ToolTip, pos, header.viewport().mapToGlobal(pos)))
+
+    qtbot.waitUntil(lambda: QToolTip.isVisible() and QToolTip.text() == 'Age in whole years')
+    QToolTip.hideText()

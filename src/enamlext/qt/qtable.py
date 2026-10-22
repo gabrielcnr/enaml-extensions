@@ -479,6 +479,9 @@ class QTableModel(QAbstractTableModel):
                 if column in self.filters:
                     return self._font_bold
 
+            elif role == Qt.ItemDataRole.ToolTipRole:
+                return self.columns[section - offset].header_tooltip  # O(1)
+
         return super().headerData(section, orientation, role)
 
     # QTableModel interface -------------------------------------------------------------------------------------------
