@@ -1,30 +1,42 @@
-from enaml.widgets.api import *
-from enaml.layout.api import *
+from enaml.layout.api import align, hbox, vbox
+from enaml.widgets.api import CheckBox, Container, Field, Form, Label, PushButton, SpinBox, Window
+
 from enamlext.widgets.star import StarRating
+
 
 enamldef Main(Window):
     title = 'Star Rating Example'
 
     Container:
-        Container:
-            constraints = [hbox(btn_incr, btn_decr)]
-            PushButton: btn_incr:
-                text = 'Increment'
-                clicked ::
-                    sr.rating += 1
+        constraints = [vbox(buttons, sr, form), align('h_center', sr, buttons)]
+
+        Container: buttons:
+            constraints = [hbox(btn_decr, btn_incr, read_only)]
             PushButton: btn_decr:
                 text = 'Decrement'
                 clicked ::
                     sr.rating -= 1
-
+            PushButton: btn_incr:
+                text = 'Increment'
+                clicked ::
+                    sr.rating += 1
+            CheckBox: read_only:
+                text = 'Read only'
+                checked := sr.read_only
 
         StarRating: sr:
-            stars = 8
+            stars << stars.value
             rating = 3
 
-        Form:
+        Form: form:
             Label:
-                text = 'Rating (No. stars):'
+                text = 'Stars:'
+            SpinBox: stars:
+                minimum = 1
+                maximum = 10
+                value = 8
+            Label:
+                text = 'Rating:'
             Field:
                 read_only = True
-                text << unicode(sr.rating)
+                text << f'{sr.rating} / {sr.stars}'
