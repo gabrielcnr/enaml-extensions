@@ -12,6 +12,7 @@ class CellStyle(TypedDict, total=False):
     color: QColor | None
     background: QColor | None
     font: str | None
+    border: QColor | None
 
 
 CellStyleCallback = Callable[['TableContext'], CellStyle]

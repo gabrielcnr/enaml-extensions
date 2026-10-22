@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from qtpy.QtCore import QPoint
-from qtpy.QtGui import QColor, QContextMenuEvent, QKeySequence, QPalette
+from qtpy.QtCore import QEvent, QPoint
+from qtpy.QtGui import QColor, QContextMenuEvent, QHelpEvent, QKeySequence, QPalette
 from qtpy.QtTest import QTest
-from qtpy.QtWidgets import QAbstractItemView, QApplication, QLineEdit, QMenu, QStyledItemDelegate
+from qtpy.QtWidgets import QAbstractItemView, QApplication, QLineEdit, QMenu, QStyledItemDelegate, QToolTip
 
 from enamlext.qt.qtable import QFilterWidget, QModelIndex, Qt, QTable, QTableModel, SelectionMode
 from enamlext.qt.table.column import Alignment, Column
@@ -319,3 +319,126 @@ def test_clicking_a_checkbox_toggles_the_checked_items(qtbot):
 
     click_checkbox(1)
     assert table.checked_items == set()
+
+
+def test_header_tooltip_is_shown_on_the_column_header(qtbot):
+    table = QTestTable(
+        columns=[Column('name'), Column('age', header_tooltip='Age in whole years')],
+        items=[Person('John', 33)],
+    )
+    qtbot.addWidget(table)
+    model = table.model()
+
+    assert model.headerData(1, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) == 'Age in whole years'
+    assert model.headerData(0, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) is None
+
+
+def test_header_tooltip_accounts_for_the_checkbox_column(qtbot):
+    table = QTestTable(
+        columns=[Column('name', header_tooltip='Full name'), Column('age')],
+        items=[Fruit('apple')],
+        checkable=True,
+    )
+    qtbot.addWidget(table)
+    model = table.model()
+
+    assert model.headerData(0, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) is None
+    assert model.headerData(1, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) == 'Full name'
+    assert model.headerData(2, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole) is None
+
+
+def test_hovering_a_header_shows_its_tooltip(qtbot):
+    table = QTestTable(
+        columns=[Column('name'), Column('age', header_tooltip='Age in whole years')],
+        items=[Person('John', 33)],
+        sortable=False,
+    )
+    qtbot.addWidget(table)
+    table.show()
+    qtbot.waitExposed(table)
+    header = table.horizontalHeader()
+    pos = QPoint(header.sectionViewportPosition(1) + 5, header.height() // 2)
+
+    QApplication.sendEvent(header.viewport(), QHelpEvent(QEvent.Type.ToolTip, pos, header.viewport().mapToGlobal(pos)))
+
+    qtbot.waitUntil(lambda: QToolTip.isVisible() and QToolTip.text() == 'Age in whole years')
+    QToolTip.hideText()
+
+
+def test_cell_style_border_outlines_the_cell_and_keeps_its_background(qtbot):
+    def cell_style(context):
+        if context.raw_value == 22:
+            return CellStyle(border=QColor('#ff0000'), background=QColor('#ffff00'))
+        return None
+
+    table = QTestTable(
+        columns=[Column('age', cell_style=cell_style)],
+        items=[Person('John', 33), Person('Pam', 22)],
+        sortable=False,
+    )
+    qtbot.addWidget(table)
+    table.resize(300, 200)
+    image = table.viewport().grab().toImage()
+
+    styled = table.visualRect(table.index(1, 0))
+    plain = table.visualRect(table.index(0, 0))
+    assert image.pixelColor(styled.left() + 1, styled.center().y()).name() == '#ff0000'
+    assert image.pixelColor(styled.right() - 1, styled.center().y()).name() == '#ff0000'
+    assert image.pixelColor(styled.center().x(), styled.top() + 1).name() == '#ff0000'
+    assert image.pixelColor(styled.center().x(), styled.bottom() - 1).name() == '#ff0000'
+    assert image.pixelColor(styled.center().x() - 20, styled.center().y()).name() == '#ffff00'
+    assert image.pixelColor(plain.left() + 1, plain.center().y()).name() != '#ff0000'
+
+
+def test_cell_style_border_does_not_run_the_style_callback_again(qtbot):
+    calls = Counter()
+
+    def cell_style(context):
+        calls[context.row_index] += 1
+        return CellStyle(border=QColor('#ff0000'))
+
+    table = QTestTable(columns=[Column('age', cell_style=cell_style)], items=[Person('John', 33), Person('Pam', 22)])
+    qtbot.addWidget(table)
+    table.resize(300, 200)
+
+    calls.clear()
+    table.viewport().grab()
+
+    assert calls == {0: 1, 1: 1}
+
+
+def test_an_app_supplied_delegate_still_replaces_the_default_one(qtbot):
+    painted = []
+
+    class AppDelegate(QStyledItemDelegate):
+        def paint(self, painter, option, index):
+            painted.append((index.row(), index.column()))
+            super().paint(painter, option, index)
+
+    table = QTestTable(columns=[Column('age')], items=[Person('John', 33)])
+    qtbot.addWidget(table)
+    table.setItemDelegate(AppDelegate(table))
+    table.resize(300, 200)
+    table.viewport().grab()
+
+    assert (0, 0) in painted
+
+
+def test_cell_style_border_lands_on_the_right_cell_in_a_checkable_table(qtbot):
+    def cell_style(context):
+        return CellStyle(border=QColor('#ff0000')) if context.raw_value == 'pear' else None
+
+    table = QTestTable(
+        columns=[Column('name', cell_style=cell_style)],
+        items=[Fruit('apple'), Fruit('pear')],
+        checkable=True,
+        sortable=False,
+    )
+    qtbot.addWidget(table)
+    table.resize(300, 200)
+    image = table.viewport().grab().toImage()
+
+    name_cell = table.visualRect(table.index(1, 1))
+    checkbox_cell = table.visualRect(table.index(1, 0))
+    assert image.pixelColor(name_cell.left() + 1, name_cell.center().y()).name() == '#ff0000'
+    assert image.pixelColor(checkbox_cell.left() + 1, checkbox_cell.center().y()).name() != '#ff0000'

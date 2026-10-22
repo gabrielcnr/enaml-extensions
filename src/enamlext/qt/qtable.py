@@ -25,7 +25,18 @@ from qtpy.QtCore import (
     Qt,
     Signal,
 )
-from qtpy.QtGui import QColor, QContextMenuEvent, QFont, QKeyEvent, QKeySequence, QMouseEvent, QPaintEvent, QPixmap
+from qtpy.QtGui import (
+    QColor,
+    QContextMenuEvent,
+    QFont,
+    QKeyEvent,
+    QKeySequence,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QPixmap,
+)
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QAction,
@@ -63,6 +74,7 @@ CHECKBOX_FLAG = (
 
 
 RED = QColor(Qt.GlobalColor.red)
+BORDER_WIDTH = 2  # px, for CellStyle['border']
 
 
 class SelectionMode(Enum):
@@ -388,6 +400,10 @@ class QTableModel(QAbstractTableModel):
             cache[key] = style
         return style
 
+    def painted_cell_styles(self) -> dict[tuple[int, int], CellStyle | None]:
+        """Styles resolved so far in the current paint, keyed by the (row, column) of the view."""
+        return dict(self._cell_style_cache or {})
+
     @contextlib.contextmanager
     def caching_cell_styles(self):
         self._cell_style_cache = {}
@@ -478,6 +494,9 @@ class QTableModel(QAbstractTableModel):
                 column = self.columns[section - offset]  # O(1)
                 if column in self.filters:
                     return self._font_bold
+
+            elif role == Qt.ItemDataRole.ToolTipRole:
+                return self.columns[section - offset].header_tooltip  # O(1)
 
         return super().headerData(section, orientation, role)
 
@@ -711,8 +730,37 @@ class QTable(QTableView):
     def paintEvent(self, event: QPaintEvent | None) -> None:
         # Font, Foreground and Background share one CellStyle per cell; scoping the
         # cache to a single paint means it can never serve a stale style.
-        with self.model().caching_cell_styles():
+        model = self.model()
+        with model.caching_cell_styles():
             super().paintEvent(event)
+            self._paint_cell_borders(model.painted_cell_styles())
+
+    def _paint_cell_borders(self, styles: dict[tuple[int, int], CellStyle | None]) -> None:
+        # Qt's item roles can't express a border, so outline cells after the native paint. Reading
+        # the styles this paint already resolved costs nothing for cells without a border, unlike a
+        # Python item delegate, which made every cell's paint ~15% slower.
+        # The checkbox column (view column 0 of a checkable table) has no cell_style of its own.
+        first_styled_column = 1 if self.model().checkable else 0
+        bordered = [
+            (cell, style['border'])
+            for cell, style in styles.items()
+            if cell[1] >= first_styled_column and style and style.get('border') is not None
+        ]
+        if not bordered:
+            return
+        inset = BORDER_WIDTH // 2  # keep the whole stroke inside the cell, over its own fill
+        painter = QPainter(self.viewport())
+        for (row, column), border in bordered:
+            rect = self.visualRect(self.model().index(row, column))
+            if rect.isEmpty():
+                continue
+            pen = QPen(QColor(border))
+            pen.setWidth(BORDER_WIDTH)
+            pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(rect.adjusted(inset, inset, -inset - 1, -inset - 1))
+        painter.end()
 
     def keyPressEvent(self, event: QKeyEvent | None) -> None:
         """Supports copying when multiple cells are selected."""

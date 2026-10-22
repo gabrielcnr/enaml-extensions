@@ -41,6 +41,7 @@ class Column:
         size: ColumnSize | int = ColumnSize.AUTO,
         image: str | None = None,  # TODO: support callback
         collect_stats: bool = False,
+        header_tooltip: str | None = None,
     ):
         self.key = key
         self._link_get_value_method(key, use_getitem)
@@ -49,6 +50,7 @@ class Column:
         self.title = title
         self.align = align
         self.tooltip = tooltip
+        self.header_tooltip = header_tooltip
         self.cell_style = cell_style
         self.fmt = fmt
         self.size = size  # TODO: should we also support callable?
