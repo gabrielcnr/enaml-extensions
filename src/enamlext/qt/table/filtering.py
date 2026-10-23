@@ -22,18 +22,24 @@ class Filter:
 
     def _generate_filter_evaluation_callback(self):
         if self._expression_startswith_operator(self.expression):
+            try:
+                code = compile(f'x {self.expression}', '<filter>', 'eval')
+            except SyntaxError:
+                return lambda x: False
 
             def callback(x):
-                ns = {'x': x}
                 try:
-                    return eval(f'x {self.expression}', ns)
-                except (NameError, SyntaxError):
+                    return bool(eval(code, {'x': x}))
+                # NameError: '== foo'. The rest: values that can't be compared or have no truth value (text or None
+                # against a number, pd.NA, Decimal('NaN'), arrays), which must hide the row rather than raise.
+                except (NameError, TypeError, ValueError, ArithmeticError):
                     return False
 
         else:
+            expression = self.expression.lower()
 
             def callback(x):
-                return self.expression.lower() in str(x).lower()
+                return expression in str(x).lower()
 
         return callback
 
