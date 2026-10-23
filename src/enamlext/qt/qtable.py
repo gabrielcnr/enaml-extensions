@@ -2,7 +2,6 @@ import contextlib
 import csv
 import itertools
 import logging
-import math
 import operator
 import time
 import warnings
@@ -173,6 +172,15 @@ class Cell(NamedTuple):
 
 def default_convert_item(item):
     return item
+
+
+def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
+    try:
+        return bool(value != value)  # NaN and NaT are unequal to themselves
+    except TypeError:  # pd.NA has no truth value
+        return True
 
 
 class QTableModel(QAbstractTableModel):
@@ -437,9 +445,8 @@ class QTableModel(QAbstractTableModel):
 
             def sort_key(item):
                 value = column.get_value(item)
-                if isinstance(value, float) and math.isnan(value):
-                    return float('-inf')
-                return value
+                # missing values can't be ordered against real ones, so they sort as a group before them
+                return (False,) if _is_missing(value) else (True, value)
 
             descending = order == Qt.SortOrder.DescendingOrder  # Qt6 enums are not ints, so never truth-test them
             self._filtered_items = sorted(self._filtered_items, key=sort_key, reverse=descending)
