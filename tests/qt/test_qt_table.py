@@ -323,6 +323,17 @@ def test_right_click_on_a_header_opens_a_filter_that_filters_the_rows(qtbot):
     assert [table.text(row, 0) for row in range(table.model().rowCount())] == ['John', 'Ann']
 
 
+def test_operator_filter_on_a_column_mixing_numbers_and_text_keeps_the_matching_numbers(qtbot):
+    table = QTestTable(
+        columns=[Column('qty', use_getitem=True)], items=[{'qty': 5}, {'qty': 'n/a'}, {'qty': 50}], sortable=False
+    )
+    qtbot.addWidget(table)
+
+    table.on_filter_changed(table.columns[0], '> 10')
+
+    assert [table.text(row, 0) for row in range(table.model().rowCount())] == ['50']
+
+
 @dataclass(frozen=True)
 class Fruit:
     name: str

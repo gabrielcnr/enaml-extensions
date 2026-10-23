@@ -1,5 +1,10 @@
 from collections import namedtuple
 from dataclasses import dataclass
+from decimal import Decimal
+
+import numpy as np
+import pandas as pd
+import pytest
 
 from enamlext.qt.table.column import AUTO_ALIGN, Alignment, Column, generate_columns
 from enamlext.qt.table.filtering import Filter, TableFilters
@@ -93,6 +98,35 @@ def test_filter_assumes_equality_by_default():
 def test_filter_str():
     column_filter = Filter(None, '> 15')
     assert str(column_filter) == '> 15'
+
+
+def test_operator_filter_evaluates_each_row():
+    column = Column('n', use_getitem=True)
+    at_least_two = Filter(column, '>= 2')
+
+    assert [n for n in [1, 2, 3] if at_least_two({'n': n})] == [2, 3]
+
+
+@pytest.mark.parametrize('value', ['abc', None, pd.NA, Decimal('NaN'), np.array([1, 50])])
+def test_operator_filter_excludes_values_that_cannot_be_compared(value):
+    column = Column('n', use_getitem=True)
+    above_ten = Filter(column, '> 10')
+
+    assert above_ten({'n': value}) is False
+    assert above_ten({'n': 50}) is True
+
+
+@pytest.mark.parametrize('expression', ['> > 3', '== foo'])
+def test_operator_filter_that_does_not_evaluate_excludes_every_row(expression):
+    column_filter = Filter(Column('n', use_getitem=True), expression)
+
+    assert column_filter({'n': 5}) is False
+
+
+def test_substring_filter_is_case_insensitive():
+    column_filter = Filter(Column('name', use_getitem=True), 'LE')
+
+    assert [n for n in ['Leo', 'Joe', 'Alex'] if column_filter({'name': n})] == ['Leo', 'Alex']
 
 
 def test_filters():
