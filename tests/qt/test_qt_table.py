@@ -2,6 +2,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
+import pandas as pd
 import pytest
 from qtpy.QtCore import QEvent, QPoint
 from qtpy.QtGui import QColor, QContextMenuEvent, QHelpEvent, QKeySequence, QPalette
@@ -187,6 +188,32 @@ def test_sorting_by_a_column(qtbot, order, expected):
     table.sortByColumn(0, order)
 
     assert [table.text(row, 0) for row in range(3)] == expected
+
+
+@pytest.mark.parametrize(
+    ('order', 'expected'),
+    [
+        (Qt.SortOrder.AscendingOrder, ['', '<NA>', 'nan', '-1', '2']),
+        (Qt.SortOrder.DescendingOrder, ['2', '-1', '', '<NA>', 'nan']),
+    ],
+)
+def test_sorting_puts_missing_values_before_the_smallest(qtbot, order, expected):
+    values = [2, None, -1, pd.NA, float('nan')]
+    table = QTestTable(columns=[Column('x', use_getitem=True)], items=[{'x': v} for v in values])
+    qtbot.addWidget(table)
+
+    table.sortByColumn(0, order)
+
+    assert [table.text(row, 0) for row in range(5)] == expected
+
+
+def test_sorting_a_text_column_with_missing_values(qtbot):
+    table = QTestTable(columns=[Column('x', use_getitem=True)], items=[{'x': v} for v in ['b', float('nan'), 'a']])
+    qtbot.addWidget(table)
+
+    table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+
+    assert [table.text(row, 0) for row in range(3)] == ['nan', 'a', 'b']
 
 
 @pytest.mark.parametrize(
