@@ -168,9 +168,11 @@ NEGATIVE_NUMBER_CELL_STYLE = CellStyle(color=RED)
 
 
 def get_cell_style_for_negative_numbers(table_context: TableContext) -> CellStyle | None:
-    if table_context.raw_value < 0:
-        return NEGATIVE_NUMBER_CELL_STYLE
-    return None
+    try:
+        is_negative = bool(table_context.raw_value < 0)
+    except TypeError:  # missing values: None can't be ordered and pd.NA has no truth value
+        return None
+    return NEGATIVE_NUMBER_CELL_STYLE if is_negative else None
 
 
 def generate_columns(
