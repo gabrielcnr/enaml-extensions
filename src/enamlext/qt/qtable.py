@@ -7,7 +7,7 @@ import time
 import warnings
 import weakref
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Iterable, Iterator
+from collections.abc import Callable, Collection, Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import lru_cache
@@ -70,6 +70,8 @@ CHECKBOX_FLAG = (
     | Qt.ItemFlag.ItemIsUserCheckable
     | Qt.ItemFlag.ItemIsEnabled
 )
+# What QAbstractTableModel.flags() returns for a cell; precomputed because flags() runs for every cell on every paint.
+CELL_FLAGS = Qt.ItemFlag.ItemNeverHasChildren | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled
 
 
 RED = QColor(Qt.GlobalColor.red)
@@ -183,6 +185,10 @@ def _is_missing(value: Any) -> bool:
         return True
 
 
+def _no_data(index: QModelIndex, col_index: int, column: Column) -> None:
+    return None
+
+
 class QTableModel(QAbstractTableModel):
     #: signal used to notify the view whenever checked_items changes
     on_checked_items: Signal = Signal(set)
@@ -199,6 +205,17 @@ class QTableModel(QAbstractTableModel):
         convert_item=default_convert_item,
     ):
         super().__init__(parent)
+        # Keyed by the role enum members, which hash like the plain ints every binding passes to data().
+        self._role_handlers: dict[int, Callable[[QModelIndex, int, Column], Any]] = {
+            Qt.ItemDataRole.DisplayRole: self._display_data,
+            Qt.ItemDataRole.TextAlignmentRole: self._alignment_data,
+            Qt.ItemDataRole.ToolTipRole: self._tooltip_data,
+            Qt.ItemDataRole.CheckStateRole: self._check_state_data,
+            Qt.ItemDataRole.FontRole: self._font_data,
+            Qt.ItemDataRole.ForegroundRole: self._foreground_data,
+            Qt.ItemDataRole.BackgroundRole: self._background_data,
+            Qt.ItemDataRole.DecorationRole: self._decoration_data,
+        }
         self.columns = columns
         self._original_items: Iterable[Any] = [] if items is None else items
         self.checkable = checkable
@@ -237,158 +254,141 @@ class QTableModel(QAbstractTableModel):
     # QAbstractTableModel interface -----------------------------------------------------------------------------------
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
-        return len(self.items)  # O(1)
+        return len(self._filtered_items)  # O(1)
 
     def columnCount(self, parent: QModelIndex | None = None) -> int:
         return len(self.columns) + int(self.checkable)  # O(1)
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
-        column_index = index.column()
-        if column_index == 0 and self.checkable:
+        if not index.isValid():
+            return Qt.ItemFlag.NoItemFlags
+        if self.checkable and index.column() == 0:
             return CHECKBOX_FLAG
-        return super().flags(index)
+        return CELL_FLAGS
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
-        column = self.get_column_by_index(index.column())
+        col_index = index.column()
+        column = self.get_column_by_index(col_index)
+        handler = self._role_handlers.get(role, _no_data)
         if column.collect_stats:
             t0 = time.perf_counter()
-            result = self._data(index, role)
+            result = handler(index, col_index, column)
             t1 = time.perf_counter()
             column.record_stats(role=role, elapsed=t1 - t0)
             return result
-        return self._data(index, role)
+        return handler(index, col_index, column)
 
     def _data(self, index, role):
-        if role == Qt.ItemDataRole.DisplayRole:
-            offset = 1 if self.checkable else 0
-            if (col_index := index.column()) or not self.checkable:
-                column = self.columns[col_index - offset]  # O(1)
-                item = self.items[index.row()]  # O(1)
-                return column.get_displayed_value(item)
-        elif role == Qt.ItemDataRole.TextAlignmentRole:
-            offset = 1 if self.checkable else 0
-            # Only the first column is checkable (index = 0) - so we need to account for that offset
-            if (col_index := index.column()) or not self.checkable:
-                column = self.columns[col_index - offset]  # O(1)
-                # Fast path: fixed-align (or already-resolved AUTO_ALIGN) columns
-                # don't need the row item — skip fetching/converting it on every cell.
-                if (align := column.get_align_quick()) is not None:
-                    return to_qt_alignment(align)
-                item = self.convert_item(self.items[index.row()])  # O(1)
-                try:
-                    return to_qt_alignment(column.get_align(item))
-                except Exception as exc:
-                    if self.error_handling == 'graceful':
-                        logger.warning(
-                            'Error when resolving alignment for column: col_index = %r, '
-                            'column.title = %r, index.row() = %r, exc = %r',
-                            col_index,
-                            column.title,
-                            index.row(),
-                            exc,
-                        )
-                    else:
-                        raise
-        elif role == Qt.ItemDataRole.ToolTipRole:
-            col_index = index.column()
-            column = self.get_column_by_index(col_index)
+        col_index = index.column()
+        return self._role_handlers.get(role, _no_data)(index, col_index, self.get_column_by_index(col_index))
+
+    # One handler per role, each given the view column index and its Column (see get_column_by_index).
+
+    def _display_data(self, index: QModelIndex, col_index: int, column: Column) -> Any:
+        if col_index or not self.checkable:
+            return column.get_displayed_value(self._filtered_items[index.row()])
+        return None
+
+    def _alignment_data(self, index: QModelIndex, col_index: int, column: Column) -> Any:
+        # Only the first column is checkable (index = 0) - so we need to account for that offset
+        if not col_index and self.checkable:
+            return None
+        # Fast path: fixed-align (or already-resolved AUTO_ALIGN) columns
+        # don't need the row item — skip fetching/converting it on every cell.
+        if (align := column.get_align_quick()) is not None:
+            return QT_ALIGNMENT_MAP[align]
+        item = self.convert_item(self._filtered_items[index.row()])  # O(1)
+        try:
+            return QT_ALIGNMENT_MAP[column.get_align(item)]
+        except Exception as exc:
+            if self.error_handling != 'graceful':
+                raise
+            self._log_resolution_error('alignment', index, col_index, column, exc)
+        return None
+
+    def _tooltip_data(self, index: QModelIndex, col_index: int, column: Column) -> Any:
+        context = TableContext(
+            model=self,
+            index=index,
+            role=Qt.ItemDataRole.ToolTipRole,
+            column_index=col_index,
+            column=column,
+            convert=self.convert_item,
+        )  # TODO: should we check if the column has a tooltip callback before creating this?
+        return column.get_tooltip(context)
+
+    def _check_state_data(self, index: QModelIndex, col_index: int, column: Column) -> Any:
+        # TODO: think about using the check state of the vertical header to control checked items
+        #       what if we want to have more than 1 column that is checkable?
+        #       should we keep a collection of checked items separately or should we consider wrapping each
+        #       item in a wrapper object that holds the checked state? how about a proxy object?
+        if self.checkable and col_index == 0:
+            if self._filtered_items[index.row()] in self.checked_items:
+                return Qt.CheckState.Checked
+            return Qt.CheckState.Unchecked
+        return None
+
+    def _font_data(self, index: QModelIndex, col_index: int, column: Column) -> Any:
+        if column.cell_style is not None:
+            try:
+                style = self._get_cell_style(index, Qt.ItemDataRole.FontRole, col_index, column)
+                if style is not None and (font_spec := style.get('font')) is not None:
+                    return make_custom_font(font_spec)
+            except Exception as exc:
+                if self.error_handling != 'graceful':
+                    raise
+                self._log_resolution_error('font', index, col_index, column, exc)
+        return self._font
+
+    def _foreground_data(self, index: QModelIndex, col_index: int, column: Column) -> Any:
+        if column.cell_style is not None:
+            try:
+                style = self._get_cell_style(index, Qt.ItemDataRole.ForegroundRole, col_index, column)
+                if style is not None:
+                    return style.get('color')
+            except Exception as exc:
+                if self.error_handling != 'graceful':
+                    raise
+                self._log_resolution_error('foreground colour style', index, col_index, column, exc)
+        return None
+
+    def _background_data(self, index: QModelIndex, col_index: int, column: Column) -> Any:
+        if column.cell_style is not None:
+            try:
+                style = self._get_cell_style(index, Qt.ItemDataRole.BackgroundRole, col_index, column)
+                if style is not None:
+                    return style.get('background')
+            except Exception as exc:
+                if self.error_handling != 'graceful':
+                    raise
+                self._log_resolution_error('background colour style', index, col_index, column, exc)
+        return None
+
+    def _decoration_data(self, index: QModelIndex, col_index: int, column: Column) -> Any:
+        if column.image is not None:
             context = TableContext(
                 model=self,
                 index=index,
-                role=role,
+                role=Qt.ItemDataRole.DecorationRole,
                 column_index=col_index,
                 column=column,
                 convert=self.convert_item,
-            )  # TODO: should we check if the column has a tooltip callback before creating this?
-            return column.get_tooltip(context)
-        elif role == Qt.ItemDataRole.CheckStateRole and self.checkable and index.column() == 0:
-            # TODO: think about using the check state of the vertical header to control checked items
-            #       what if we want to have more than 1 column that is checkable?
-            #       should we keep a collection of checked items separately or should we consider wrapping each
-            #       item in a wrapper object that holds the checked state? how about a proxy object?
-            item = self.items[index.row()]  # O(1)
-            if item in self.checked_items:
-                return Qt.CheckState.Checked
-            return Qt.CheckState.Unchecked
-        elif role == Qt.ItemDataRole.FontRole:
-            col_index = index.column()
-            column = self.get_column_by_index(col_index)
-            if column.cell_style is not None:
-                try:
-                    style = self._get_cell_style(index, role, col_index, column)
-                    if style is not None and (font_spec := style.get('font')) is not None:
-                        return make_custom_font(font_spec)
-                except Exception as exc:
-                    if self.error_handling == 'graceful':
-                        logger.warning(
-                            'Error when resolving font for column: col_index = %r, '
-                            'column.title = %r, index.row() = %r, exc = %r',
-                            col_index,
-                            column.title,
-                            index.row(),
-                            exc,
-                        )
-                    else:
-                        raise
+            )
+            if image := column.get_image(context):
+                return _load_scaled_pixmap(image)
+        return None
 
-            return self._font
-
-        elif role == Qt.ItemDataRole.ForegroundRole:
-            col_index = index.column()
-            column = self.get_column_by_index(col_index)
-            if column.cell_style is not None:
-                try:
-                    style = self._get_cell_style(index, role, col_index, column)
-                    if style is not None:
-                        return style.get('color')
-                except Exception as exc:
-                    if self.error_handling == 'graceful':
-                        logger.warning(
-                            'Error when resolving foreground colour style for column: col_index = %r, '
-                            'column.title = %r, index.row() = %r, exc = %r',
-                            col_index,
-                            column.title,
-                            index.row(),
-                            exc,
-                        )
-                    else:
-                        raise
-
-        elif role == Qt.ItemDataRole.BackgroundRole:
-            col_index = index.column()
-            column = self.get_column_by_index(col_index)
-            if column.cell_style is not None:
-                try:
-                    style = self._get_cell_style(index, role, col_index, column)
-                    if style is not None:
-                        return style.get('background')
-                except Exception as exc:
-                    if self.error_handling == 'graceful':
-                        logger.warning(
-                            'Error when resolving background colour style for column: col_index = %r, '
-                            'column.title = %r, index.row() = %r, exc = %r',
-                            col_index,
-                            column.title,
-                            index.row(),
-                            exc,
-                        )
-                    else:
-                        raise
-
-        elif role == Qt.ItemDataRole.DecorationRole:  # TODO: refactor (DRY)
-            col_index = index.column()
-            column = self.get_column_by_index(col_index)
-            if column.image is not None:
-                context = TableContext(
-                    model=self,
-                    index=index,
-                    role=role,
-                    column_index=col_index,
-                    column=column,
-                    convert=self.convert_item,
-                )
-                if image := column.get_image(context):
-                    return _load_scaled_pixmap(image)
+    def _log_resolution_error(
+        self, what: str, index: QModelIndex, col_index: int, column: Column, exc: Exception
+    ) -> None:
+        logger.warning(
+            'Error when resolving %s for column: col_index = %r, column.title = %r, index.row() = %r, exc = %r',
+            what,
+            col_index,
+            column.title,
+            index.row(),
+            exc,
+        )
 
     def _get_cell_style(self, index: QModelIndex, role: int, col_index: int, column: Column) -> CellStyle | None:
         key = (index.row(), col_index)
@@ -509,8 +509,9 @@ class QTableModel(QAbstractTableModel):
 
     # QTableModel interface -------------------------------------------------------------------------------------------
     def get_column_by_index(self, index: int) -> Column:
-        offset = 1 if self.checkable else 0
-        return self.columns[max(index - offset, 0)]  # TODO: properly address checkable column here
+        if self.checkable:
+            index -= 1
+        return self.columns[max(0, index)]  # TODO: properly address checkable column here
 
     def get_item_by_index(self, index: int) -> Any:
         return self.items[index]

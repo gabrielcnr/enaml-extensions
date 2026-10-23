@@ -209,3 +209,27 @@ def test_dataframe_with_missing_numbers_renders_without_style_errors(qtbot, capl
 
     assert foreground == [NEGATIVE_NUMBER_CELL_STYLE['color'], None, None]
     assert not caplog.records
+
+
+def test_a_dotted_key_is_a_plain_attribute_name():
+    item = SimpleNamespace(**{'a.b': 1, 'a': SimpleNamespace(b=2)})
+
+    assert Column('a.b').get_value(item) == 1
+
+
+def test_a_subclass_can_override_how_values_are_looked_up():
+    class Upper(Column):
+        def get_value_by_attribute_lookup(self, item):
+            return super().get_value_by_attribute_lookup(item).upper()
+
+    class Doubled(Column):
+        def get_value_by_getitem_lookup(self, item):
+            return super().get_value_by_getitem_lookup(item) * 2
+
+    assert Upper('name').get_value(SimpleNamespace(name='pam')) == 'PAM'
+    assert Doubled('n', use_getitem=True).get_value({'n': 21}) == 42
+
+
+@pytest.mark.parametrize('key', ['k', 0, ('a', 'b')])
+def test_getitem_columns_look_up_the_key_as_given(key):
+    assert Column(key, use_getitem=True).get_value({key: 'v'}) == 'v'
