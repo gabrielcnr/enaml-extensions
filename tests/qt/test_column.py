@@ -1,12 +1,20 @@
 from collections import namedtuple
 from dataclasses import dataclass
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
 from enamlext.qt.qt_dataframe import DataFrameProxy
-from enamlext.qt.table.column import Alignment, Column, generate_columns
+from enamlext.qt.qtable import Qt, QTable
+from enamlext.qt.table.column import (
+    NEGATIVE_NUMBER_CELL_STYLE,
+    Alignment,
+    Column,
+    generate_columns,
+    get_cell_style_for_negative_numbers,
+)
 
 
 def test_get_displayed_value():
@@ -170,3 +178,34 @@ def test_total_cost_sums_cumulative_time_across_roles():
 
     assert column.total_cost() == 1.5
     assert Column('age').total_cost() == 0
+
+
+@pytest.mark.parametrize(
+    ('raw_value', 'expected'),
+    [
+        (-1, NEGATIVE_NUMBER_CELL_STYLE),
+        (-0.5, NEGATIVE_NUMBER_CELL_STYLE),
+        (Decimal(-1), NEGATIVE_NUMBER_CELL_STYLE),
+        (0, None),
+        (1, None),
+        (float('nan'), None),
+        (None, None),
+        (pd.NA, None),
+    ],
+)
+def test_negative_number_cell_style(raw_value, expected):
+    context = SimpleNamespace(raw_value=raw_value)
+    assert get_cell_style_for_negative_numbers(context) is expected
+
+
+def test_dataframe_with_missing_numbers_renders_without_style_errors(qtbot, caplog):
+    df = pd.DataFrame({'name': ['a', 'b', 'c'], 'qty': pd.array([-1, None, 2], dtype='Int64')})
+    table = QTable(columns=[], items=DataFrameProxy(df))
+    qtbot.addWidget(table)
+    table.columns = generate_columns(table.items)
+
+    model = table.model()
+    foreground = [model.data(model.index(row, 1), Qt.ItemDataRole.ForegroundRole) for row in range(3)]
+
+    assert foreground == [NEGATIVE_NUMBER_CELL_STYLE['color'], None, None]
+    assert not caplog.records
