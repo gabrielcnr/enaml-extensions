@@ -9,7 +9,7 @@ from qtpy.QtGui import QColor, QContextMenuEvent, QHelpEvent, QKeySequence, QPal
 from qtpy.QtTest import QTest
 from qtpy.QtWidgets import QAbstractItemView, QApplication, QLineEdit, QMenu, QStyledItemDelegate, QToolTip
 
-from enamlext.qt.qtable import QFilterWidget, QModelIndex, Qt, QTable, QTableModel, SelectionMode
+from enamlext.qt.qtable import QFilterWidget, QModelIndex, Qt, QTable, QTableModel, SelectionMode, make_custom_font
 from enamlext.qt.table.column import Alignment, Column
 from enamlext.qt.table.defs import CellStyle
 
@@ -82,6 +82,41 @@ def test_cell_style_is_served_for_font_foreground_and_background_roles(table):
     assert not table.data(0, 0, Qt.ItemDataRole.FontRole).bold()
     assert table.data(0, 0, Qt.ItemDataRole.ForegroundRole) is None
     assert table.data(0, 0, Qt.ItemDataRole.BackgroundRole) is None
+
+
+@pytest.mark.parametrize(
+    ('font_spec', 'bold', 'italic', 'underline'),
+    [
+        ('bold', True, False, False),
+        ('italic', False, True, False),
+        ('underline', False, False, True),
+        ('bold italic underline', True, True, True),
+    ],
+)
+def test_make_custom_font_styles(qapp, font_spec, bold, italic, underline):
+    font = make_custom_font(font_spec)
+
+    assert (font.bold(), font.italic(), font.underline()) == (bold, italic, underline)
+
+
+def test_make_custom_font_size_and_family(qapp):
+    font = make_custom_font('bold underline 12px Arial Narrow')
+
+    assert font.bold()
+    assert font.underline()
+    assert font.pixelSize() == 12
+    assert font.family() == 'Arial Narrow'
+
+
+def test_cell_style_font_underline_reaches_the_font_role(table):
+    with table.updating_internals():
+        table.columns = [Column('name', cell_style=lambda context: CellStyle(font='underline'))]
+        table.items = [Person(name='John', age=33)]
+
+    font = table.data(0, 0, Qt.ItemDataRole.FontRole)
+
+    assert font.underline()
+    assert not font.italic()
 
 
 def test_cell_style_callback_runs_once_per_cell_on_each_repaint(table):
