@@ -144,7 +144,7 @@ def make_custom_font(font_spec: str) -> QFont:
         tokens.remove('italic')
 
     if 'underline' in tokens:
-        font.setItalic(True)
+        font.setUnderline(True)
         tokens.remove('underline')
 
     for token in tokens[:]:
