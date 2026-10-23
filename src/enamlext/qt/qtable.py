@@ -7,7 +7,7 @@ import time
 import warnings
 import weakref
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Collection, Iterable, Iterator
+from collections.abc import Callable, Collection, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import lru_cache
@@ -189,9 +189,25 @@ def _no_data(index: QModelIndex, col_index: int, column: Column) -> None:
     return None
 
 
+def _sort_order(rows: Sequence[Any], get_value, *, descending: bool) -> list[int]:
+    """Positions of `rows` in sorted order."""
+    values = list(map(get_value, rows))
+    # Missing values can't be ordered against real ones, so they sort as a group before them (after them when
+    # descending); sorting is stable, so ties and missing values keep their relative order.
+    present: list[int] = []
+    missing: list[int] = []
+    for position, value in enumerate(values):
+        (missing if _is_missing(value) else present).append(position)
+    present.sort(key=values.__getitem__, reverse=descending)
+    return present + missing if descending else missing + present
+
+
 class QTableModel(QAbstractTableModel):
     #: signal used to notify the view whenever checked_items changes
     on_checked_items: Signal = Signal(set)
+
+    #: emitted when the column the rows were sorted by is gone, so the rows are back in the given order
+    sorting_dropped: Signal = Signal()
 
     def __init__(
         self,
@@ -216,6 +232,10 @@ class QTableModel(QAbstractTableModel):
             Qt.ItemDataRole.BackgroundRole: self._background_data,
             Qt.ItemDataRole.DecorationRole: self._decoration_data,
         }
+        self._reset_depth = 0
+        self._last_sorting_column: tuple[Column, int, Qt.SortOrder] | None = None
+        self._unsorted_rows: Sequence[Any] = []
+        self._row_order: list[int] | None = None  # positions in _unsorted_rows of the rows shown, when sorted
         self.columns = columns
         self._original_items: Iterable[Any] = [] if items is None else items
         self.checkable = checkable
@@ -243,8 +263,6 @@ class QTableModel(QAbstractTableModel):
 
         self._font = self._create_font()  # cache the font
         self._font_bold = self._create_font(bold=True)
-
-        self._last_sorting_column: tuple[Column, int, Qt.SortOrder] | None = None
 
         self._cell_style_cache: dict | None = None
 
@@ -420,37 +438,76 @@ class QTableModel(QAbstractTableModel):
         finally:
             self._cell_style_cache = None
 
-    def sort(self, column_index, order=None) -> None:
-        if self.columns:
-            # TODO: instead of relying on column (positional) index we should
-            #       be keeping a referencing to the column and improve
-            #       Column identity and equality comparison to restore sorting
+    def sort(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
+        # `column` is the view's section, so the checkbox column of a checkable table shifts the model's columns by one
+        column_index = column - 1 if self.checkable else column
+        if not 0 <= column_index < len(self.columns):
+            self.clear_sorting()
+            return
+        # TODO: instead of relying on column (positional) index we should
+        #       be keeping a referencing to the column and improve
+        #       Column identity and equality comparison to restore sorting
+        self._last_sorting_column = self.columns[column_index], column_index, order
+        self.beginResetModel()
+        self._show_sorted(self._unsorted_rows)
+        self.endResetModel()
+
+    def refresh_rows(self) -> None:
+        """Filter and sort the items again (their values may have changed), keeping selections on their rows."""
+        old_order = self._row_order
+        if old_order is None:
+            self.refresh_filtered_items()  # TODO: find a better way without requiring this
+            return
+        if self.filters or len(old_order) != len(self._unsorted_rows):
+            # filters may let rows in or out (and items may have been added or removed): only a reset expresses that
+            self._apply_filters()
+            return
+        self.layoutAboutToBeChanged.emit()
+        self._show_sorted(self._unsorted_rows)
+        new_order = self._row_order
+        if new_order is None:  # the sorted column is gone
+            new_row_of = list(range(len(old_order)))
+        else:
+            new_row_of = [0] * len(new_order)
+            for new_row, position in enumerate(new_order):
+                new_row_of[position] = new_row
+        old_indexes = self.persistentIndexList()
+        new_indexes = [self.index(new_row_of[old_order[index.row()]], index.column()) for index in old_indexes]
+        self.changePersistentIndexList(old_indexes, new_indexes)
+        self.layoutChanged.emit()
+
+    def clear_sorting(self) -> None:
+        """Show the rows in the given order again."""
+        if self._last_sorting_column is None:
+            return
+        self._last_sorting_column = None
+        self._apply_filters()
+
+    def _show_sorted(self, rows: Sequence[Any]) -> None:
+        self._unsorted_rows = rows
+        self._row_order = None
+        self._filtered_items = cast('list[Any]', rows)
+        if self._last_sorting_column is None:
+            return
+        previous_column, column_index, order = self._last_sorting_column
+        try:
             column = self.columns[column_index]
-            self._last_sorting_column = column, column_index, order
-            self._apply_sorting()
-
-    def _apply_sorting(self):
-        if self._last_sorting_column is not None:
-            previous_column, column_index, order = self._last_sorting_column
-            try:
-                column = self.columns[column_index]
-            except IndexError:
-                # TODO: we should still try to find if the column is there in another index
-                return
-            else:
-                if column.title != previous_column.title:
-                    # not very likely to be the same column - avoid sorting incorrectly
-                    return
-            self.beginResetModel()
-
-            def sort_key(item):
-                value = column.get_value(item)
-                # missing values can't be ordered against real ones, so they sort as a group before them
-                return (False,) if _is_missing(value) else (True, value)
-
-            descending = order == Qt.SortOrder.DescendingOrder  # Qt6 enums are not ints, so never truth-test them
-            self._filtered_items = sorted(self._filtered_items, key=sort_key, reverse=descending)
-            self.endResetModel()
+        except IndexError:
+            # TODO: we should still try to find if the column is there in another index
+            column = None
+        if column is None or column.title != previous_column.title:
+            # not very likely to be the same column - avoid sorting incorrectly
+            self._last_sorting_column = None
+            self.sorting_dropped.emit()
+            return
+        descending = order == Qt.SortOrder.DescendingOrder  # Qt6 enums are not ints, so never truth-test them
+        try:
+            row_order = _sort_order(rows, column.get_value, descending=descending)
+        except (IndexError, KeyError) as exc:
+            logger.warning('It was not possible to re-apply the sorting configuration: %r', exc)
+            return
+        self._row_order = row_order
+        self._filtered_items = [rows[position] for position in row_order]
 
     def setData(self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole) -> bool:
         if index.column() == 0 and role == Qt.ItemDataRole.CheckStateRole and self.checkable:
@@ -532,10 +589,27 @@ class QTableModel(QAbstractTableModel):
         """write to the original items (not filtered)"""
         self._original_items = items
         self._apply_filters()
-        try:
-            self._apply_sorting()
-        except (IndexError, KeyError) as exc:
-            logger.warning('It was not possible to re-apply the sorting configuration: %r', exc)
+
+    @property
+    def columns(self) -> list[Column]:
+        return self._columns
+
+    @columns.setter
+    def columns(self, columns: list[Column]) -> None:
+        self.beginResetModel()
+        self._columns = columns
+        self.endResetModel()
+
+    def beginResetModel(self) -> None:
+        # updating_internals() wraps setters that reset the model themselves, and Qt only allows one level
+        self._reset_depth += 1
+        if self._reset_depth == 1:
+            super().beginResetModel()
+
+    def endResetModel(self) -> None:
+        self._reset_depth -= 1
+        if self._reset_depth == 0:
+            super().endResetModel()
 
     def set_filter(self, column: Column, expression: str) -> None:
         self.filters.add_filter(Filter(column, expression))
@@ -543,8 +617,10 @@ class QTableModel(QAbstractTableModel):
 
     def _apply_filters(self) -> None:
         self.beginResetModel()
-        self.refresh_filtered_items()
-        self.endResetModel()
+        try:
+            self.refresh_filtered_items()
+        finally:
+            self.endResetModel()
 
     def clear_filters(self):
         self.filters.clear()
@@ -559,10 +635,11 @@ class QTableModel(QAbstractTableModel):
         (index in the original items -> index in the filtered items)
         """
         if self.filters:
-            self._filtered_items = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
+            rows = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
         else:
             # Keep the caller's sequence (e.g. a DataFrameProxy) rather than copying it.
-            self._filtered_items = cast('list[Any]', self._original_items)
+            rows = cast('list[Any]', self._original_items)
+        self._show_sorted(rows)
 
     def _create_font(self, bold: bool = False) -> QFont:
         font = QFont(DEFAULT_FONT_NAME)
@@ -754,9 +831,9 @@ class QTable(QTableView):
             self.columns, self.items, checkable=checkable, checked_items=checked_items, convert_item=convert_item
         )
         model.on_checked_items.connect(self.on_model_checked_items_changed)
+        model.sorting_dropped.connect(self._clear_sort_indicator)
         self.setModel(model)
         self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
-        self.sortable = sortable
         self.__updating = False  # sentinel
         # TODO: improve the way we update the internals - maybe offering a high-level function that gets everything
         #       that is internal and is possible of updating?
@@ -768,7 +845,10 @@ class QTable(QTableView):
         h_header.filterChanged.connect(self.on_filter_changed)
         h_header.setSectionsClickable(True)
         h_header.setSortIndicatorShown(True)
+        # Qt's default indicator is (section 0, descending), which would sort the rows as soon as sorting is enabled
+        h_header.setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
         self.setHorizontalHeader(h_header)
+        self.sortable = sortable
 
         self.__selection_mode = SelectionMode.MULTI_CELLS  # QTableView's own default: extended, per-item
         self.__selection_mode_override: SelectionMode | None = None
@@ -907,7 +987,22 @@ class QTable(QTableView):
 
     @sortable.setter
     def sortable(self, sortable: bool) -> None:
+        if not sortable:
+            self._clear_sort_indicator()
+            self.model().clear_sorting()
         self.setSortingEnabled(sortable)
+
+    def sortByColumn(self, column: int, order: Qt.SortOrder) -> None:
+        # QTableView sorts through the header's sortIndicatorChanged and then calls model.sort() again itself
+        header = self.horizontalHeader()
+        indicator_changes = (header.sortIndicatorSection(), header.sortIndicatorOrder()) != (column, order)
+        if self.isSortingEnabled() and indicator_changes and column >= -1:
+            header.setSortIndicator(column, order)
+        else:
+            super().sortByColumn(column, order)
+
+    def _clear_sort_indicator(self) -> None:
+        self.horizontalHeader().setSortIndicator(-1, self.horizontalHeader().sortIndicatorOrder())
 
     @contextlib.contextmanager
     def updating_internals(self):
@@ -934,10 +1029,9 @@ class QTable(QTableView):
 
     def refresh(self):
         m = self.model()
-        m.refresh_filtered_items()  # TODO: find a better way without requiring this
-        top_left = m.index(0, 0)
-        bottom_right = m.index(len(self.items), len(self.columns))
-        m.dataChanged.emit(top_left, bottom_right)
+        m.refresh_rows()
+        if m.rowCount() and m.columnCount():
+            m.dataChanged.emit(m.index(0, 0), m.index(m.rowCount() - 1, m.columnCount() - 1))
 
     def refresh_one_cell(self, row: int, col: int) -> None:
         # how about filtering and sorting here?
