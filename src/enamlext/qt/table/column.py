@@ -2,7 +2,7 @@ import datetime
 from collections.abc import Callable, Collection, Hashable, Mapping, Sequence
 from enum import Enum
 from numbers import Number
-from operator import itemgetter
+from operator import attrgetter, itemgetter
 from typing import Any, NamedTuple, TypeGuard, cast
 
 from qtpy.QtCore import Qt
@@ -79,10 +79,18 @@ class Column:
 
     def _link_get_value_method(self, key: str | Callable, use_getitem: bool) -> None:
         # Bind the right lookup once per column so the per-cell hot path never branches on the key type.
+        # The C-level getters do the same lookup as the methods, so use them unless a subclass overrides the method;
+        # attrgetter would follow a dotted key into nested attributes, which getattr does not.
+        cls = type(self)
         if callable(key):
             self.get_value = key  # type: ignore[method-assign]
         elif use_getitem:
-            self.get_value = self.get_value_by_getitem_lookup  # type: ignore[method-assign]
+            if cls.get_value_by_getitem_lookup is Column.get_value_by_getitem_lookup:
+                self.get_value = itemgetter(key)  # type: ignore[method-assign, assignment]
+            else:
+                self.get_value = self.get_value_by_getitem_lookup  # type: ignore[method-assign]
+        elif cls.get_value_by_attribute_lookup is Column.get_value_by_attribute_lookup and '.' not in key:
+            self.get_value = attrgetter(key)  # type: ignore[method-assign, assignment]
         else:
             self.get_value = self.get_value_by_attribute_lookup  # type: ignore[method-assign]
 
