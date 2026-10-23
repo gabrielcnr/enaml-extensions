@@ -612,16 +612,68 @@ class SelectionContext:
     def __init__(
         self,
         table: 'QTable',
-        selected_indexes: list[QModelIndex],
-        current: QModelIndex,
-        added: list[QModelIndex] | None,
-        removed: list[QModelIndex] | None,
+        selected_indexes: list[QModelIndex] | None = None,
+        current: QModelIndex | None = None,
+        added: list[QModelIndex] | None = None,
+        removed: list[QModelIndex] | None = None,
+        *,
+        selection: QItemSelection | None = None,
+        added_selection: QItemSelection | None = None,
+        removed_selection: QItemSelection | None = None,
     ):
+        # Expanding a selection into one QModelIndex per cell is O(cells) and made select-all on a big table take
+        # seconds, so selections are kept as ranges and only expanded when the index lists are read.
         self.__table = weakref.ref(table)
-        self.selected_model_indexes = selected_indexes
-        self.added_model_indexes = added
-        self.removed_model_indexes = removed
-        self.current_model_index = current
+        self._selected_model_indexes = selected_indexes
+        self._added_model_indexes = added
+        self._removed_model_indexes = removed
+        self._selection = selection
+        self._added_selection = added_selection
+        self._removed_selection = removed_selection
+        self.current_model_index = current if current is not None else QModelIndex()
+
+    @property
+    def selected_model_indexes(self) -> list[QModelIndex]:
+        if self._selected_model_indexes is None:
+            self._selected_model_indexes = self._selection.indexes() if self._selection is not None else []
+        return self._selected_model_indexes
+
+    @selected_model_indexes.setter
+    def selected_model_indexes(self, indexes: list[QModelIndex]) -> None:
+        self._selected_model_indexes = indexes
+
+    @property
+    def added_model_indexes(self) -> list[QModelIndex] | None:
+        if self._added_model_indexes is None and self._added_selection is not None:
+            self._added_model_indexes = self._added_selection.indexes()
+        return self._added_model_indexes
+
+    @added_model_indexes.setter
+    def added_model_indexes(self, indexes: list[QModelIndex] | None) -> None:
+        self._added_model_indexes = indexes
+
+    @property
+    def removed_model_indexes(self) -> list[QModelIndex] | None:
+        if self._removed_model_indexes is None and self._removed_selection is not None:
+            self._removed_model_indexes = self._removed_selection.indexes()
+        return self._removed_model_indexes
+
+    @removed_model_indexes.setter
+    def removed_model_indexes(self, indexes: list[QModelIndex] | None) -> None:
+        self._removed_model_indexes = indexes
+
+    def _selected_rows(self, model: 'QTableModel') -> list[int]:
+        if self._selected_model_indexes is not None or self._selection is None:
+            return sorted({i.row() for i in self.selected_model_indexes})
+        # The checkbox column isn't selectable, so a range covering only that column selects no cells.
+        first_selectable_column = 1 if model.checkable else 0
+        rows: set[int] = set()
+        selection = self._selection
+        for i in range(len(selection)):
+            selection_range = selection[i]
+            if selection_range.right() >= first_selectable_column:
+                rows.update(range(selection_range.top(), selection_range.bottom() + 1))
+        return sorted(rows)
 
     @property
     def selected_indexes(self) -> list[Cell]:
@@ -650,8 +702,8 @@ class SelectionContext:
         table = self.__table()
         if table is None:
             return None
-        row_indexes = (i.row() for i in self.selected_model_indexes)
-        return [table.model().get_item_by_index(i) for i in set(row_indexes)]
+        model = table.model()
+        return [model.get_item_by_index(row) for row in self._selected_rows(model)]
 
     @property
     def selected_values(self) -> Iterator[tuple[Cell, Any]]:
@@ -979,21 +1031,15 @@ class QTable(QTableView):
         super().selectionChanged(selected, deselected)
         selection_context = SelectionContext(
             table=self,
-            selected_indexes=self.selectionModel().selectedIndexes(),
-            added=selected.indexes(),
-            removed=selected.indexes(),
             current=self.currentIndex(),
+            selection=self.selectionModel().selection(),
+            added_selection=QItemSelection(selected),
+            removed_selection=QItemSelection(deselected),
         )
         self.on_selection.emit(selection_context)
 
     def get_current_selection_context(self) -> SelectionContext:
-        return SelectionContext(
-            table=self,
-            selected_indexes=self.selectionModel().selectedIndexes(),
-            added=None,
-            removed=None,
-            current=self.currentIndex(),
-        )
+        return SelectionContext(table=self, current=self.currentIndex(), selection=self.selectionModel().selection())
 
     # Checked Items
 
