@@ -4,7 +4,7 @@ from typing import Any
 
 import pandas as pd
 import pytest
-from qtpy.QtCore import QEvent, QPoint
+from qtpy.QtCore import QAbstractTableModel, QEvent, QPoint
 from qtpy.QtGui import QColor, QContextMenuEvent, QHelpEvent, QKeySequence, QPalette
 from qtpy.QtTest import QTest
 from qtpy.QtWidgets import QAbstractItemView, QApplication, QLineEdit, QMenu, QStyledItemDelegate, QToolTip
@@ -469,3 +469,99 @@ def test_cell_style_border_lands_on_the_right_cell_in_a_checkable_table(qtbot):
     checkbox_cell = table.visualRect(table.index(1, 0))
     assert image.pixelColor(name_cell.left() + 1, name_cell.center().y()).name() == '#ff0000'
     assert image.pixelColor(checkbox_cell.left() + 1, checkbox_cell.center().y()).name() != '#ff0000'
+
+
+def test_cell_flags_match_what_the_base_model_reports(qapp):
+    model = QTableModel([Column('name'), Column('age')], [Person('John', 33)])
+    base = QAbstractTableModel.flags
+
+    assert model.flags(model.index(0, 1)) == base(model, model.index(0, 1))
+    assert model.flags(QModelIndex()) == base(model, QModelIndex())
+
+
+def test_checkbox_column_flags(qapp):
+    model = QTableModel([Column('name')], [Person('John', 33)], checkable=True)
+    flags = model.flags(model.index(0, 0))
+
+    assert flags & Qt.ItemFlag.ItemIsUserCheckable
+    assert not flags & Qt.ItemFlag.ItemIsSelectable
+    assert model.flags(model.index(0, 1)) == QAbstractTableModel.flags(model, model.index(0, 1))
+
+
+def test_roles_the_model_does_not_handle_return_none(table):
+    with table.updating_internals():
+        table.columns = [Column('name')]
+        table.items = [Person('John', 33)]
+
+    assert table.data(0, 0, Qt.ItemDataRole.EditRole) is None
+    assert table.data(0, 0, Qt.ItemDataRole.UserRole) is None
+
+
+def test_a_failing_cell_style_is_logged_once_per_role_and_painting_goes_on(table, caplog):
+    def cell_style(context):
+        raise ValueError('boom')
+
+    with table.updating_internals():
+        table.columns = [Column('name', cell_style=cell_style)]
+        table.items = [Person('John', 33)]
+    caplog.clear()
+
+    assert table.data(0, 0, Qt.ItemDataRole.FontRole) == table.model()._font
+    assert table.data(0, 0, Qt.ItemDataRole.ForegroundRole) is None
+    assert table.data(0, 0, Qt.ItemDataRole.BackgroundRole) is None
+    detail = "for column: col_index = 0, column.title = 'Name', index.row() = 0, exc = ValueError('boom')"
+    assert [r.getMessage() for r in caplog.records] == [
+        f'Error when resolving font {detail}',
+        f'Error when resolving foreground colour style {detail}',
+        f'Error when resolving background colour style {detail}',
+    ]
+
+
+def test_a_failing_cell_style_raises_when_errors_are_not_graceful(table):
+    def cell_style(context):
+        raise ValueError('boom')
+
+    with table.updating_internals():
+        table.columns = [Column('name', cell_style=cell_style)]
+        table.items = [Person('John', 33)]
+    table.model().error_handling = 'raise'
+
+    with pytest.raises(ValueError, match='boom'):
+        table.model()._data(table.index(0, 0), Qt.ItemDataRole.ForegroundRole)
+
+
+def test_cell_style_context_reads_each_value_once_and_only_when_asked(table):
+    reads = Counter()
+
+    class CountingColumn(Column):
+        def get_value_by_attribute_lookup(self, item):
+            reads[item.name] += 1
+            return super().get_value_by_attribute_lookup(item)
+
+    def cell_style(context):
+        if context.item.name == 'Pam':
+            return None
+        return CellStyle(font='bold') if context.raw_value == context.raw_value else None
+
+    with table.updating_internals():
+        table.columns = [CountingColumn('age', cell_style=cell_style)]
+        table.items = [Person('John', 33), Person('Pam', 22)]
+    reads.clear()
+
+    table.data(0, 0, Qt.ItemDataRole.FontRole)
+    table.data(1, 0, Qt.ItemDataRole.FontRole)
+
+    assert reads == {'John': 1}
+
+
+def test_a_cell_style_callback_can_override_context_values(table):
+    def cell_style(context):
+        context.raw_value = -context.raw_value
+        context.item = 'replaced'
+        return CellStyle(font='bold') if context.raw_value < 0 and context.item == 'replaced' else None
+
+    with table.updating_internals():
+        table.columns = [Column('age', cell_style=cell_style)]
+        table.items = [Person('John', 33)]
+
+    assert table.data(0, 0, Qt.ItemDataRole.FontRole).bold()

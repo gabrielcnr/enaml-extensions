@@ -1,4 +1,3 @@
-from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from qtpy.QtCore import QModelIndex
@@ -10,6 +9,9 @@ if TYPE_CHECKING:
 
 def default_convert(item):
     return item
+
+
+_UNSET: Any = object()
 
 
 class TableContext:
@@ -37,24 +39,58 @@ class TableContext:
         self.column_index = column_index
         self.column = column
         self.convert = convert
+        # Plain lazy properties, not cached_property: a context is built per styled cell per paint and
+        # cached_property's descriptor lookup made reading a value twice as slow. The setters keep the values
+        # assignable, as they were with cached_property.
+        self.__row_index = self.__item = self.__raw_item = self.__raw_value = self.__value = _UNSET
 
-    @cached_property
+    @property
     def row_index(self) -> int:
-        return self.index.row()
+        if self.__row_index is _UNSET:
+            self.__row_index = self.index.row()
+        return self.__row_index
 
-    @cached_property
+    @row_index.setter
+    def row_index(self, row_index: int) -> None:
+        self.__row_index = row_index
+
+    @property
     def item(self) -> Any:
-        return self.convert(self._raw_item)
+        if self.__item is _UNSET:
+            self.__item = self.convert(self._raw_item)
+        return self.__item
 
-    @cached_property
+    @item.setter
+    def item(self, item: Any) -> None:
+        self.__item = item
+
+    @property
     def _raw_item(self) -> Any:
-        return self.__model.get_item_by_index(self.row_index)
+        if self.__raw_item is _UNSET:
+            self.__raw_item = self.__model.get_item_by_index(self.row_index)
+        return self.__raw_item
 
-    @cached_property
+    @_raw_item.setter
+    def _raw_item(self, raw_item: Any) -> None:
+        self.__raw_item = raw_item
+
+    @property
     def raw_value(self) -> Any:
-        return self.column.get_value(self._raw_item)
+        if self.__raw_value is _UNSET:
+            self.__raw_value = self.column.get_value(self._raw_item)
+        return self.__raw_value
 
-    @cached_property
+    @raw_value.setter
+    def raw_value(self, raw_value: Any) -> None:
+        self.__raw_value = raw_value
+
+    @property
     def value(self) -> str:
         """Returns the displayed value."""
-        return self.column.get_displayed_value(self._raw_item)
+        if self.__value is _UNSET:
+            self.__value = self.column.get_displayed_value(self._raw_item)
+        return self.__value
+
+    @value.setter
+    def value(self, value: str) -> None:
+        self.__value = value
