@@ -6,6 +6,8 @@ from atom.catom import Member
 from atom.typing_utils import ChangeDict
 from enaml.application import deferred_call
 
+from enamlext.atom import conflated_setattr
+
 
 def _iter_atom_members(dct: dict):
     for k, v in dct.items():
@@ -13,12 +15,16 @@ def _iter_atom_members(dct: dict):
             yield k, v
 
 
-def _create_refresh_method(name: str, bind: str):
+def _create_refresh_method(name: str, bind: str, conflate: bool):
     first_part, _ = bind.split('.')
 
     def _refresh(self, change: ChangeDict) -> None:
         if attrgetter(first_part)(self) is not None:
-            deferred_call(setattr, self, name, attrgetter(bind)(self))
+            value = attrgetter(bind)(self)
+            if conflate:
+                conflated_setattr(self, name, value)
+            else:
+                deferred_call(setattr, self, name, value)
 
     _refresh.__name__ = f'_refresh_{name}'
     return observe(bind, first_part)(_refresh)
@@ -28,7 +34,7 @@ class ViewModelMeta(AtomMeta):
     def __new__(metacls, name, bases, dct):
         for name, value in _iter_atom_members(dct.copy()):
             if value.metadata and (bind := value.metadata.get('bind')):
-                refresh_func = _create_refresh_method(name, bind)
+                refresh_func = _create_refresh_method(name, bind, value.metadata.get('conflate', False))
                 dct[f'_refresh_{name}'] = refresh_func
 
         return super().__new__(metacls, name, bases, dct)
@@ -78,4 +84,8 @@ class ViewModel(Atom, metaclass=ViewModelMeta):
     Job done! The @observe methods will be automatically generated on class initialization,
     and they will ensure that anything that gets set and is bound to a control in the UI
     will be set using deferred_call.
+
+    If the controller updates faster than the view needs to see, tag the member with
+    conflate=True, e.g. List().tag(bind='controller.orders', conflate=True). A burst of
+    updates is then applied once with the latest value, see enamlext.atom.conflated_setattr.
     """
