@@ -1,4 +1,5 @@
 import pytest
+from qtpy.QtGui import QFont, QFontInfo
 
 from enamlext.widgets.font_combo_box import FontComboBox
 
@@ -7,8 +8,15 @@ def families(widget):
     return [widget.itemText(index) for index in range(widget.count())]
 
 
+def is_shown_under_its_own_name(family):
+    # An alias such as 'Serif' is shown as the family it stands for.
+    return QFontInfo(QFont(family)).family() == family
+
+
 def family_not_shown(widget):
-    others = [family for family in families(widget) if family != widget.currentText()]
+    others = [
+        family for family in families(widget) if family != widget.currentText() and is_shown_under_its_own_name(family)
+    ]
     if not others:
         pytest.skip('needs two font families')
     return others[-1]

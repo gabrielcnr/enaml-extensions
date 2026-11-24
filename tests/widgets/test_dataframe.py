@@ -1,9 +1,11 @@
+import gc
 import threading
 
 import enaml
 import pandas as pd
 import pytest
-from qtpy.QtCore import QItemSelectionModel
+from atom.api import atomref
+from qtpy.QtCore import QCoreApplication, QEvent, QItemSelectionModel
 
 with enaml.imports():
     from enamlext.widgets.dataframe import DataFrame
@@ -99,6 +101,26 @@ def test_destroying_a_ticking_dataframe_stops_its_monitor_thread(show_in_window,
 
     monitor.join(timeout=5)
     assert not monitor.is_alive()
+
+
+def test_destroyed_ticking_dataframe_is_freed(show_in_window, frame):
+    # enaml < 0.20 hides a bound func from the garbage collector when it reuses a freed one: make the widget's one reused.
+    spare = DataFrame(df=frame)
+    freed_funcs = [spare._refresh_cells for _ in range(8)]
+    del freed_funcs
+    running_before = monitor_threads()
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, tick_interval_ms=10))
+    (monitor,) = monitor_threads() - running_before
+    widget_ref = atomref(widget)
+
+    widget.root_object().destroy()
+    monitor.join(timeout=5)
+    # On PySide6 the Qt window keeps the widget alive until Qt deletes it.
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    del widget
+    gc.collect()
+
+    assert widget_ref() is None
 
 
 def test_setting_selected_items_selects_the_rows_of_a_dataframe(show_in_window, frame):

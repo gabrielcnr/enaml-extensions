@@ -31,3 +31,14 @@ def test_monitor_never_snapshots_a_mutation_in_progress_under_the_proxy_lock(ena
 
     for snapshot in snapshots:
         assert (snapshot[:, 0] == snapshot[:, 1]).all()
+
+
+def test_update_that_arrives_after_deactivate_is_ignored():
+    df = pd.DataFrame({'a': [1.0, 2.0]})
+    refreshed = []
+    proxy = DataFrameProxy(df, tick_interval_ms=10, refresh_cells_callback=lambda rows, cols: refreshed.append(rows))
+
+    proxy.deactivate()
+    proxy.update_values_and_refresh_cells(df.values.copy(), [0], [0])
+
+    assert refreshed == []
