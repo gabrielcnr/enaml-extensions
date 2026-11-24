@@ -4,20 +4,21 @@ from atom.api import *
 from enamlext.auto import Editor
 
 class Person(Atom):
-    first_name = Unicode()
-    last_name = Unicode().tag(label='Last Name')
+    first_name = Str()
+    last_name = Str().tag(label='Last Name')
+    age = Int()
+    height = Float().tag(label='Height (m)')
+    drummer = Bool()
 
-    def _observe_first_name(self, change):
-        print 'first_name changed:', self.first_name
-
-    def _observe_last_name(self, change):
-        print 'last_name changed:', self.last_name
+    @observe('first_name', 'last_name', 'age', 'height', 'drummer')
+    def _print_change(self, change):
+        print(change['name'], 'changed:', change['value'])
 
 
 enamldef Main(Window): mw:
     title = 'Auto Editor Example'
 
-    attr person = Person(first_name='Ringo', last_name='Starr')
+    attr person = Person(first_name='Ringo', last_name='Starr', age=24, height=1.68, drummer=True)
 
     Container:
         Editor:
@@ -26,6 +27,4 @@ enamldef Main(Window): mw:
         PushButton:
             text = 'Print Person Attributes'
             clicked ::
-                print 'first_name', person.first_name
-                print 'last_name', person.last_name
-                print
+                print(person)

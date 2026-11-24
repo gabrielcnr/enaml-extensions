@@ -84,7 +84,8 @@ class DataFrameProxy:
 
     def update_values_and_refresh_cells(self, new_values, row_indexes, col_indexes):
         # must be called in the main thread!
-        assert self.refresh_cells_callback is not None, 'only called for ticking frames'
+        if self.refresh_cells_callback is None:
+            return  # deactivated while this update waited for the main thread
         t0 = time.perf_counter()
         self.values = new_values
         self.refresh_cells_callback(row_indexes, col_indexes)
@@ -105,6 +106,8 @@ class DataFrameProxy:
 
     def deactivate(self):
         self._is_active = False
+        # Usually a method of the widget that holds this proxy: a cycle enaml < 0.20 can hide from the garbage collector.
+        self.refresh_cells_callback = None
 
     def is_active(self):
         return self._is_active

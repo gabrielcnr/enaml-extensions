@@ -1,14 +1,14 @@
 import datetime
 
 import enaml
-from atom.api import Atom, Typed, Value
+from atom.api import Atom, Bool, Float, Int, Typed, Value
 from enaml.core.declarative import d_
-from enaml.widgets.api import DatetimeSelector, Form, Label
+from enaml.widgets.api import CheckBox, DatetimeSelector, Form, Label
 
 from enamlext.widgets import Field
 
 with enaml.imports():
-    from enaml.stdlib.fields import IntField
+    from enaml.stdlib.fields import FloatField, IntField
 
 
 def connect(model, model_attr, view, view_attr):
@@ -48,7 +48,16 @@ def create_editor(obj, form=None):
 
         widget = Field()
         model_attr = 'text'
-        if isinstance(member_descriptor, Typed):
+        if isinstance(member_descriptor, Bool):
+            widget = CheckBox()
+            model_attr = 'checked'
+        elif isinstance(member_descriptor, Int):
+            widget = IntField()
+            model_attr = 'value'
+        elif isinstance(member_descriptor, Float):
+            widget = FloatField()
+            model_attr = 'value'
+        elif isinstance(member_descriptor, Typed):
             type_ = member_descriptor.validate_mode[1]
             if issubclass(type_, datetime.date):
                 widget = DatetimeSelector(calendar_popup=True)

@@ -249,3 +249,68 @@ def test_refresh_does_not_warn_about_an_invalid_range(qtbot, qtlog):
     table.refresh()
 
     assert [r.message for r in qtlog.records if 'invalid index range' in r.message] == []
+
+
+def make_filtered_table(qtbot, ages, **kwargs):
+    columns = [Column('name', use_getitem=True), Column(lambda row: ages[row['name']], title='Age')]
+    table = QTable(columns, [{'name': name} for name in ages], **kwargs)
+    qtbot.addWidget(table)
+    table.on_filter_changed(table.columns[1], '> 15')
+    return table
+
+
+@pytest.mark.parametrize('sorted_by_age', [False, True])
+def test_refresh_of_a_filtered_table_shows_the_rows_that_match_now(qtbot, sorted_by_age):
+    ages = {'Cid': 30, 'Ann': 10, 'Bob': 20, 'Dan': 40}
+    table = make_filtered_table(qtbot, ages)
+    if sorted_by_age:
+        table.sortByColumn(1, ASCENDING)
+    assert table.verticalHeader().count() == 3  # the view only goes stale once it has counted the rows
+
+    ages.update(Ann=99, Cid=1, Dan=2)
+    table.refresh()
+
+    assert names(table) == (['Bob', 'Ann'] if sorted_by_age else ['Ann', 'Bob'])
+    assert table.verticalHeader().count() == 2
+
+
+@pytest.mark.parametrize('sorted_by_age', [False, True])
+def test_refresh_of_a_filtered_table_keeps_the_selection_on_its_row(qtbot, sorted_by_age):
+    ages = {'Cid': 30, 'Ann': 10, 'Bob': 20}
+    table = make_filtered_table(qtbot, ages)
+    if sorted_by_age:
+        table.sortByColumn(1, ASCENDING)
+    model = table.model()
+    row_of_bob = names(table).index('Bob')
+    table.selectionModel().select(model.index(row_of_bob, 0), QItemSelectionModel.SelectionFlag.ClearAndSelect)
+
+    ages['Ann'] = 16
+    table.refresh()
+
+    assert [model.data(index) for index in table.selectionModel().selectedIndexes()] == ['Bob']
+
+
+def test_refresh_of_a_filtered_table_unselects_a_row_that_stopped_matching(qtbot):
+    ages = {'Cid': 30, 'Ann': 10, 'Bob': 20}
+    table = make_filtered_table(qtbot, ages)
+    model = table.model()
+    table.selectionModel().select(model.index(1, 0), QItemSelectionModel.SelectionFlag.ClearAndSelect)  # Bob
+
+    ages['Bob'] = 1
+    table.refresh()
+
+    assert names(table) == ['Cid']
+    assert table.selectionModel().selectedIndexes() == []
+
+
+def test_refresh_of_a_filtered_table_sees_items_added_to_the_list(qtbot):
+    people = [Person('Cid', 30), Person('Ann', 10)]
+    table = QTable([Column('name'), Column('age')], people)
+    qtbot.addWidget(table)
+    table.on_filter_changed(table.columns[1], '> 15')
+
+    people.append(Person('Bob', 20))
+    table.refresh()
+
+    assert names(table) == ['Cid', 'Bob']
+    assert table.verticalHeader().count() == 2

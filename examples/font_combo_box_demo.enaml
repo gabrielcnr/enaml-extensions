@@ -1,10 +1,5 @@
 from enaml.widgets.api import *
 from enamlext.widgets.font_combo_box import FontComboBox
-from enamlext.qt.qt_font_combo_box import QtFontComboBox
-
-#TypeError: could not resolve a toolkit implementation for the 'FontComboBox' component when running under a 'QtApplication'
-from enaml.qt.qt_factories import QT_FACTORIES
-QT_FACTORIES["FontComboBox"] = lambda: QtFontComboBox
 
 
 enamldef Main(MainWindow):

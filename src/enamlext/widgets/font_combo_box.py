@@ -1,5 +1,6 @@
 from atom.api import ForwardTyped, Str, Typed, set_default
 from enaml.core.declarative import d_
+from enaml.qt.qt_factories import QT_FACTORIES
 from enaml.widgets.control import Control, ProxyControl
 
 
@@ -30,3 +31,12 @@ class FontComboBox(Control):
 
     #: A reference to the ProxyFontComboBox object.
     proxy = Typed(ProxyFontComboBox)
+
+
+def font_combo_box_factory() -> type[ProxyFontComboBox]:
+    from enamlext.qt.qt_font_combo_box import QtFontComboBox
+
+    return QtFontComboBox
+
+
+QT_FACTORIES['FontComboBox'] = font_combo_box_factory
