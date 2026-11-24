@@ -7,7 +7,7 @@ import time
 import warnings
 import weakref
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Collection, Iterable, Iterator, Sequence
+from collections.abc import Callable, Collection, Iterator, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import lru_cache
@@ -189,6 +189,33 @@ def _no_data(index: QModelIndex, col_index: int, column: Column) -> None:
     return None
 
 
+def _same_item(item: Any, other: Any) -> bool:
+    if item is other:
+        return True
+    try:
+        return bool(item == other)
+    except (TypeError, ValueError):  # e.g. arrays, whose comparison has no single truth value
+        return False
+
+
+def _item_matcher(items: Collection[Any]) -> Callable[[Any], bool]:
+    def is_any_of_them(candidate: Any) -> bool:
+        return any(_same_item(candidate, item) for item in items)
+
+    try:
+        hashable_items = set(items)
+    except TypeError:  # e.g. dicts
+        return is_any_of_them
+
+    def is_in_the_set(candidate: Any) -> bool:
+        try:
+            return candidate in hashable_items
+        except TypeError:
+            return is_any_of_them(candidate)
+
+    return is_in_the_set
+
+
 def _sort_order(rows: Sequence[Any], get_value, *, descending: bool) -> list[int]:
     """Positions of `rows` in sorted order."""
     values = list(map(get_value, rows))
@@ -236,8 +263,10 @@ class QTableModel(QAbstractTableModel):
         self._last_sorting_column: tuple[Column, int, Qt.SortOrder] | None = None
         self._unsorted_rows: Sequence[Any] = []
         self._row_order: list[int] | None = None  # positions in _unsorted_rows of the rows shown, when sorted
+        self._filtered_positions: list[int] | None = None  # positions in the given items of _unsorted_rows
+        self._item_count = 0  # how many items were given when they were last filtered
         self.columns = columns
-        self._original_items: Iterable[Any] = [] if items is None else items
+        self._original_items: Sequence[Any] = [] if items is None else items
         self.checkable = checkable
         self.error_handling = error_handling
         if convert_item is None:
@@ -454,27 +483,33 @@ class QTableModel(QAbstractTableModel):
 
     def refresh_rows(self) -> None:
         """Filter and sort the items again (their values may have changed), keeping selections on their rows."""
-        old_order = self._row_order
-        if old_order is None:
+        if self._row_order is None and not self.filters:
             self.refresh_filtered_items()  # TODO: find a better way without requiring this
             return
-        if self.filters or len(old_order) != len(self._unsorted_rows):
-            # filters may let rows in or out (and items may have been added or removed): only a reset expresses that
+        if len(self._original_items) != self._item_count:
+            # items were added or removed: only a reset expresses that
             self._apply_filters()
             return
+        old_positions = self._shown_positions()
         self.layoutAboutToBeChanged.emit()
-        self._show_sorted(self._unsorted_rows)
-        new_order = self._row_order
-        if new_order is None:  # the sorted column is gone
-            new_row_of = list(range(len(old_order)))
-        else:
-            new_row_of = [0] * len(new_order)
-            for new_row, position in enumerate(new_order):
-                new_row_of[position] = new_row
+        self.refresh_filtered_items()
+        new_row_of = {position: row for row, position in enumerate(self._shown_positions())}
         old_indexes = self.persistentIndexList()
-        new_indexes = [self.index(new_row_of[old_order[index.row()]], index.column()) for index in old_indexes]
+        new_indexes = []
+        for index in old_indexes:
+            new_row = new_row_of.get(old_positions[index.row()])  # None: the filters no longer show the item
+            new_indexes.append(QModelIndex() if new_row is None else self.index(new_row, index.column()))
         self.changePersistentIndexList(old_indexes, new_indexes)
         self.layoutChanged.emit()
+
+    def _shown_positions(self) -> Sequence[int]:
+        """Position in the given items of each row shown."""
+        positions: Sequence[int] | None = self._filtered_positions
+        if positions is None:
+            positions = range(len(self._unsorted_rows))
+        if self._row_order is None:
+            return positions
+        return [positions[position] for position in self._row_order]
 
     def clear_sorting(self) -> None:
         """Show the rows in the given order again."""
@@ -585,7 +620,7 @@ class QTableModel(QAbstractTableModel):
         return self._filtered_items
 
     @items.setter
-    def items(self, items: Iterable[Any]) -> None:
+    def items(self, items: Sequence[Any]) -> None:
         """write to the original items (not filtered)"""
         self._original_items = items
         self._apply_filters()
@@ -634,11 +669,17 @@ class QTableModel(QAbstractTableModel):
         holds an internal mapping for the indexes
         (index in the original items -> index in the filtered items)
         """
+        rows: Sequence[Any]
+        self._item_count = len(self._original_items)
         if self.filters:
-            rows = list(self.filters.filter_items(self._original_items))  # TODO: we really want a list?
+            is_shown = self.filters.filter
+            shown = [(position, item) for position, item in enumerate(self._original_items) if is_shown(item)]
+            self._filtered_positions = [position for position, _ in shown]
+            rows = [item for _, item in shown]
         else:
             # Keep the caller's sequence (e.g. a DataFrameProxy) rather than copying it.
-            rows = cast('list[Any]', self._original_items)
+            self._filtered_positions = None
+            rows = self._original_items
         self._show_sorted(rows)
 
     def _create_font(self, bold: bool = False) -> QFont:
@@ -1135,6 +1176,24 @@ class QTable(QTableView):
 
     def get_current_selection_context(self) -> SelectionContext:
         return SelectionContext(table=self, current=self.currentIndex(), selection=self.selectionModel().selection())
+
+    def select_items(self, items: Collection[Any]) -> None:
+        """Select the rows showing the given items, in place of the current selection."""
+        model = self.model()
+        rows: list[int] = []
+        if items:
+            convert_item = model.convert_item
+            is_wanted = _item_matcher(items)
+            rows = [row for row, shown in enumerate(model.items) if is_wanted(convert_item(shown))]
+        first_column, last_column = int(model.checkable), model.columnCount() - 1  # the checkbox is not selectable
+        if self.selectionMode() == QAbstractItemView.SelectionMode.SingleSelection:
+            rows = rows[:1]
+            if self.selectionBehavior() == QAbstractItemView.SelectionBehavior.SelectItems:
+                last_column = first_column
+        selection = QItemSelection()
+        for row in rows:
+            selection.select(model.index(row, first_column), model.index(row, last_column))
+        self.selectionModel().select(selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
 
     # Checked Items
 

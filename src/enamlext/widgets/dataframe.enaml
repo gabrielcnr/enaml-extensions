@@ -26,8 +26,18 @@ enamldef DataFrame(Table):
         if self.proxy is None:
             return
 
+        table = self.proxy.widget
+        if table.model().filters:
+            # A filtered table shows rows it took from the values before this change, on other row numbers.
+            table.refresh()
+            return
+
         view_cols = [self._df_index_to_view_index.get(c, c) for c in col_indexes]
-        self.proxy.widget.refresh_cells(row_indexes, view_cols)
+        table.refresh_cells(row_indexes, view_cols)
+
+    func _stop_ticking(change):
+        if isinstance(self.items, DataFrameProxy):
+            self.items.deactivate()
 
 
     func convert_item(item):
@@ -75,6 +85,7 @@ enamldef DataFrame(Table):
     initialized ::
         self._auto_refresh_columns = not bool(self.columns)
         self._refresh_internals()
+        self.observe('destroyed', self._stop_ticking)
 
     df ::
         self._refresh_internals()

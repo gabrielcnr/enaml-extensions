@@ -59,7 +59,6 @@ class QtTable(QtControl, ProxyTable):
         with self.widget.updating_internals():
             self.set_columns(d.columns)
             self.set_items(d.items)
-            self.set_selected_items(d.selected_items)
             self.set_context_menu(d.context_menu)
             self.set_checkable(d.checkable)
             self.set_sortable(d.sortable)
@@ -71,6 +70,9 @@ class QtTable(QtControl, ProxyTable):
         # single click selection
         self.widget.on_selection.connect(self._on_selection_changed)
         # self.widget.currentIndexChanged.connect(self.on_index_changed)
+
+        # Not in the block above: the model reset that ends it clears the selection.
+        self.set_selected_items(d.selected_items)
 
     # Signal Handlers
     def _on_double_clicked(self, context: DoubleClickContext):
@@ -88,7 +90,12 @@ class QtTable(QtControl, ProxyTable):
         selected_items = context.selected_items
         if hasattr(self.declaration, 'convert_item'):
             selected_items = [self.declaration.convert_item(item) for item in selected_items]
-        self.declaration.selected_items = selected_items
+        # The view already shows this selection; selecting it again would turn selected cells into whole rows.
+        self._guard |= INDEX_GUARD
+        try:
+            self.declaration.selected_items = selected_items
+        finally:
+            self._guard &= ~INDEX_GUARD
         self.declaration.selection_changed(context)
 
         if self.declaration.show_summary:
@@ -106,7 +113,8 @@ class QtTable(QtControl, ProxyTable):
             self.widget.columns = columns
 
     def set_selected_items(self, selected_items: list[Any]):
-        pass
+        if not self._guard & INDEX_GUARD:
+            self.widget.select_items(selected_items)
 
     def set_context_menu(self, context_menu: list):
         self.widget.context_menu = context_menu  # TODO: make this a property of the QTable
