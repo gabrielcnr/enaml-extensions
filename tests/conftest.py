@@ -10,3 +10,8 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 @pytest.fixture
 def enaml_app(qapp):
     return QtApplication.instance() or QtApplication()
+
+
+@pytest.fixture
+def drain(enaml_app, qapp):
+    return qapp.processEvents

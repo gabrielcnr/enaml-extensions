@@ -1,10 +1,11 @@
 from operator import attrgetter
 
-from atom.api import Atom
 from atom.atom import AtomMeta, observe
 from atom.catom import Member
 from atom.typing_utils import ChangeDict
 from enaml.application import deferred_call
+
+from enamlext.atom import Atom, conflated_setattr
 
 
 def _iter_atom_members(dct: dict):
@@ -13,12 +14,16 @@ def _iter_atom_members(dct: dict):
             yield k, v
 
 
-def _create_refresh_method(name: str, bind: str):
+def _create_refresh_method(name: str, bind: str, conflate: bool):
     first_part, _ = bind.split('.')
 
     def _refresh(self, change: ChangeDict) -> None:
         if attrgetter(first_part)(self) is not None:
-            deferred_call(setattr, self, name, attrgetter(bind)(self))
+            value = attrgetter(bind)(self)
+            if conflate:
+                conflated_setattr(self, name, value)
+            else:
+                deferred_call(setattr, self, name, value)
 
     _refresh.__name__ = f'_refresh_{name}'
     return observe(bind, first_part)(_refresh)
@@ -26,10 +31,10 @@ def _create_refresh_method(name: str, bind: str):
 
 class ViewModelMeta(AtomMeta):
     def __new__(metacls, name, bases, dct):
-        for name, value in _iter_atom_members(dct.copy()):
-            if value.metadata and (bind := value.metadata.get('bind')):
-                refresh_func = _create_refresh_method(name, bind)
-                dct[f'_refresh_{name}'] = refresh_func
+        for member_name, member in _iter_atom_members(dct.copy()):
+            if member.metadata and (bind := member.metadata.get('bind')):
+                conflate = member.metadata.get('conflate', False)
+                dct[f'_refresh_{member_name}'] = _create_refresh_method(member_name, bind, conflate)
 
         return super().__new__(metacls, name, bases, dct)
 
@@ -78,4 +83,8 @@ class ViewModel(Atom, metaclass=ViewModelMeta):
     Job done! The @observe methods will be automatically generated on class initialization,
     and they will ensure that anything that gets set and is bound to a control in the UI
     will be set using deferred_call.
+
+    If the controller updates faster than the view needs to see, tag the member with
+    conflate=True, e.g. List().tag(bind='controller.orders', conflate=True). A burst of
+    updates is then applied once with the latest value, see enamlext.atom.Atom.
     """
