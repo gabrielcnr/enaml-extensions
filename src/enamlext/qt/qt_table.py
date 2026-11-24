@@ -88,7 +88,10 @@ class QtTable(QtControl, ProxyTable):
     def _do_refresh_selection(self) -> None:
         context = self._temp_selection_context
         selected_items = context.selected_items
-        if hasattr(self.declaration, 'convert_item'):
+        if hasattr(self.declaration, 'convert_items'):
+            # one call for all rows: a call per row takes seconds when a big table is fully selected
+            selected_items = self.declaration.convert_items(selected_items)
+        elif hasattr(self.declaration, 'convert_item'):
             selected_items = [self.declaration.convert_item(item) for item in selected_items]
         # The view already shows this selection; selecting it again would turn selected cells into whole rows.
         self._guard |= INDEX_GUARD

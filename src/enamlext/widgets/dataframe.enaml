@@ -8,6 +8,11 @@ from enamlext.qt.table.column import generate_columns
 import pandas as pd
 
 
+def rows_as_dicts(column_names, rows):
+    column_names = list(column_names)  # iterating pandas' own arrays for every row is several times slower
+    return [dict(zip(column_names, row)) for row in rows]
+
+
 enamldef DataFrame(Table):
     attr df = None  # d_(Value(factory=pd.DataFrame))
     attr include = None   # d_(Typed(list))
@@ -43,6 +48,9 @@ enamldef DataFrame(Table):
     func convert_item(item):
         # TODO: should we return a pandas Series instead of a dict?
         return dict(zip(df.columns.values, item))
+
+    func convert_items(items):
+        return rows_as_dicts(df.columns.values, items)
 
 
     func _refresh_internals():

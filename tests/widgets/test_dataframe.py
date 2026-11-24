@@ -129,3 +129,13 @@ def test_setting_selected_items_selects_the_rows_of_a_dataframe(show_in_window, 
     widget.selected_items = [{'k': 'c', 'v': 3.0}]
 
     assert [index.row() for index in widget.proxy.widget.selectionModel().selectedRows()] == [2]
+
+
+def test_rows_selected_in_a_dataframe_are_published_as_dicts(show_in_window, frame, qtbot):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, selection_mode='rows'))
+
+    widget.proxy.widget.selectAll()
+    qtbot.waitUntil(lambda: bool(widget.selected_items), timeout=5000)
+
+    assert widget.selected_items == frame.to_dict('records')
+    assert [type(key) for key in widget.selected_items[0]] == [str, str]

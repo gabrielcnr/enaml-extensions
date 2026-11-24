@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from atom.api import List
 from qtpy.QtCore import QItemSelectionModel
 
 from enamlext.qt.table.column import Column
@@ -112,3 +113,25 @@ def test_selected_items_of_another_type_than_the_rows_select_nothing(show_in_win
     table.selected_items = ['p1']
 
     assert selected_cells(table) == []
+
+
+class TableThatConvertsInOneCall(Table):
+    conversions = List()
+
+    def convert_items(self, items):
+        self.conversions.append(len(items))
+        return [item['name'] for item in items]
+
+
+def test_selected_rows_are_converted_in_one_call_when_the_table_offers_it(show_in_window, qtbot):
+    table = show_in_window(
+        lambda parent: TableThatConvertsInOneCall(
+            parent=parent, columns=[Column('name', use_getitem=True)], items=PEOPLE, selection_mode='rows'
+        )
+    )
+
+    table.proxy.widget.selectAll()
+    qtbot.waitUntil(lambda: bool(table.selected_items), timeout=2000)
+
+    assert table.selected_items == ['p0', 'p1', 'p2', 'p3', 'p4']
+    assert table.conversions == [5]

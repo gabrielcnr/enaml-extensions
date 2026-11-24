@@ -889,6 +889,9 @@ class QTable(QTableView):
         # Qt's default indicator is (section 0, descending), which would sort the rows as soon as sorting is enabled
         h_header.setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
         self.setHorizontalHeader(h_header)
+        # To draw a section Qt asks whether its neighbours are selected, which visits every row of both columns:
+        # seconds per repaint once all rows of a big table are selected. A selection model that stays empty avoids it.
+        h_header.setSelectionModel(QItemSelectionModel(model, h_header))
         self.sortable = sortable
 
         self.__selection_mode = SelectionMode.MULTI_CELLS  # QTableView's own default: extended, per-item
@@ -1399,7 +1402,14 @@ class QFilterableHeaderView(QHeaderView):
             filter_widget = QFilterWidget(column, self.filter_callback, model.filters, parent=table)
             filter_widget.popup(event.globalPosition().toPoint())
 
-        super().mousePressEvent(event)
+        # Ctrl+click unselects a column only when this header's selection model, kept empty, has it selected.
+        own_selection = cast('QItemSelectionModel', self.selectionModel())
+        table_selection = cast('QTable', self.parent()).selectionModel().selection()
+        own_selection.select(table_selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
+        try:
+            super().mousePressEvent(event)
+        finally:
+            own_selection.clear()
 
     def filter_callback(self, column: Column, expression: str):
         # TODO: use column index?
