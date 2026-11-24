@@ -52,6 +52,23 @@ enamldef Main(Window):
 Use `use_getitem=True` for items accessed by key (dicts); leave it off for
 objects accessed by attribute (dataclasses, namedtuples).
 
+## Updating models from worker threads
+
+```python
+import pandas as pd
+from atom.api import Typed
+from enamlext.atom import Atom
+
+
+class Model(Atom):
+    frame = Typed(pd.DataFrame).tag(conflate=True)
+```
+
+Assigning `model.frame` from a worker thread queues the set for the main thread and
+keeps only the latest value, so a burst of updates refreshes the view once. On the main
+thread the assignment is immediate. For objects that do not derive from
+`enamlext.atom.Atom`, call `conflated_setattr(obj, 'frame', value)`.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
