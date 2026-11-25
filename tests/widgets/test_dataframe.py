@@ -5,10 +5,41 @@ import enaml
 import pandas as pd
 import pytest
 from atom.api import atomref
+from enaml.core.enaml_compiler import EnamlCompiler
+from enaml.core.parser import parse
 from qtpy.QtCore import QCoreApplication, QEvent, QItemSelectionModel
 
 with enaml.imports():
     from enamlext.widgets.dataframe import DataFrame
+
+VIEWS_OVERRIDING_CONVERT_ITEM = {
+    'in a widget derived from DataFrame': """
+from enaml.widgets.api import Container
+from enamlext.widgets.dataframe import DataFrame
+
+enamldef RowsAsTuples(DataFrame):
+    convert_item => (item):
+        return tuple(item)
+
+enamldef View(Container):
+    attr frame
+    RowsAsTuples:
+        df = frame
+        selection_mode = 'rows'
+""",
+    'in the DataFrame of a view': """
+from enaml.widgets.api import Container
+from enamlext.widgets.dataframe import DataFrame
+
+enamldef View(Container):
+    attr frame
+    DataFrame:
+        df = frame
+        selection_mode = 'rows'
+        convert_item => (item):
+            return tuple(item)
+""",
+}
 
 
 @pytest.fixture
@@ -129,3 +160,26 @@ def test_setting_selected_items_selects_the_rows_of_a_dataframe(show_in_window, 
     widget.selected_items = [{'k': 'c', 'v': 3.0}]
 
     assert [index.row() for index in widget.proxy.widget.selectionModel().selectedRows()] == [2]
+
+
+def test_rows_selected_in_a_dataframe_are_published_as_dicts(show_in_window, frame, qtbot):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, selection_mode='rows'))
+
+    widget.proxy.widget.selectAll()
+    qtbot.waitUntil(lambda: bool(widget.selected_items), timeout=5000)
+
+    assert widget.selected_items == frame.to_dict('records')
+    assert [type(key) for key in widget.selected_items[0]] == [str, str]
+
+
+@pytest.mark.parametrize('overriding', VIEWS_OVERRIDING_CONVERT_ITEM)
+def test_convert_item_overridden_on_a_dataframe_converts_its_selected_rows(overriding, show_in_window, frame, qtbot):
+    namespace = {}
+    exec(EnamlCompiler.compile(parse(VIEWS_OVERRIDING_CONVERT_ITEM[overriding]), '<view>'), namespace)
+    view = show_in_window(lambda parent: namespace['View'](parent=parent, frame=frame))
+    (widget,) = (child for child in view.traverse() if isinstance(child, DataFrame))
+
+    widget.proxy.widget.selectAll()
+    qtbot.waitUntil(lambda: bool(widget.selected_items), timeout=5000)
+
+    assert widget.selected_items == [('a', 1.0), ('b', 2.0), ('c', 3.0), ('d', 4.0)]

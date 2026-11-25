@@ -21,6 +21,15 @@ SELECTION_MODES_MAP = {
 }
 
 
+def _defined_by_the_most_derived_class(table: Table, *names: str) -> str | None:
+    """Which of `names` the most derived class of `table` that defines any defines; the first one if several."""
+    for cls in type(table).__mro__:
+        for name in names:
+            if name in vars(cls):
+                return name
+    return None
+
+
 class QtTable(QtControl, ProxyTable):
     """A Qt implementation of an Enaml Table."""
 
@@ -88,7 +97,12 @@ class QtTable(QtControl, ProxyTable):
     def _do_refresh_selection(self) -> None:
         context = self._temp_selection_context
         selected_items = context.selected_items
-        if hasattr(self.declaration, 'convert_item'):
+        # A convert_item overridden below the convert_items of a base class is the one that says what an item is.
+        converter = _defined_by_the_most_derived_class(self.declaration, 'convert_items', 'convert_item')
+        if converter == 'convert_items':
+            # one call for all rows: a call per row takes seconds when a big table is fully selected
+            selected_items = self.declaration.convert_items(selected_items)
+        elif converter == 'convert_item':
             selected_items = [self.declaration.convert_item(item) for item in selected_items]
         # The view already shows this selection; selecting it again would turn selected cells into whole rows.
         self._guard |= INDEX_GUARD

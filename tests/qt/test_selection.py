@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 import pytest
-from qtpy.QtCore import QItemSelection, QItemSelectionModel
+from qtpy.QtCore import QItemSelection, QItemSelectionModel, QPoint, Qt
 
 from enamlext.qt.qtable import Cell, QTable, QTableModel, SelectionContext, SelectionMode
 from enamlext.qt.table.column import Column
@@ -31,6 +31,16 @@ def make_table(qtbot):
 def select(table, top, left, bottom, right, flag=QItemSelectionModel.SelectionFlag.ClearAndSelect):
     model = table.model()
     table.selectionModel().select(QItemSelection(model.index(top, left), model.index(bottom, right)), flag)
+
+
+def click_header(qtbot, table, column, modifier=Qt.KeyboardModifier.NoModifier):
+    header = table.horizontalHeader()
+    middle = QPoint(header.sectionViewportPosition(column) + header.sectionSize(column) // 2, header.height() // 2)
+    qtbot.mouseClick(header.viewport(), Qt.MouseButton.LeftButton, modifier, middle)
+
+
+def selected_columns(table):
+    return sorted(index.column() for index in table.selectionModel().selectedColumns())
 
 
 def test_removed_indexes_are_the_deselected_cells(make_table):
@@ -142,3 +152,47 @@ def test_context_built_from_index_lists_still_works(make_table):
     assert context.added_indexes == [Cell(3, 0), Cell(1, 1)]
     assert context.removed_indexes is None
     assert context.current_index == Cell(3, 0)
+
+
+def test_painting_the_header_does_not_visit_every_selected_row(make_table, monkeypatch, qtbot):
+    items = [Row(f'n{i}', i) for i in range(2000)]
+    table, _ = make_table(items=items)
+    table.show()
+    qtbot.waitExposed(table)
+    table.selectAll()
+    calls = 0
+    original_flags = QTableModel.flags
+
+    def counting_flags(self, index):
+        nonlocal calls
+        calls += 1
+        return original_flags(self, index)
+
+    monkeypatch.setattr(QTableModel, 'flags', counting_flags)
+
+    table.horizontalHeader().grab()
+
+    assert calls < len(items)  # telling whether a whole column is selected checks each of its 2000 cells
+
+
+def test_click_on_a_header_selects_its_column(make_table, qtbot):
+    table, _ = make_table()
+    table.show()
+    qtbot.waitExposed(table)
+
+    click_header(qtbot, table, 1)
+
+    assert selected_columns(table) == [1]
+
+
+def test_ctrl_click_on_headers_adds_and_removes_their_columns(make_table, qtbot):
+    table, _ = make_table()
+    table.show()
+    qtbot.waitExposed(table)
+    click_header(qtbot, table, 0)
+
+    click_header(qtbot, table, 1, Qt.KeyboardModifier.ControlModifier)
+    assert selected_columns(table) == [0, 1]
+
+    click_header(qtbot, table, 0, Qt.KeyboardModifier.ControlModifier)
+    assert selected_columns(table) == [1]
