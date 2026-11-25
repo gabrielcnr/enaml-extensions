@@ -10,7 +10,7 @@ import pandas as pd
 
 def rows_as_dicts(column_names, rows):
     column_names = list(column_names)  # iterating pandas' own arrays for every row is several times slower
-    return [dict(zip(column_names, row)) for row in rows]
+    return (dict(zip(column_names, row)) for row in rows)
 
 
 enamldef DataFrame(Table):

@@ -14,6 +14,7 @@ from functools import lru_cache
 from io import StringIO
 from typing import Any, NamedTuple, cast
 
+import numpy as np
 from qtpy.QtCore import (
     QAbstractTableModel,
     QItemSelection,
@@ -53,6 +54,7 @@ from qtpy.QtWidgets import (
 )
 
 # Constants
+from enamlext.qt.qt_dataframe import DataFrameProxy
 from enamlext.qt.table.column import AUTO_ALIGN, Alignment, Column
 from enamlext.qt.table.defs import CellStyle
 from enamlext.qt.table.filtering import Filter, TableFilters
@@ -167,6 +169,9 @@ def make_custom_font(font_spec: str) -> QFont:
     return font
 
 
+_SLICED_ROWS = (list, tuple, np.ndarray, DataFrameProxy)
+
+
 class Cell(NamedTuple):
     row: int
     column: int
@@ -187,6 +192,12 @@ def _is_missing(value: Any) -> bool:
 
 def _no_data(index: QModelIndex, col_index: int, column: Column) -> None:
     return None
+
+
+def _rows_of(items: Sequence[Any], run: range) -> Sequence[Any]:
+    if isinstance(items, _SLICED_ROWS):
+        return items[run.start : run.stop]
+    return [items[row] for row in run]  # what a slice of any other sequence gives is not known
 
 
 def _same_item(item: Any, other: Any) -> bool:
@@ -781,18 +792,23 @@ class SelectionContext:
     def removed_model_indexes(self, indexes: list[QModelIndex] | None) -> None:
         self._removed_model_indexes = indexes
 
-    def _selected_rows(self, model: 'QTableModel') -> list[int]:
+    def _selected_row_runs(self, model: 'QTableModel') -> list[range]:
+        """The selected rows in row order, as runs of consecutive rows."""
         if self._selected_model_indexes is not None or self._selection is None:
-            return sorted({i.row() for i in self.selected_model_indexes})
-        # The checkbox column isn't selectable, so a range covering only that column selects no cells.
-        first_selectable_column = 1 if model.checkable else 0
-        rows: set[int] = set()
-        selection = self._selection
-        for i in range(len(selection)):
-            selection_range = selection[i]
-            if selection_range.right() >= first_selectable_column:
-                rows.update(range(selection_range.top(), selection_range.bottom() + 1))
-        return sorted(rows)
+            runs = [range(row, row + 1) for row in {i.row() for i in self.selected_model_indexes}]
+        else:
+            # The checkbox column isn't selectable, so a range covering only that column selects no cells.
+            first_selectable_column = 1 if model.checkable else 0
+            selection = self._selection
+            ranges = [selection[i] for i in range(len(selection))]
+            runs = [range(r.top(), r.bottom() + 1) for r in ranges if r.right() >= first_selectable_column]
+        merged: list[range] = []
+        for run in sorted(runs, key=operator.attrgetter('start')):
+            if merged and run.start <= merged[-1].stop:
+                merged[-1] = range(merged[-1].start, max(merged[-1].stop, run.stop))
+            else:
+                merged.append(run)
+        return merged
 
     @property
     def selected_indexes(self) -> list[Cell]:
@@ -818,11 +834,19 @@ class SelectionContext:
     #       multiple cells, multiple rows
     @property
     def selected_items(self) -> list[Any] | None:
+        if self.__table() is None:
+            return None
+        return list(self.iter_selected_items())
+
+    def iter_selected_items(self) -> Iterator[Any]:
+        """The items selected now, in row order; rows the table gets later don't show up in it."""
         table = self.__table()
         if table is None:
-            return None
+            return iter(())
         model = table.model()
-        return [model.get_item_by_index(row) for row in self._selected_rows(model)]
+        items = model.items
+        # A slice per run: fetching the rows one by one takes most of a second when a big table is fully selected.
+        return itertools.chain.from_iterable([_rows_of(items, run) for run in self._selected_row_runs(model)])
 
     @property
     def selected_values(self) -> Iterator[tuple[Cell, Any]]:

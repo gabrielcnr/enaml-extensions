@@ -96,18 +96,20 @@ class QtTable(QtControl, ProxyTable):
 
     def _do_refresh_selection(self) -> None:
         context = self._temp_selection_context
-        selected_items = context.selected_items
+        selected_items = context.iter_selected_items()
         # A convert_item overridden below the convert_items of a base class is the one that says what an item is.
         converter = _defined_by_the_most_derived_class(self.declaration, 'convert_items', 'convert_item')
         if converter == 'convert_items':
             # one call for all rows: a call per row takes seconds when a big table is fully selected
             selected_items = self.declaration.convert_items(selected_items)
         elif converter == 'convert_item':
+            # Not left for when they are read: items holding convert_item until then are a cycle enaml < 0.20 can hide
+            # from the garbage collector.
             selected_items = [self.declaration.convert_item(item) for item in selected_items]
         # The view already shows this selection; selecting it again would turn selected cells into whole rows.
         self._guard |= INDEX_GUARD
         try:
-            self.declaration.selected_items = selected_items
+            self.declaration._set_selected_items_from_view(selected_items)
         finally:
             self._guard &= ~INDEX_GUARD
         self.declaration.selection_changed(context)
