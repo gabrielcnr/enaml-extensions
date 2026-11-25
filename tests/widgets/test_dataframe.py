@@ -123,6 +123,14 @@ def test_row_enters_a_filtered_ticking_dataframe_when_its_value_starts_matching(
     assert widget.verticalHeader().count() == 4
 
 
+def test_dataframe_can_be_destroyed(show_in_window, frame):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame))
+
+    widget.root_object().destroy()
+
+    assert widget.is_destroyed
+
+
 def test_destroying_a_ticking_dataframe_stops_its_monitor_thread(show_in_window, frame):
     running_before = monitor_threads()
     widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, tick_interval_ms=10))
