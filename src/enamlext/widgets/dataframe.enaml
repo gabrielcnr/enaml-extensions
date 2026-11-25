@@ -13,6 +13,13 @@ def rows_as_dicts(column_names, rows):
     return [dict(zip(column_names, row)) for row in rows]
 
 
+def stop_ticking(change):
+    # Not a func of the widget: enaml 0.20 refuses to call those once the widget is destroyed.
+    items = change['object'].items
+    if isinstance(items, DataFrameProxy):
+        items.deactivate()
+
+
 enamldef DataFrame(Table):
     attr df = None  # d_(Value(factory=pd.DataFrame))
     attr include = None   # d_(Typed(list))
@@ -39,11 +46,6 @@ enamldef DataFrame(Table):
 
         view_cols = [self._df_index_to_view_index.get(c, c) for c in col_indexes]
         table.refresh_cells(row_indexes, view_cols)
-
-    func _stop_ticking(change):
-        if isinstance(self.items, DataFrameProxy):
-            self.items.deactivate()
-
 
     func convert_item(item):
         # TODO: should we return a pandas Series instead of a dict?
@@ -93,7 +95,7 @@ enamldef DataFrame(Table):
     initialized ::
         self._auto_refresh_columns = not bool(self.columns)
         self._refresh_internals()
-        self.observe('destroyed', self._stop_ticking)
+        self.observe('destroyed', stop_ticking)
 
     df ::
         self._refresh_internals()
