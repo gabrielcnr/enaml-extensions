@@ -1,3 +1,4 @@
+from collections import deque
 from dataclasses import dataclass
 
 import pytest
@@ -196,3 +197,41 @@ def test_ctrl_click_on_headers_adds_and_removes_their_columns(make_table, qtbot)
 
     click_header(qtbot, table, 0, Qt.KeyboardModifier.ControlModifier)
     assert selected_columns(table) == [1]
+
+
+class RowsCountingSingleFetches(list):
+    single_fetches = 0
+
+    def __getitem__(self, index):
+        if not isinstance(index, slice):
+            self.single_fetches += 1
+        return super().__getitem__(index)
+
+
+def test_selected_items_are_not_fetched_one_by_one(make_table):
+    items = RowsCountingSingleFetches(Row(f'n{i}', i) for i in range(2000))
+    table, contexts = make_table(items=items)
+    table.selectAll()
+    items.single_fetches = 0
+
+    assert contexts[-1].selected_items == items
+    assert items.single_fetches == 0
+
+
+def test_selected_items_of_rows_that_cannot_be_sliced(make_table):
+    table, contexts = make_table(items=deque(ITEMS))
+
+    select(table, 1, 0, 2, 1)
+
+    assert contexts[-1].selected_items == [ITEMS[1], ITEMS[2]]
+
+
+def test_iterating_the_selected_items_gives_those_selected_when_asked(make_table):
+    items = list(ITEMS)
+    table, contexts = make_table(items=items)
+    select(table, 1, 0, 2, 1)
+
+    selected = contexts[-1].iter_selected_items()
+    items.insert(0, Row('new', 99))
+
+    assert list(selected) == [ITEMS[1], ITEMS[2]]

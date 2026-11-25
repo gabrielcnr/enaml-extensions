@@ -10,6 +10,7 @@ from enaml.core.parser import parse
 from qtpy.QtCore import QCoreApplication, QEvent, QItemSelectionModel
 
 with enaml.imports():
+    from enamlext.widgets import dataframe as dataframe_module
     from enamlext.widgets.dataframe import DataFrame
 
 VIEWS_OVERRIDING_CONVERT_ITEM = {
@@ -154,6 +155,50 @@ def test_destroyed_ticking_dataframe_is_freed(show_in_window, frame):
 
     widget.root_object().destroy()
     monitor.join(timeout=5)
+    # On PySide6 the Qt window keeps the widget alive until Qt deletes it.
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    del widget
+    gc.collect()
+
+    assert widget_ref() is None
+
+
+def test_rows_selected_in_a_dataframe_become_dicts_when_selected_items_is_first_read(
+    show_in_window, frame, qtbot, monkeypatch
+):
+    taken = []
+    rows_as_dicts = dataframe_module.rows_as_dicts
+
+    def noting_the_rows_taken(rows):
+        for row in rows:
+            taken.append(row)
+            yield row
+
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, selection_mode='rows'))
+    published = []
+    widget.observe('selection_changed', published.append)
+    monkeypatch.setattr(
+        dataframe_module, 'rows_as_dicts', lambda names, rows: rows_as_dicts(names, noting_the_rows_taken(rows))
+    )
+
+    widget.proxy.widget.selectAll()
+    qtbot.waitUntil(lambda: bool(published), timeout=5000)
+
+    assert taken == []
+    assert widget.selected_items == frame.to_dict('records')
+    assert len(taken) == 4
+
+
+def test_destroyed_dataframe_with_a_selection_nothing_has_read_is_freed(show_in_window, frame, qtbot):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, selection_mode='rows'))
+    published = []
+    widget.observe('selection_changed', published.append)
+    widget.proxy.widget.selectAll()
+    qtbot.waitUntil(lambda: bool(published), timeout=5000)
+    published.clear()
+    widget_ref = atomref(widget)
+
+    widget.root_object().destroy()
     # On PySide6 the Qt window keeps the widget alive until Qt deletes it.
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     del widget

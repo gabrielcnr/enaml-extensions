@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from typing import Any
 
 from atom.api import Bool, Enum, Event, ForwardTyped, List, Typed, Value, observe
@@ -48,6 +49,31 @@ class ProxyTable(ProxyControl):
 
     def set_selection_mode(self, selection_mode: str) -> None:
         raise NotImplementedError
+
+
+class _UnreadItems(list):
+    """Stands in for the selected items until something reads them; a list, to be the old value of a change."""
+
+    def __init__(self, items: Iterable[Any]):
+        super().__init__()
+        self._items: Iterable[Any] | None = items
+
+    def read(self) -> None:
+        items, self._items = self._items, None
+        if items is not None:
+            self[:] = items
+
+
+def _feeds_an_enaml_operator(table: 'Table', name: str) -> bool:
+    """Whether a `::`, `>>` or `:=` is bound to the member, on the table or on an alias of it."""
+    try:
+        engine = table._d_engine
+        if engine is None:
+            return False
+        handlers = engine._handlers.get(name)
+        return handlers is not None and bool(handlers.write_pairs)
+    except AttributeError:  # an enaml that keeps its operators another way
+        return True
 
 
 class Table(Control):
@@ -118,6 +144,36 @@ class Table(Control):
         """An observer which sends state change to the proxy."""
         # The superclass handler implementation is sufficient.
         super()._update_proxy(change)
+
+    def _set_selected_items_from_view(self, items: Iterable[Any]) -> None:
+        """Make `items`, which the view already shows as selected, the selected items."""
+        if self._selected_items_are_watched():
+            self.selected_items = list(items)
+        else:
+            # Nothing is to be told, and listing a big selection that nothing reads takes seconds: read them when asked.
+            self.get_member('selected_items').set_slot(self, _UnreadItems(items))
+
+    def _selected_items_are_watched(self) -> bool:
+        return (
+            # a subclass gave the member observers or hooks of its own
+            self.get_member('selected_items') is not Table.selected_items
+            or type(self)._update_proxy is not Table._update_proxy
+            or self.has_observers('selected_items')
+            or _feeds_an_enaml_operator(self, 'selected_items')
+        )
+
+    def _post_getattr_selected_items(self, value: list[Any]) -> list[Any]:
+        if isinstance(value, _UnreadItems):
+            value.read()
+            member = self.get_member('selected_items')
+            value = member.do_full_validate(self, None, value)
+            member.set_slot(self, value)
+        return value
+
+    def _post_validate_selected_items(self, old: list[Any] | None, new: list[Any]) -> list[Any]:
+        if isinstance(old, _UnreadItems):
+            old.read()  # atom compares it with the new items to tell whether they changed
+        return new
 
     @d_func
     def refresh(self) -> None:
