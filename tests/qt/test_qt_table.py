@@ -2,6 +2,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import pytest
 from qtpy.QtCore import QAbstractTableModel, QEvent, QPoint
@@ -374,6 +375,20 @@ class Fruit:
     name: str
 
 
+def click_checkbox(table: QTestTable, row: int) -> None:
+    # the check indicator sits at the left edge of the checkbox column
+    rect = table.visualRect(table.index(row, 0))
+    QTest.mouseClick(table.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(rect.left() + 8, rect.center().y()))
+
+
+def checked_rows(table: QTestTable) -> list[int]:
+    return [
+        row
+        for row in range(table.model().rowCount())
+        if table.data(row, 0, Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked
+    ]
+
+
 def test_clicking_a_checkbox_toggles_the_checked_items(qtbot):
     apple, pear = Fruit('apple'), Fruit('pear')
     table = QTestTable(columns=[Column('name')], items=[apple, pear], checkable=True, sortable=False)
@@ -381,17 +396,101 @@ def test_clicking_a_checkbox_toggles_the_checked_items(qtbot):
     table.show()
     qtbot.waitExposed(table)
 
-    def click_checkbox(row: int) -> None:
-        # the check indicator sits at the left edge of the checkbox column
-        rect = table.visualRect(table.index(row, 0))
-        QTest.mouseClick(table.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(rect.left() + 8, rect.center().y()))
-
     with qtbot.waitSignal(table.on_checked_items):
-        click_checkbox(1)
+        click_checkbox(table, 1)
     assert table.checked_items == {pear}
 
-    click_checkbox(1)
+    click_checkbox(table, 1)
     assert table.checked_items == set()
+
+
+def test_clicking_the_checkbox_of_a_row_that_cannot_be_in_a_set_checks_it(qtbot):
+    apple, pear = {'name': 'apple'}, {'name': 'pear'}
+    table = QTestTable(columns=[Column('name', use_getitem=True)], items=[apple, pear], checkable=True)
+    qtbot.addWidget(table)
+    table.show()
+    qtbot.waitExposed(table)
+
+    with qtbot.waitSignal(table.on_checked_items) as notified:
+        click_checkbox(table, 1)
+
+    assert checked_rows(table) == [1]
+    assert table.checked_items == [pear]
+    assert notified.args == [[pear]]
+
+
+def test_clicking_the_checkbox_of_a_checked_row_that_cannot_be_in_a_set_unchecks_it(qtbot):
+    apple, pear = {'name': 'apple'}, {'name': 'pear'}
+    table = QTestTable(columns=[Column('name', use_getitem=True)], items=[apple, pear], checkable=True)
+    qtbot.addWidget(table)
+    table.show()
+    qtbot.waitExposed(table)
+    click_checkbox(table, 0)
+    click_checkbox(table, 1)
+
+    click_checkbox(table, 0)
+
+    assert checked_rows(table) == [1]
+    assert table.checked_items == [pear]
+
+
+def test_checked_row_that_cannot_be_in_a_set_stays_checked_when_the_table_gets_equal_items(qtbot):
+    table = QTestTable(
+        columns=[Column('name', use_getitem=True)], items=[{'name': 'apple'}, {'name': 'pear'}], checkable=True
+    )
+    qtbot.addWidget(table)
+    table.show()
+    qtbot.waitExposed(table)
+    click_checkbox(table, 1)
+
+    table.items = [{'name': 'pear'}, {'name': 'fig'}, {'name': 'apple'}]
+
+    assert checked_rows(table) == [0]
+
+
+def test_table_given_checked_rows_that_cannot_be_in_a_set_shows_them_checked(qtbot):
+    apple, pear = {'name': 'apple'}, {'name': 'pear'}
+    table = QTestTable(
+        columns=[Column('name', use_getitem=True)], items=[apple, pear], checkable=True, checked_items=[pear]
+    )
+    qtbot.addWidget(table)
+
+    assert checked_rows(table) == [1]
+    assert table.checked_items == [pear]
+
+
+def test_table_given_a_set_of_checked_items_keeps_that_set(qtbot):
+    apple, pear = Fruit('apple'), Fruit('pear')
+    checked = {pear}
+    table = QTestTable(columns=[Column('name')], items=[apple, pear], checkable=True, checked_items=checked)
+    qtbot.addWidget(table)
+
+    checked.add(apple)
+
+    assert checked_rows(table) == [0, 1]
+    assert table.checked_items is checked
+
+
+def test_checked_values_of_an_array_are_a_set(qtbot):
+    table = QTestTable(columns=[Column(str, 'Value')], items=np.array(['apple', 'pear']), checkable=True)
+    qtbot.addWidget(table)
+
+    table.model().setData(table.index(1, 0), Qt.CheckState.Checked, Qt.ItemDataRole.CheckStateRole)
+
+    assert checked_rows(table) == [1]
+    assert table.checked_items == {'pear'}
+
+
+def test_checking_a_row_of_a_two_dimensional_array_checks_it(qtbot):
+    table = QTestTable(
+        columns=[Column(0, 'First', use_getitem=True)], items=np.array([[1.0, 2.0], [3.0, 4.0]]), checkable=True
+    )
+    qtbot.addWidget(table)
+
+    table.model().setData(table.index(1, 0), Qt.CheckState.Checked, Qt.ItemDataRole.CheckStateRole)
+
+    assert checked_rows(table) == [1]
+    assert [list(row) for row in table.checked_items] == [[3.0, 4.0]]
 
 
 def test_header_tooltip_is_shown_on_the_column_header(qtbot):

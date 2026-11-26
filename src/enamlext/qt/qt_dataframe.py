@@ -74,6 +74,7 @@ class DataFrameProxy:
         self.lock = threading.RLock()
         self.values = df.values
         self.df = df
+        self.df_index = df.index
         self.tick_interval_ms = tick_interval_ms
         self.refresh_cells_callback = refresh_cells_callback
         self.instrumentation_enabled = instrumentation_enabled
