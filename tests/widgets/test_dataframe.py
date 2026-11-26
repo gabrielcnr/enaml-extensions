@@ -7,7 +7,7 @@ import pytest
 from atom.api import atomref
 from enaml.core.enaml_compiler import EnamlCompiler
 from enaml.core.parser import parse
-from qtpy.QtCore import QCoreApplication, QEvent, QItemSelectionModel
+from qtpy.QtCore import QCoreApplication, QEvent, QItemSelectionModel, Qt
 
 with enaml.imports():
     from enamlext.widgets import dataframe as dataframe_module
@@ -205,6 +205,113 @@ def test_destroyed_dataframe_with_a_selection_nothing_has_read_is_freed(show_in_
     gc.collect()
 
     assert widget_ref() is None
+
+
+def check(widget, row):
+    model = widget.proxy.widget.model()
+    model.setData(model.index(row, 0), Qt.CheckState.Checked, Qt.ItemDataRole.CheckStateRole)
+
+
+def shown_beside_the_checkboxes(widget):
+    model = widget.proxy.widget.model()
+    return [(model.data(model.index(row, 1)), model.data(model.index(row, 2))) for row in range(model.rowCount())]
+
+
+def checked(widget):
+    """The first value of each row whose checkbox is checked."""
+    model = widget.proxy.widget.model()
+    return [
+        model.data(model.index(row, 1))
+        for row in range(model.rowCount())
+        if model.data(model.index(row, 0), Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked
+    ]
+
+
+def test_checking_a_row_of_a_dataframe_checks_it(show_in_window, frame):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, checkable=True))
+    notified = []
+    widget.proxy.widget.on_checked_items.connect(notified.append)
+
+    check(widget, 2)
+
+    assert checked(widget) == ['c']
+    assert [list(row) for row in widget.proxy.widget.checked_items] == [['c', 3.0]]
+    assert [[list(row) for row in rows] for rows in notified] == [[['c', 3.0]]]
+
+
+def test_unchecking_a_row_of_a_dataframe_unchecks_it(show_in_window, frame):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, checkable=True))
+    check(widget, 1)
+    check(widget, 2)
+    model = widget.proxy.widget.model()
+
+    model.setData(model.index(1, 0), Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
+
+    assert checked(widget) == ['c']
+
+
+def test_checked_row_of_a_ticking_dataframe_stays_checked_when_its_value_changes(show_in_window, frame, qtbot):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, checkable=True, tick_interval_ms=10))
+    check(widget, 2)
+
+    set_value(widget, frame, 2, 300.0)
+
+    qtbot.waitUntil(lambda: ('c', '300.0') in shown_beside_the_checkboxes(widget), timeout=5000)
+    assert checked(widget) == ['c']
+    assert [list(row) for row in widget.proxy.widget.checked_items] == [['c', 300.0]]
+
+
+def test_checked_row_of_a_dataframe_stays_checked_when_the_rows_are_filtered(show_in_window, frame):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, checkable=True))
+    check(widget, 2)
+    model = widget.proxy.widget.model()
+
+    model.set_filter(model.columns[1], '> 1')
+
+    assert checked(widget) == ['c']
+
+
+def test_checked_row_of_a_dataframe_stays_checked_when_the_rows_are_sorted(show_in_window, frame):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, checkable=True))
+    check(widget, 2)
+
+    widget.proxy.widget.model().sort(2, Qt.SortOrder.DescendingOrder)
+
+    assert checked(widget) == ['c']
+
+
+def test_checked_row_of_a_dataframe_stays_checked_when_its_columns_change(show_in_window, frame):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, checkable=True))
+    check(widget, 2)
+
+    widget.hints = {'v': {'fmt': '.3f'}}
+
+    assert checked(widget) == ['c']
+
+
+@pytest.mark.filterwarnings('ignore:The inplace keyword')  # pandas 3.1 deprecates it; older ones are supported
+def test_rows_of_a_dataframe_are_unchecked_when_rows_of_its_frame_moved(show_in_window, frame):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, checkable=True))
+    check(widget, 2)
+    frame.drop(index=1, inplace=True)
+
+    widget.hints = {'v': {'fmt': '.3f'}}  # the table reads the frame again
+
+    assert checked(widget) == []
+    assert list(widget.proxy.widget.checked_items) == []
+
+
+def test_rows_of_a_dataframe_are_unchecked_when_it_gets_another_frame(show_in_window, frame):
+    widget = show_in_window(lambda parent: DataFrame(parent=parent, df=frame, checkable=True))
+    check(widget, 2)
+    notified = []
+    widget.proxy.widget.on_checked_items.connect(notified.append)
+
+    widget.df = pd.DataFrame({'k': ['x', 'y', 'z'], 'v': [7.0, 8.0, 9.0]})
+
+    assert checked(widget) == []
+    assert list(widget.proxy.widget.checked_items) == []
+    assert [list(rows) for rows in notified] == [[]]
 
 
 def test_setting_selected_items_selects_the_rows_of_a_dataframe(show_in_window, frame):

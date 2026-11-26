@@ -200,6 +200,20 @@ def _rows_of(items: Sequence[Any], run: range) -> Sequence[Any]:
     return [items[row] for row in run]  # what a slice of any other sequence gives is not known
 
 
+def _makes_its_rows_when_read(items: Sequence[Any]) -> bool:
+    """Whether only its position tells one row from another: reading it gives a new array each time."""
+    return isinstance(items, DataFrameProxy) or (isinstance(items, np.ndarray) and items.ndim > 1)
+
+
+def _have_the_same_rows(items: Sequence[Any], other: Sequence[Any]) -> bool:
+    if items is other:
+        return True
+    if not isinstance(items, DataFrameProxy) or not isinstance(other, DataFrameProxy):
+        return False
+    # pandas gives a frame another index when rows are added, dropped or reordered in place
+    return items.df is other.df and items.df_index is other.df_index
+
+
 def _same_item(item: Any, other: Any) -> bool:
     if item is other:
         return True
@@ -242,7 +256,7 @@ def _sort_order(rows: Sequence[Any], get_value, *, descending: bool) -> list[int
 
 class QTableModel(QAbstractTableModel):
     #: signal used to notify the view whenever checked_items changes
-    on_checked_items: Signal = Signal(set)
+    on_checked_items: Signal = Signal(object)
 
     #: emitted when the column the rows were sorted by is gone, so the rows are back in the given order
     sorting_dropped: Signal = Signal()
@@ -290,16 +304,16 @@ class QTableModel(QAbstractTableModel):
         self._apply_filters()
 
         # Internally we keep track of which items are checked using a set
-        if checked_items is None:
-            checked_items = set()
-        if not isinstance(checked_items, set):
+        self._checked_hashable: set[Any] = set()
+        self._checked_unhashable: list[Any] = []  # e.g. dicts, which a set cannot hold
+        self._checked_positions: set[int] = set()  # in the given items, when those make their rows when read
+        self.checked_items = checked_items
+        if checked_items is not None and not isinstance(checked_items, set) and not self._checked_unhashable:
             warnings.warn(
                 f'QTableModel checked_items is recommend to be a '
                 f'set, but got: {type(checked_items).__name__} instead - coercing to set',
                 stacklevel=2,
             )
-            checked_items = set(checked_items)
-        self.checked_items = checked_items
 
         self._font = self._create_font()  # cache the font
         self._font_bold = self._create_font(bold=True)
@@ -381,10 +395,68 @@ class QTableModel(QAbstractTableModel):
         #       should we keep a collection of checked items separately or should we consider wrapping each
         #       item in a wrapper object that holds the checked state? how about a proxy object?
         if self.checkable and col_index == 0:
-            if self._filtered_items[index.row()] in self.checked_items:
+            if self._is_checked(index.row()):
                 return Qt.CheckState.Checked
             return Qt.CheckState.Unchecked
         return None
+
+    def _is_checked(self, row: int) -> bool:
+        if _makes_its_rows_when_read(self._original_items):
+            return self._position_of(row) in self._checked_positions
+        item = self._filtered_items[row]
+        try:
+            return item in self._checked_hashable
+        except TypeError:
+            return any(_same_item(item, checked) for checked in self._checked_unhashable)
+
+    def _set_checked(self, row: int, checked: bool) -> None:
+        if _makes_its_rows_when_read(self._original_items):
+            if checked:
+                self._checked_positions.add(self._position_of(row))
+            else:
+                self._checked_positions.discard(self._position_of(row))
+            return
+        item = self._filtered_items[row]
+        try:
+            if checked:
+                self._checked_hashable.add(item)
+            else:
+                self._checked_hashable.discard(item)
+        except TypeError:
+            self._checked_unhashable = [other for other in self._checked_unhashable if not _same_item(item, other)]
+            if checked:
+                self._checked_unhashable.append(item)
+
+    @property
+    def checked_items(self) -> Collection[Any]:
+        """A set, as it always was, unless a checked item cannot be in one: then a list."""
+        if _makes_its_rows_when_read(self._original_items):
+            return [self._original_items[position] for position in sorted(self._checked_positions)]
+        if self._checked_unhashable:
+            return [*self._checked_hashable, *self._checked_unhashable]
+        return self._checked_hashable
+
+    @checked_items.setter
+    def checked_items(self, checked_items: Collection[Any] | None) -> None:
+        self._checked_positions = set()
+        self._checked_unhashable = []
+        if isinstance(checked_items, set):
+            self._checked_hashable = checked_items  # not copied: the caller may keep changing it
+            return
+        self._checked_hashable = set()
+        for item in checked_items or ():
+            try:
+                self._checked_hashable.add(item)
+            except TypeError:
+                self._checked_unhashable.append(item)
+
+    def _position_of(self, row: int) -> int:
+        """Position in the given items of the row shown."""
+        if self._row_order is not None:
+            row = self._row_order[row]
+        if self._filtered_positions is not None:
+            row = self._filtered_positions[row]
+        return row
 
     def _font_data(self, index: QModelIndex, col_index: int, column: Column) -> Any:
         if column.cell_style is not None:
@@ -557,14 +629,9 @@ class QTableModel(QAbstractTableModel):
 
     def setData(self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole) -> bool:
         if index.column() == 0 and role == Qt.ItemDataRole.CheckStateRole and self.checkable:
-            item = self.items[index.row()]
             state = Qt.CheckState(value)  # Qt6 views pass a plain int, which never equals a Qt6 enum member
-            if state == Qt.CheckState.Checked:
-                self.checked_items.add(item)
-                self.on_checked_items.emit(self.checked_items)
-                return True
-            if state == Qt.CheckState.Unchecked:
-                self.checked_items.discard(item)
+            if state in (Qt.CheckState.Checked, Qt.CheckState.Unchecked):
+                self._set_checked(index.row(), state == Qt.CheckState.Checked)
                 self.on_checked_items.emit(self.checked_items)
                 return True
 
@@ -633,8 +700,14 @@ class QTableModel(QAbstractTableModel):
     @items.setter
     def items(self, items: Sequence[Any]) -> None:
         """write to the original items (not filtered)"""
+        # Positions in the items the table had say nothing about the rows of other items.
+        unchecks_rows = bool(self._checked_positions) and not _have_the_same_rows(items, self._original_items)
+        if unchecks_rows:
+            self._checked_positions = set()
         self._original_items = items
         self._apply_filters()
+        if unchecks_rows:
+            self.on_checked_items.emit(self.checked_items)
 
     @property
     def columns(self) -> list[Column]:
@@ -869,7 +942,7 @@ class QTable(QTableView):
     on_selection: Signal = Signal(SelectionContext)
 
     #: signal to notify whenever the checked items change
-    on_checked_items: Signal = Signal(set)
+    on_checked_items: Signal = Signal(object)
 
     def __init__(
         self,
@@ -1224,12 +1297,12 @@ class QTable(QTableView):
 
     # Checked Items
 
-    def on_model_checked_items_changed(self, checked_items: set):
+    def on_model_checked_items_changed(self, checked_items: Collection[Any]):
         """Just passes along the notification of the change on the checked items."""
         self.on_checked_items.emit(checked_items)
 
     @property
-    def checked_items(self) -> set:
+    def checked_items(self) -> Collection[Any]:
         if self.checkable:
             return self.model().checked_items
         return set()
